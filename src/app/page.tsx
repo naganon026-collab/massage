@@ -482,9 +482,9 @@ export default function SEOContentGenerator() {
                 設定
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-zinc-400 hover:text-white">
-              <LogOut className="w-4 h-4 mr-2 sm:mr-0 lg:mr-2" />
-              <span className="hidden lg:inline-block">ログアウト</span>
+            <Button variant="outline" size="sm" onClick={handleLogout} className="border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800">
+              <LogOut className="w-4 h-4 mr-2" />
+              ログアウト
             </Button>
           </div>
         </div>
