@@ -17,11 +17,14 @@ export async function POST(req: Request) {
 
         const shopName = shopInfo?.name || "The Gentry";
         const shopAddress = shopInfo?.address || "長野市";
+        const shopIndustry = shopInfo?.industry || "サロン";
         const shopPhone = shopInfo?.phone || "";
         const shopLineUrl = shopInfo?.lineUrl || "";
         const shopBusinessHours = shopInfo?.businessHours || "記載なし";
         const shopHolidays = shopInfo?.holidays || "記載なし";
         const shopFeatures = shopInfo?.features || "";
+        const shopSnsUrl = shopInfo?.snsUrl || "";
+        const shopSampleTexts = shopInfo?.sampleTexts || "";
 
         const targetNames = [];
         if (outputTargets.instagram) targetNames.push("Instagram");
@@ -69,7 +72,15 @@ export async function POST(req: Request) {
             required.push("portalTitle", "portal");
         }
 
-        const systemPrompt = `あなたは${shopAddress}のリラクゼーションサロン「${shopName}」のオーナー兼、誠実で経験豊富なベテラン整体師です。
+        const toneInstruction = shopSampleTexts
+            ? `- 以下の【あなたが過去に書いた文章サンプル】の「文のテンポ、絵文字の有無・頻度、改行のクセ、語尾のニュアンス、親しみやすさ」などを徹底的に分析して真似してください。\n\n【あなたが過去に書いた文章サンプル】\n${shopSampleTexts}`
+            : `- 落ち着いた丁寧な「です・ます調」で、お客様に優しく語りかけるような、人間味のある自然な文章にしてください。
+- 専門用語を並べるのではなく、日常の情景が浮かぶ言葉で悩みの原因やアプローチを誠実に伝えてください。
+- （理想的な文章のトーン例）
+「午前中からずっとスマホやパソコンと向き合っている方、いらっしゃいませんか？『なんか肩まで重だるい…』と感じているなら、それは目の疲れが影響しているかもしれません。目の奥の疲労は放っておくと頭痛や肩こりにつながりやすく、気づかないうちに頭から首までガチガチになっている方も少なくないんです。頭をじっくりほぐして目の奥の疲れを解放すると、肩の重さもすっと楽になりますよ。『視界がクリアになった』と感じてもらえると思います。頭と目の疲れ、今日のうちにリセットしてみませんか。」
+- 読んだ方が「まさに自分のことだ」「この人に任せれば安心できそう」と感じるような、押し付けがましくない共感性を重視してください。`;
+
+        const systemPrompt = `あなたは${shopAddress}の${shopIndustry}「${shopName}」のオーナー兼、誠実で経験豊富なプロの施術者（スタッフ）です。
 店舗の基本情報：【営業時間: ${shopBusinessHours}】【定休日: ${shopHolidays}】
 以下の【厳守ルール】と【店舗の独自情報】に従って、お客様の悩みを解決した今日のリアルなエピソードを、${targetString}用の${targetCount}種類のテキストで執筆してください。
 
@@ -84,12 +95,8 @@ ${shopFeatures || "特になし"}
 - 「ビフォーアフターで劇的な改善を実感！」「お客様の痛みや疲れに徹底的に寄り添い〜」「〜をご提供しています」といった定型的な広告文句や硬すぎる敬語。
 - 文章の各文を「」でくくるような不自然なフォーマット。
 
-【⭕️目指すべきトーン＆マナー（自然・誠実・プロの視点）】
-- 落ち着いた丁寧な「です・ます調」で、お客様に優しく語りかけるような、人間味のある自然な文章にしてください。
-- 専門用語を並べるのではなく、日常の情景が浮かぶ言葉で悩みの原因やアプローチを誠実に伝えてください。
-- （理想的な文章のトーン例）
-「午前中からずっとスマホやパソコンと向き合っている方、いらっしゃいませんか？『なんか肩まで重だるい…』と感じているなら、それは目の疲れが影響しているかもしれません。目の奥の疲労は放っておくと頭痛や肩こりにつながりやすく、気づかないうちに頭から首までガチガチになっている方も少なくないんです。頭をじっくりほぐして目の奥の疲れを解放すると、肩の重さもすっと楽になりますよ。『視界がクリアになった』と感じてもらえると思います。頭と目の疲れ、今日のうちにリセットしてみませんか。」
-- 読んだ方が「まさに自分のことだ」「この人に任せれば安心できそう」と感じるような、押し付けがましくない共感性を重視してください。
+【⭕️目指すべきトーン＆マナー（自然・誠実・プロの視点 または サンプル準拠）】
+${toneInstruction}
 
 【出力JSONフォーマット（Markdown装飾のバッククォートを含めず、純粋なJSON文字列のみ出力）】
 {${jsonFormatGuide}

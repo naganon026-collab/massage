@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type Pattern = "A" | "B" | "C" | "D" | "E" | "F";
 
@@ -115,6 +116,9 @@ export interface ShopInfo {
   businessHours: string;
   holidays: string;
   features: string;
+  industry?: string;
+  snsUrl?: string;
+  sampleTexts?: string;
   referenceUrls: string[];
   wpCategoryId?: string;
   wpTagId?: string;
@@ -132,7 +136,7 @@ export default function SEOContentGenerator() {
   const [user, setUser] = useState<User | null>(null);
 
   const [shopInfo, setShopInfo] = useState<ShopInfo>({
-    name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", referenceUrls: [],
+    name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
     wpCategoryId: "", wpTagId: "", wpAuthorId: "",
     outputTargets: { instagram: true, gbp: true, portal: true },
     generateImage: false
@@ -172,7 +176,7 @@ export default function SEOContentGenerator() {
         fetchShopInfo(session.user.id);
       } else {
         setShopInfo({
-          name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", referenceUrls: [],
+          name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
           wpCategoryId: "", wpTagId: "", wpAuthorId: "",
           outputTargets: { instagram: true, gbp: true, portal: true },
           generateImage: false
@@ -247,6 +251,8 @@ export default function SEOContentGenerator() {
         let updated = false;
 
         // 既存の入力が空の場合のみ、抽出された情報を埋める
+        if (!nextInfo.industry && data.industry) { nextInfo.industry = data.industry; updated = true; }
+        if (!nextInfo.name && data.name) { nextInfo.name = data.name; updated = true; }
         if (!nextInfo.address && data.address) { nextInfo.address = data.address; updated = true; }
         if (!nextInfo.phone && data.phone) { nextInfo.phone = data.phone; updated = true; }
         if (!nextInfo.lineUrl && data.lineUrl) { nextInfo.lineUrl = data.lineUrl; updated = true; }
@@ -501,9 +507,15 @@ export default function SEOContentGenerator() {
             <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
               <CardContent className="pt-6">
                 <form onSubmit={handleSaveShopInfo} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="shopName">店舗名</Label>
-                    <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：The Gentry" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="shopName">店舗名</Label>
+                      <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：The Gentry" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="shopIndustry">業種 <span className="text-red-500 ml-1">*</span></Label>
+                      <Input id="shopIndustry" required value={shopInfo.industry} onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：美容室、エステサロン、カフェ" />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="shopAddress">住所</Label>
@@ -529,36 +541,10 @@ export default function SEOContentGenerator() {
                       <Input id="shopHolidays" required value={shopInfo.holidays} onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：毎週火曜・年末年始" />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="shopFeatures">店舗の独自情報・強み・想い（自由記述）</Label>
-                    <textarea
-                      id="shopFeatures"
-                      value={shopInfo.features}
-                      onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })}
-                      onPaste={handleFeaturesPaste}
-                      className="flex min-h-[120px] w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="例：独自の手技で深層筋にアプローチ。完全個室で周りを気にせずリラックス。PC作業による首肩こり・眼精疲労に悩む男性への施術が得意です。"
-                    />
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <p className="text-xs text-zinc-500">※ここに書いたお店のこだわりが、生成される文章に自然に反映されるようになります！（長文OK）</p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleExtractInfo(shopInfo.features)}
-                        disabled={isExtractingInfo || !shopInfo.features}
-                        className="text-amber-500 hover:text-amber-400 hover:bg-zinc-800 h-8 text-xs shrink-0"
-                      >
-                        {isExtractingInfo ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                        入力内容から連絡先を自動抽出
-                      </Button>
-                    </div>
-                  </div>
-
                   <div className="space-y-4 pt-4 border-t border-zinc-800">
                     <div>
                       <Label>WEBサイトから自動抽出して追記</Label>
-                      <p className="text-xs text-zinc-500 mb-2">※お店のトップページやメニュー表のURLを入れると、中の文字を自動で抜き出して上の枠に一発で合体させます。（何ページでも追加可能）</p>
+                      <p className="text-xs text-zinc-500 mb-2">※お店のトップページやメニュー表のURLを入れると、中の文字を自動で抜き出して「店舗の独自情報」枠に合体させます。（何ページでも追加可能）</p>
                     </div>
 
                     <div className="flex gap-2 items-center">
@@ -572,6 +558,72 @@ export default function SEOContentGenerator() {
                         {isScraping ? "抽出中..." : "抽出して追記する"}
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="space-y-2 pt-4">
+                    <Label htmlFor="shopFeatures">店舗の独自情報・強み・詳細（手入力 または URL抽出結果）</Label>
+                    <textarea
+                      id="shopFeatures"
+                      value={shopInfo.features}
+                      onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })}
+                      onPaste={handleFeaturesPaste}
+                      className="flex min-h-[150px] w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      placeholder="例：独自の手技で深層筋にアプローチ。完全個室で周りを気にせずリラックス。PC作業による首肩こり・眼精疲労に悩む男性への施術が得意です。"
+                    />
+                    <p className="text-xs text-zinc-500">※ここに書かれた情報や、上のURL抽出で入ってきたテキストをもとに、AIが店舗の基本情報や連絡先を自動で探します。</p>
+                  </div>
+
+                  <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-800 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-amber-500 font-bold flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        AIに模倣させる「あなたらしさ」（文調やトーンの学習）
+                      </Label>
+                      <p className="text-xs text-zinc-400 leading-relaxed mb-4">AIがあなたの文体（丁寧さ、親しみやすさ、絵文字や改行の頻度など）を真似して執筆するためのサンプルを提供してください。</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="shopSnsUrl" className="text-sm">今まで投稿していたSNSのURL（任意）</Label>
+                      <Input
+                        id="shopSnsUrl"
+                        value={shopInfo.snsUrl || ""}
+                        onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
+                        placeholder="例：https://instagram.com/〇〇"
+                        className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="shopSampleTexts" className="text-sm">今まで書いた文章のサンプル（2〜3投稿分コピペ）（任意）</Label>
+                      <Textarea
+                        id="shopSampleTexts"
+                        value={shopInfo.sampleTexts || ""}
+                        onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
+                        placeholder="例：こんにちは！今日は新しいオイルを入荷しました✨ 深いリラックス効果があるので是非お試しください。"
+                        className="min-h-[120px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-y"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                    <Button
+                      type="button"
+                      onClick={() => handleExtractInfo(shopInfo.features + "\n" + (shopInfo.sampleTexts || ""))}
+                      disabled={isExtractingInfo || (!shopInfo.features && !shopInfo.sampleTexts)}
+                      className={`font-bold border-none h-16 w-full max-w-md rounded-full shadow-xl shadow-amber-900/20 text-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${(!isExtractingInfo && (!!shopInfo.features || !!shopInfo.sampleTexts))
+                        ? "bg-amber-500 hover:bg-amber-600 text-zinc-950"
+                        : "bg-amber-500/30 text-zinc-400 cursor-not-allowed border border-amber-500/20"
+                        }`}
+                    >
+                      {isExtractingInfo ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> 保存中...</>
+                      ) : (
+                        <><Sparkles className="w-5 h-5" /> 情報を保存</>
+                      )}
+                    </Button>
+                    <p className="text-sm font-medium text-amber-500/90 bg-amber-500/10 px-6 py-2 rounded-full border border-amber-500/20 shadow-sm">
+                      ↓ 保存することで入力枠内に足りない情報を自動補完します
+                    </p>
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-zinc-800">
