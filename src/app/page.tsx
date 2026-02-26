@@ -530,10 +530,6 @@ export default function SEOContentGenerator() {
                       <p className="text-sm text-zinc-400 mt-1">以下の情報を元に、AIが下部の基本情報を埋めたり、記事の文体を学習したりします。</p>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="shopIndustry" className="font-semibold text-zinc-200">業種（自動判別＆書き換え可能） <span className="text-red-500 ml-1">*</span></Label>
-                      <Input id="shopIndustry" required value={shopInfo.industry} onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：美容室、エステサロン、カフェ" />
-                    </div>
 
                     <div className="space-y-3 pt-2">
                       <div>
@@ -555,7 +551,7 @@ export default function SEOContentGenerator() {
 
                     <div className="space-y-4 pt-2">
                       <div>
-                        <Label className="font-semibold text-zinc-200">AIに模倣させる「あなたらしさ」（文調やトーンの学習）</Label>
+                        <Label className="font-semibold text-amber-500">AIに模倣させる「あなたらしさ」（文調やトーンの学習）</Label>
                         <p className="text-xs text-zinc-400 leading-relaxed mb-4">AIがあなたの文体（丁寧さ、親しみやすさ、絵文字の頻度など）を真似して執筆するためのサンプルを提供してください。</p>
                       </div>
                       <div className="space-y-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
@@ -627,6 +623,11 @@ export default function SEOContentGenerator() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="shopIndustry" className="font-medium">業種 <span className="text-red-500 ml-1">*</span></Label>
+                      <Input id="shopIndustry" required value={shopInfo.industry} onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：美容室、エステサロン、カフェ" />
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500 ml-1">*</span></Label>
                       <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：The Gentry" />
                     </div>
@@ -663,7 +664,7 @@ export default function SEOContentGenerator() {
                   <div className="space-y-4 pt-2">
                     <div>
                       <h3 className="font-semibold text-amber-500 flex items-center gap-2 mb-1">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z" /></svg>
                         WordPress 投稿設定（任意）
                       </h3>
                       <p className="text-xs text-zinc-400">
