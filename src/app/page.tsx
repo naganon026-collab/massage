@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send, LogOut } from "lucide-react";
+import { Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send, LogOut, History, Clock, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +12,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 type Pattern = "A" | "B" | "C" | "D" | "E" | "F" | "G";
+
+// 生成履歴の1件分の型
+interface HistoryEntry {
+  id: string;
+  pattern_id: string;
+  pattern_title: string;
+  inputs: {
+    q1?: string; q2?: string; q3?: string;
+    platform?: "sns" | "gbp";
+    receivedComment?: string;
+    replyNote?: string;
+  };
+  results: {
+    instagram?: string; gbp?: string;
+    portal?: string; portalTitle?: string;
+    line?: string; reply?: string; imageUrl?: string;
+  };
+  created_at: string;
+}
 
 interface PatternData {
   id: Pattern;
@@ -182,7 +201,12 @@ export default function SEOContentGenerator() {
     line?: string;
   } | null>(null);
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
+  const [editingTab, setEditingTab] = useState<string | null>(null); // 編集中のタブID
   const [isPostingToWP, setIsPostingToWP] = useState(false);
+
+  // 生成履歴
+  const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // shopInfoの変更をsessionStorageに自動保存（別タブから戻っても入力内容を保持）
   // isLoadingがtrueの間（fetchShopInfo実行中）は保存しない
@@ -258,7 +282,41 @@ export default function SEOContentGenerator() {
       const wasOpen = sessionStorage.getItem('settingsOpen');
       setIsConfigured(wasOpen === 'true' ? false : true);
     }
+    await fetchHistory(userId); // ログイン後に生成履歴を読み込む
     setIsLoading(false);
+  };
+
+  // 生成履歴を最新20件取得する
+  const fetchHistory = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('generation_history')
+      .select('id, pattern_id, pattern_title, inputs, results, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (!error && data) {
+      setGenerationHistory(data as HistoryEntry[]);
+    }
+  };
+
+  // 履歴エントリをステートに復元する
+  const handleRestoreHistory = (entry: HistoryEntry) => {
+    const patternId = entry.pattern_id as Pattern;
+    setSelectedPattern(patternId);
+    setGeneratedResults(entry.results);
+    if (patternId === 'G') {
+      setReplyPlatform(entry.inputs.platform ?? 'sns');
+      setReceivedComment(entry.inputs.receivedComment ?? '');
+      setReplyNote(entry.inputs.replyNote ?? '');
+    } else {
+      setFormData({
+        q1: entry.inputs.q1 ?? '',
+        q2: entry.inputs.q2 ?? '',
+        q3: entry.inputs.q3 ?? '',
+      });
+    }
+    setShowHistory(false);
+    setTimeout(() => window.scrollTo({ top: 999, behavior: 'smooth' }), 100);
   };
 
   // フォームsubmitに依存しない単独の保存関数
@@ -506,6 +564,30 @@ export default function SEOContentGenerator() {
         reply: data.reply,
         line: data.line,
       });
+
+      // 生成成功後、Supabaseに履歴を保存（エラーは無視して続行）
+      if (user) {
+        const inputs = selectedPattern === 'G'
+          ? { platform: replyPlatform, receivedComment, replyNote }
+          : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
+        supabase.from('generation_history').insert({
+          user_id: user.id,
+          pattern_id: selectedPattern,
+          pattern_title: currentPattern.title,
+          inputs,
+          results: {
+            instagram: data.instagram,
+            gbp: data.gbp,
+            portal: data.portal,
+            portalTitle: data.portalTitle,
+            line: data.line,
+            reply: data.reply,
+          },
+        }).then(({ error }) => {
+          if (error) console.error('履歴保存エラー:', error);
+          else fetchHistory(user.id); // 保存後に履歴を再取得
+        });
+      }
 
     } catch (error) {
       console.error(error);
@@ -971,6 +1053,70 @@ export default function SEOContentGenerator() {
               </details>
             )}
 
+            {/* 生成履歴パネル */}
+            {generationHistory.length > 0 && (
+              <section className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(v => !v)}
+                  className="flex items-center gap-2 w-full text-left text-sm text-zinc-400 hover:text-zinc-200 transition-colors group"
+                >
+                  <History className="w-4 h-4 text-amber-500/70 group-hover:text-amber-500 transition-colors" />
+                  <span className="font-medium">生成履歴</span>
+                  <span className="text-xs text-zinc-600 ml-1">（{generationHistory.length}件）</span>
+                  <span className={`ml-auto text-zinc-600 transition-transform duration-200 ${showHistory ? "rotate-90" : ""}`}>▶</span>
+                </button>
+
+                {showHistory && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {generationHistory.map((entry) => {
+                      // 表示用プレビューテキストを選択（最初に見つかったもの）
+                      const previewText =
+                        entry.results.instagram ??
+                        entry.results.gbp ??
+                        entry.results.line ??
+                        entry.results.reply ??
+                        entry.results.portal ?? "";
+                      const dateStr = new Date(entry.created_at).toLocaleString("ja-JP", {
+                        month: "numeric", day: "numeric",
+                        hour: "2-digit", minute: "2-digit"
+                      });
+                      return (
+                        <div
+                          key={entry.id}
+                          className="relative group bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 transition-all duration-200"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Clock className="w-3 h-3 text-zinc-500 shrink-0" />
+                              <span className="text-xs text-zinc-500 shrink-0">{dateStr}</span>
+                            </div>
+                            <span className="text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full px-2 py-0.5 whitespace-nowrap shrink-0">
+                              {entry.pattern_id}
+                            </span>
+                          </div>
+                          <p className="text-xs font-medium text-zinc-300 mb-1.5">{entry.pattern_title}</p>
+                          {previewText && (
+                            <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed mb-3">
+                              {previewText.replace(/<[^>]+>/g, "").slice(0, 80)}...
+                            </p>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRestoreHistory(entry)}
+                            className="w-full h-7 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 rounded-lg"
+                          >
+                            ↩ 再利用する
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* Step 1: Pattern Selection */}
             <section className="space-y-4">
               <div className="flex items-center gap-2">
@@ -1250,6 +1396,22 @@ export default function SEOContentGenerator() {
                                   </Button>
                                 </div>
                               )}
+                              {/* 編集トグルボタン */}
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className={`h-9 border ${editingTab === tab.id
+                                    ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40"
+                                    : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+                                  }`}
+                                onClick={() => setEditingTab(editingTab === tab.id ? null : tab.id)}
+                              >
+                                {editingTab === tab.id ? (
+                                  <><Check className="w-4 h-4 mr-2 text-amber-400" /> 編集完了</>
+                                ) : (
+                                  <><Pencil className="w-4 h-4 mr-2" /> 編集</>
+                                )}
+                              </Button>
                               <Button
                                 variant="secondary"
                                 size="sm"
@@ -1280,9 +1442,24 @@ export default function SEOContentGenerator() {
                                   </div>
                                 </div>
                               )}
-                              <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">
-                                {tab.data}
-                              </div>
+                              {/* 本文表示：編集モード or 閲覧モード */}
+                              {editingTab === tab.id ? (
+                                <textarea
+                                  className="w-full min-h-[240px] bg-zinc-950 border border-amber-500/30 rounded-lg p-4 text-zinc-300 text-sm font-medium leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-all"
+                                  value={tab.data as string}
+                                  onChange={(e) => {
+                                    // generatedResults の該当フィールドをリアルタイム更新
+                                    setGeneratedResults((prev) =>
+                                      prev ? { ...prev, [tab.id]: e.target.value } : prev
+                                    );
+                                  }}
+                                  spellCheck={false}
+                                />
+                              ) : (
+                                <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">
+                                  {tab.data}
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         </TabsContent>
