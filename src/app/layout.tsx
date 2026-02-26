@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Gentry - マッサージ店舗用 投稿ジェネレーター",
+  title: "The Gentry - Post Support",
   description: "マッサージ・ヘッドスパ店舗向けのSEOテキスト生成アシスタント",
 };
 

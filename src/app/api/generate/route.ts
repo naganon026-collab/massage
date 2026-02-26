@@ -25,6 +25,7 @@ export async function POST(req: Request) {
         const shopFeatures = shopInfo?.features || "";
         const shopSnsUrl = shopInfo?.snsUrl || "";
         const shopSampleTexts = shopInfo?.sampleTexts || "";
+        const shopScrapedContent = shopInfo?.scrapedContent || "";
 
         const targetNames = [];
         if (outputTargets.instagram) targetNames.push("Instagram");
@@ -88,6 +89,8 @@ export async function POST(req: Request) {
 以下の店舗の独自性やこだわり、参考WEBサイトの情報を、わざとらしくならないよう自然に文章のエッセンスとして組み込んでください。（※情報がない場合は無視してください）
 
 ${shopFeatures || "特になし"}
+
+${shopScrapedContent ? `【WEBサイトから抽出した参考情報】\n${shopScrapedContent}` : ""}
 
 【❌絶対に禁止するNG表現（わざとらしいAI口調・過度なテンション）】
 以下の表現は「絶対に」使用しないでください。使用した場合、即座に不合格となります。

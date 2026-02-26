@@ -31,79 +31,79 @@ const PATTERNS: PatternData[] = [
   {
     id: "A",
     title: "ビフォーアフター・お悩み解決",
-    description: "お客様の変化を通じて、施術の効果をアピールします",
+    description: "お客様の変化を通じて、商品・サービスの価値をアピールします",
     questions: {
-      q1: "お客様の具体的なお悩みは？",
-      ex1: "例: 長時間のPC作業による眼精疲労と首の痛み",
-      q2: "どの部位を、どんな独自技術でアプローチしましたか？",
-      ex2: "例: 首の付け根の〇〇筋を深層からほぐす独自の指圧で",
-      q3: "施術後、お客様はどう変化しましたか？",
-      ex3: "例: 視界が広くなり、腕が上がりやすくなったと驚かれた",
+      q1: "来店前、お客様はどんなお悩みや不満を抱えていましたか？",
+      ex1: "例: 〇〇に悩んでいた／〇〇がうまくいかなかった",
+      q2: "あなたの商品・サービスのどんな点がそのお悩みに応えましたか？",
+      ex2: "例: 〇〇という特徴が、△△というお悩みにぴったりだった",
+      q3: "利用後、お客様はどのように変わりましたか？",
+      ex3: "例: 〇〇が改善され「またお願いしたい」と言ってもらえた",
     }
   },
   {
     id: "B",
     title: "プロのこだわり・裏側公開",
-    description: "独自の技術や素材へのこだわりで信頼感を高めます",
+    description: "独自のこだわりや背景を公開して信頼感を高めます",
     questions: {
-      q1: "今回紹介する施術やオイル等の「独自のこだわり」は？",
-      ex1: "例: 長野県産の白樺オイルを使用、完全個室空間",
-      q2: "なぜその手法・素材を選んだのですか？",
-      ex2: "例: 男性特有の厚い筋肉に浸透しやすいため",
+      q1: "今回紹介する商品・メニュー・サービスの「独自のこだわり」は何ですか？",
+      ex1: "例: 〇〇産の素材を使用／完全予約制で一人ひとりに向き合う",
+      q2: "なぜその手法・素材・やり方を選んだのですか？",
+      ex2: "例: お客様に△△を提供したいという想いから／〇〇のほうが効果が高いため",
       q3: "どんなお客様に一番体験してほしいですか？",
-      ex3: "例: 慢性的な疲労が抜けない経営者の方へ",
+      ex3: "例: 〇〇に悩んでいる方／△△を大切にしたい方",
     }
   },
   {
     id: "C",
-    title: "今日の空き状況・限定メニュー",
-    description: "タイムリーな情報の発信で、即時来店を促します",
+    title: "今日のお知らせ・限定情報",
+    description: "タイムリーな情報の発信で、即時来店・購買を促します",
     questions: {
-      q1: "本日や今週の「狙い目の空き時間」はいつですか？",
-      ex1: "例: 本日14:00〜16:00",
-      q2: "今だけの限定メニューや特典は何ですか？",
-      ex2: "例: 平日昼限定でヘッドスパ10分延長無料",
-      q3: "来店するとどんな良い気分を味わえますか？",
-      ex3: "例: 午後の仕事のパフォーマンスが劇的に上がります",
+      q1: "本日や今週の「おすすめの時間帯・タイミング」はいつですか？",
+      ex1: "例: 本日〇〇時〜△△時／今週末",
+      q2: "今だけの限定メニュー・商品・特典は何ですか？",
+      ex2: "例: 〇〇限定で△△をプレゼント／〇〇が今週のみ特別価格",
+      q3: "来店・利用するとどんな良い体験が待っていますか？",
+      ex3: "例: 〇〇の気分を味わえる／△△がいつもより快適になる",
     }
   },
   {
     id: "D",
     title: "お客様の喜びの声",
-    description: "第三者の客観的な評価で安心感を与え、来店を後押しします",
+    description: "第三者の言葉で安心感を伝え、来店・購買を後押しします",
     questions: {
       q1: "お客様からどんな嬉しい言葉をいただきましたか？",
-      ex1: "例: 「もっと早く来ればよかった」と言われました",
-      q2: "その方はどんなお悩みを抱えて来店されましたか？",
-      ex2: "例: 睡眠が浅く、朝から体が重い",
-      q3: "次回に向けてどんなケアを提案しましたか？",
-      ex3: "例: 就寝前の簡単なストレッチと、月1回の定期メンテナンス",
+      ex1: "例: 「〇〇で本当に良かった」「もっと早く来ればよかった」など",
+      q2: "その方はどんな状況・背景で来店されましたか？",
+      ex2: "例: 〇〇に困っていた／他で満足できず探していた",
+      q3: "次回に向けてどんなご提案をしましたか？",
+      ex3: "例: 〇〇のご利用をおすすめした／定期的な〇〇をご提案した",
     }
   },
   {
     id: "E",
     title: "スタッフの紹介・想い",
-    description: "施術者の人柄や情熱を伝え、親近感と信頼を生み出します",
+    description: "スタッフの人柄や熱意を伝え、親近感と信頼を生み出します",
     questions: {
-      q1: "このスタッフの得意な施術や特技は何ですか？",
-      ex1: "例: 強めの圧で凝りを深層からほぐす「アロマトリートメント」",
-      q2: "施術において、一番大切にしている信念・想いは何ですか？",
-      ex2: "例: お客様が明日から最高のパフォーマンスを出せるように全力で向き合う",
-      q3: "この記事を読んでいるお客様へ一言メッセージを。",
-      ex3: "例: どんなに頑固な疲れでもお任せください！",
+      q1: "このスタッフの得意なこと・強みは何ですか？",
+      ex1: "例: 〇〇が得意／△△の経験が豊富",
+      q2: "仕事において一番大切にしている信念・想いは何ですか？",
+      ex2: "例: お客様に〇〇を感じてもらうこと／△△を妥協しないこと",
+      q3: "この投稿を読んでいるお客様へ一言メッセージを。",
+      ex3: "例: 〇〇でお待ちしています！／お気軽にご相談ください！",
     }
   },
   {
     id: "F",
-    title: "季節や気候に合わせたケア",
-    description: "季節特有の悩みに寄り添い、「今行くべき理由」を作ります",
+    title: "季節・シーズンに合わせた提案",
+    description: "季節の変わり目やイベントに乗せて「今行くべき理由」を作ります",
     questions: {
-      q1: "今の季節・気候ならではの、お客様が抱えやすい不調は何ですか？",
-      ex1: "例: 寒さ・冷え込みによる首肩の凝りと血行不良",
-      q2: "その不調に対して、どのような特別なケアを提供・提案しましたか？",
-      ex2: "例: 温感オイルを使った重点的な首周りのトリートメント",
-      q3: "ケアを受けた後、お客様はどのような状態を実感されましたか？",
-      ex3: "例: 手足の先までポカポカになり、寝付きが良くなった",
+      q1: "今の季節やシーズンならではの、お客様のニーズ・気分は何ですか？",
+      ex1: "例: 〇〇の時期だから△△したい気分になる",
+      q2: "そのニーズに応える、今おすすめの商品・メニュー・サービスは何ですか？",
+      ex2: "例: 季節限定の〇〇／この時期だけのキャンペーン",
+      q3: "利用後、どんな気持ちや状態を味わえますか？",
+      ex3: "例: 〇〇な気持ちになれる／△△がより楽しくなる",
     }
   }
 ];
@@ -119,6 +119,7 @@ export interface ShopInfo {
   industry?: string;
   snsUrl?: string;
   sampleTexts?: string;
+  scrapedContent?: string;
   referenceUrls: string[];
   wpCategoryId?: string;
   wpTagId?: string;
@@ -147,6 +148,7 @@ export default function SEOContentGenerator() {
   const [scrapeUrl, setScrapeUrl] = useState<string>("");
   const [isScraping, setIsScraping] = useState<boolean>(false);
   const [isExtractingInfo, setIsExtractingInfo] = useState<boolean>(false);
+  const [scrapedPreview, setScrapedPreview] = useState<string>("");
 
   const [selectedPattern, setSelectedPattern] = useState<Pattern>("A");
   const [formData, setFormData] = useState({ q1: "", q2: "", q3: "" });
@@ -161,11 +163,25 @@ export default function SEOContentGenerator() {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const [isPostingToWP, setIsPostingToWP] = useState(false);
 
+  // shopInfoの変更をsessionStorageに自動保存（別タブから戻っても入力内容を保持）
+  useEffect(() => {
+    if (user) {
+      sessionStorage.setItem('shopInfoDraft', JSON.stringify(shopInfo));
+    }
+  }, [shopInfo, user]);
+
+  // 設定画面の開閉状態をsessionStorageに保持
+  useEffect(() => {
+    sessionStorage.setItem('settingsOpen', isConfigured ? 'false' : 'true');
+  }, [isConfigured]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
-      if (session?.user) fetchShopInfo(session.user.id);
-      else setIsLoading(false);
+      if (!session?.user) {
+        setIsLoading(false);
+      }
+      // Rely on onAuthStateChange for initial fetchShopInfo to avoid dual calls.
     });
 
     const {
@@ -176,11 +192,15 @@ export default function SEOContentGenerator() {
         fetchShopInfo(session.user.id);
       } else {
         setShopInfo({
-          name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
+          name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", scrapedContent: "", referenceUrls: [],
           wpCategoryId: "", wpTagId: "", wpAuthorId: "",
           outputTargets: { instagram: true, gbp: true, portal: true },
           generateImage: false
         });
+        setScrapedPreview("");
+        // ログアウト時はsessionStorageもクリア
+        sessionStorage.removeItem('shopInfoDraft');
+        sessionStorage.removeItem('settingsOpen');
         setIsConfigured(false);
         setIsLoading(false);
       }
@@ -192,12 +212,41 @@ export default function SEOContentGenerator() {
 
   const fetchShopInfo = async (userId: string) => {
     setIsLoading(true);
-    const { data } = await supabase.from('shops').select('settings').eq('user_id', userId).single();
+    const { data } = await supabase.from('shops').select('settings').eq('user_id', userId).maybeSingle();
     if (data && data.settings) {
-      setShopInfo((prev) => ({ ...prev, ...data.settings }));
-      setIsConfigured(true);
+      // sessionStorageにドラフトがあればそちらを優先、なければSupabaseのデータを使う
+      const draft = sessionStorage.getItem('shopInfoDraft');
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          setShopInfo(parsed);
+          if (parsed.scrapedContent) setScrapedPreview(parsed.scrapedContent);
+        } catch {
+          setShopInfo((prev) => ({ ...prev, ...data.settings }));
+          if (data.settings.scrapedContent) setScrapedPreview(data.settings.scrapedContent);
+        }
+      } else {
+        setShopInfo((prev) => ({ ...prev, ...data.settings }));
+        if (data.settings.scrapedContent) setScrapedPreview(data.settings.scrapedContent);
+      }
+      // 設定画面が開いていた状態を復元
+      const wasOpen = sessionStorage.getItem('settingsOpen');
+      setIsConfigured(wasOpen === 'true' ? false : true);
     }
     setIsLoading(false);
+  };
+
+  // フォームsubmitに依存しない単独の保存関数
+  const saveShopInfo = async (infoToSave: typeof shopInfo) => {
+    if (!user) return;
+    const { error } = await supabase.from('shops').upsert({
+      user_id: user.id,
+      settings: infoToSave,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    if (error) {
+      alert("保存に失敗しました：" + error.message);
+    }
   };
 
   const handleSaveShopInfo = async (e: React.FormEvent) => {
@@ -230,7 +279,7 @@ export default function SEOContentGenerator() {
     await supabase.auth.signOut();
   };
 
-  const handleExtractInfo = async (textToExtract: string) => {
+  const handleExtractInfo = async (textToExtract: string, overwrite = false) => {
     if (!textToExtract.trim()) return;
 
     setIsExtractingInfo(true);
@@ -244,26 +293,20 @@ export default function SEOContentGenerator() {
 
       if (!res.ok) {
         console.error("情報抽出エラー:", data.error);
-        return; // エラー時は何もしない（裏側の機能なのでアラートは極力出さないか、出すなら控えめに）
+        return;
       }
 
       setShopInfo((prev) => {
         const nextInfo = { ...prev };
-        let updated = false;
 
-        // 既存の入力が空の場合のみ、抽出された情報を埋める
-        if (!nextInfo.industry && data.industry) { nextInfo.industry = data.industry; updated = true; }
-        if (!nextInfo.name && data.name) { nextInfo.name = data.name; updated = true; }
-        if (!nextInfo.address && data.address) { nextInfo.address = data.address; updated = true; }
-        if (!nextInfo.phone && data.phone) { nextInfo.phone = data.phone; updated = true; }
-        if (!nextInfo.lineUrl && data.lineUrl) { nextInfo.lineUrl = data.lineUrl; updated = true; }
-        if (!nextInfo.businessHours && data.businessHours) { nextInfo.businessHours = data.businessHours; updated = true; }
-        if (!nextInfo.holidays && data.holidays) { nextInfo.holidays = data.holidays; updated = true; }
-
-        if (updated) {
-          // 少し遅れてユーザーに気づかせるためトースト的にお知らせ（今回は簡易的にalertか、何もしなくても視覚的に埋まるのでOK）
-          setTimeout(() => alert("✨ 入力された文章から、住所・電話番号・営業時間などを自動抽出して入力しました。"), 500);
-        }
+        // overwrite=trueの場合は既存の値があっても上書き、falseの場合は空欄のみ埋める
+        if (data.industry && (overwrite || !nextInfo.industry)) nextInfo.industry = data.industry;
+        if (data.name && (overwrite || !nextInfo.name)) nextInfo.name = data.name;
+        if (data.address && (overwrite || !nextInfo.address)) nextInfo.address = data.address;
+        if (data.phone && (overwrite || !nextInfo.phone)) nextInfo.phone = data.phone;
+        if (data.lineUrl && (overwrite || !nextInfo.lineUrl)) nextInfo.lineUrl = data.lineUrl;
+        if (data.businessHours && (overwrite || !nextInfo.businessHours)) nextInfo.businessHours = data.businessHours;
+        if (data.holidays && (overwrite || !nextInfo.holidays)) nextInfo.holidays = data.holidays;
 
         return nextInfo;
       });
@@ -289,13 +332,20 @@ export default function SEOContentGenerator() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "抽出失敗");
 
-      const addedText = `\n\n【参考サイト（${scrapeUrl}）からの抽出情報】\n${data.text}`;
+      // プレビューに表示
+      setScrapedPreview(data.text);
+      setScrapeUrl("");
+
+      // shopInfo.scrapedContent に蓄積、使用したURLも referenceUrls に追記
       setShopInfo((prev) => ({
         ...prev,
-        features: prev.features + addedText
+        scrapedContent: prev.scrapedContent
+          ? prev.scrapedContent + "\n\n---\n\n" + data.text
+          : data.text,
+        referenceUrls: prev.referenceUrls.includes(scrapeUrl)
+          ? prev.referenceUrls
+          : [...prev.referenceUrls, scrapeUrl],
       }));
-      setScrapeUrl("");
-      alert("抽出が完了し、自由記述欄に追記されました！");
 
       // スクレイピングで得たテキストからも住所等を裏で抽出
       handleExtractInfo(data.text);
@@ -449,17 +499,17 @@ export default function SEOContentGenerator() {
         <div className="w-16 h-16 mb-8 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-900/20">
           <Sparkles className="w-8 h-8 text-zinc-950" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">SEO投稿ジェネレーター</h1>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Post Support</h1>
         <p className="text-zinc-400 mb-8 text-center max-w-sm leading-relaxed">
           店舗の魅力を最大限に引き出す、高品質な投稿テキストと画像をAIが自動生成します。
         </p>
         <Button
           onClick={handleLogin}
-          className="bg-white hover:bg-zinc-200 text-zinc-900 font-bold px-8 py-6 rounded-full shadow-xl transition-all active:scale-95 flex items-center gap-3 text-lg"
+          className="bg-white hover:bg-zinc-200 text-zinc-900 font-bold !px-16 py-4 rounded-full shadow-xl transition-all active:scale-95 flex items-center gap-3 text-base"
         >
-          <svg className="w-6 h-6" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
-              fill="currentColor"
+              fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
             />
             <path
@@ -475,7 +525,7 @@ export default function SEOContentGenerator() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          Googleでログインしてはじめる
+          Googleで続ける
         </Button>
       </div>
     );
@@ -491,7 +541,7 @@ export default function SEOContentGenerator() {
               <Sparkles className="w-5 h-5 text-zinc-950" />
             </div>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 truncate">
-              {shopInfo.name || "店舗"} <span className="text-zinc-400 font-normal text-sm hidden sm:inline-block">- 投稿ジェネレーター</span>
+              {shopInfo.name || "店舗"} <span className="text-zinc-400 font-normal text-sm hidden sm:inline-block">- Post Support</span>
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -512,13 +562,13 @@ export default function SEOContentGenerator() {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         {!isConfigured ? (
           // 店舗情報の初期設定フォーム
-          <div className="max-w-xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="max-w-xl mx-auto space-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold text-white">初期設定（店舗情報）</h2>
               <p className="text-zinc-400">作成される文章に埋め込むための基本情報を設定してください。</p>
             </div>
             <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
-              <CardContent className="pt-6">
+              <CardContent className="pt-2">
                 <form onSubmit={handleSaveShopInfo} className="space-y-6">
                   {/* 1. 【AIに教える情報（入力）】エリア */}
                   <div className="space-y-6 bg-zinc-800/20 p-6 rounded-xl border border-zinc-800/50">
@@ -534,7 +584,7 @@ export default function SEOContentGenerator() {
                     <div className="space-y-3 pt-2">
                       <div>
                         <Label className="font-semibold text-zinc-200">WEBサイトのURL（お店の情報元）</Label>
-                        <p className="text-xs text-zinc-500 mb-2">※お店のトップページやメニュー表のURLを入れると、中の文字を自動で抜き出してすぐ下にある「店舗の独自情報」枠に合体させます。（何ページでも追加可能）</p>
+                        <p className="text-xs text-zinc-500 mb-2">※お店のトップページやメニュー表のURLを入れると、中の文字を自動で抜き出して下のプレビュー欄に表示します。（何ページでも追加可能）</p>
                       </div>
                       <div className="flex gap-2 items-center">
                         <Input
@@ -547,6 +597,39 @@ export default function SEOContentGenerator() {
                           {isScraping ? "抽出中..." : "抽出して追記する"}
                         </Button>
                       </div>
+                      {/* 保存済みURLリスト */}
+                      {shopInfo.referenceUrls.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-zinc-400 font-medium">📋 保存済みURL（{shopInfo.referenceUrls.length}件）</p>
+                          <div className="flex flex-col gap-1">
+                            {shopInfo.referenceUrls.map((url, i) => (
+                              <div key={i} className="flex items-center gap-2 bg-zinc-900/60 rounded px-2 py-1">
+                                <span className="text-xs text-zinc-300 truncate flex-1">{url}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setShopInfo((prev) => ({
+                                    ...prev,
+                                    referenceUrls: prev.referenceUrls.filter((_, idx) => idx !== i),
+                                  }))}
+                                  className="text-zinc-600 hover:text-red-400 text-xs shrink-0"
+                                >✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* 抽出結果プレビュー */}
+                      {scrapedPreview && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-amber-500 font-medium">✅ 抽出完了 — 内容を確認・編集できます</p>
+                          <textarea
+                            value={scrapedPreview}
+                            onChange={(e) => setScrapedPreview(e.target.value)}
+                            className="flex min-h-[140px] w-full rounded-md border border-amber-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y"
+                          />
+                          <p className="text-xs text-zinc-500">※この内容はAIへの参考情報として使われます。基本情報（住所・電話番号など）は下の欄に自動入力されます。</p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-4 pt-2">
@@ -572,44 +655,55 @@ export default function SEOContentGenerator() {
                             value={shopInfo.sampleTexts || ""}
                             onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
                             placeholder="例：こんにちは！今日は新しいオイルを入荷しました✨ 深いリラックス効果があるので是非お試しください。"
-                            className="min-h-[120px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-y"
+                            className="h-[120px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-none overflow-y-auto"
                           />
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-2 pt-2">
-                      <Label htmlFor="shopFeatures" className="font-semibold text-zinc-200">店舗の独自情報・強み・詳細（手入力 または URL抽出結果）</Label>
+                      <Label htmlFor="shopFeatures" className="font-semibold text-zinc-200">その他特記事項</Label>
                       <textarea
                         id="shopFeatures"
                         value={shopInfo.features}
                         onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })}
-                        onPaste={handleFeaturesPaste}
-                        className="flex min-h-[150px] w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        placeholder="例：独自の手技で深層筋にアプローチ。完全個室で周りを気にせずリラックス。PC作業による首肩こり・眼精疲労に悩む男性への施術が得意です。"
+                        className="flex min-h-[120px] w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="例：VIPルームあり、前╎無料、ペット可、等々…"
                       />
-                      <p className="text-xs text-zinc-500">※ここに書かれた情報や、上のURL抽出で入ってきたテキストをもとに、AIが下の【基本情報】や連絡先を自動で探します。</p>
                     </div>
                   </div>
 
                   {/* 2. 【自動入力ボタン】 */}
-                  <div className="flex flex-col items-center justify-center py-4 space-y-4">
+                  <div className="flex flex-col items-center justify-center py-2 space-y-2">
                     <Button
                       type="button"
-                      onClick={() => handleExtractInfo(shopInfo.features + "\n" + (shopInfo.sampleTexts || ""))}
-                      disabled={isExtractingInfo || (!shopInfo.features && !shopInfo.sampleTexts)}
-                      className={`font-bold border-none h-16 w-full max-w-md rounded-full shadow-2xl shadow-amber-900/20 text-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 ${(!isExtractingInfo && (!!shopInfo.features || !!shopInfo.sampleTexts))
-                        ? "bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950"
-                        : "bg-amber-500/20 text-zinc-400 cursor-not-allowed border border-amber-500/10"
+                      onClick={async () => {
+                        await handleExtractInfo(scrapedPreview + "\n" + shopInfo.features + "\n" + (shopInfo.sampleTexts || ""), true);
+                        // 解析後の最新shopInfoで保存（setShopInfoは非同期のため少し待つ）
+                        setTimeout(() => {
+                          setShopInfo(prev => {
+                            saveShopInfo(prev);
+                            return prev;
+                          });
+                        }, 300);
+                      }}
+                      disabled={isExtractingInfo || (!shopInfo.features && !shopInfo.sampleTexts && !scrapedPreview)}
+                      className={`w-full max-w-xs mx-auto h-8 text-sm font-bold border-none rounded-full shadow-xl shadow-amber-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 ${(!isExtractingInfo && (!!shopInfo.features || !!shopInfo.sampleTexts || !!scrapedPreview))
+                        ? "bg-amber-500 hover:bg-amber-400 text-zinc-950"
+                        : "bg-amber-500/20 text-zinc-400 cursor-not-allowed"
                         }`}
                     >
                       {isExtractingInfo ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /> 自動入力中...</>
+                        <><Loader2 className="w-5 h-5 animate-spin" /> 保存中...</>
                       ) : (
-                        <><Sparkles className="w-5 h-5 text-amber-900" /> ✨ ↓ 下の『店舗の基本情報』に自動入力する ↓</>
+                        <><Check className="w-5 h-5" /> 上記データを保存する</>
                       )}
                     </Button>
+                    <p className="text-xs text-zinc-500 text-center">
+                      保存すると → <span className="text-zinc-300">業種・店舗名など下の欄に自動入力されます</span>
+                    </p>
                   </div>
+
 
                   {/* 3. 【店舗の基本情報（結果）】エリア */}
                   <div className="space-y-6 bg-zinc-900/80 p-6 rounded-xl border border-zinc-800/80 relative overflow-hidden">
@@ -773,7 +867,7 @@ export default function SEOContentGenerator() {
                   </div>
 
                   <div className="flex flex-col pt-8">
-                    <Button type="submit" className="w-full h-12 text-base font-bold bg-amber-500 hover:bg-amber-600 text-zinc-950 border-none shadow-xl shadow-amber-900/20 rounded-full transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2">
+                    <Button type="submit" className="w-full max-w-xs mx-auto h-8 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-zinc-950 border-none shadow-xl shadow-amber-900/20 rounded-full transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2">
                       <Check className="w-5 h-5 text-amber-950" />
                       設定を保存してはじめる
                     </Button>
@@ -784,6 +878,44 @@ export default function SEOContentGenerator() {
           </div>
         ) : (
           <div className="space-y-10 animate-in fade-in duration-500">
+
+            {/* 保存済みデータサマリー */}
+            {(shopInfo.referenceUrls.length > 0 || shopInfo.scrapedContent) && (
+              <details className="group bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-zinc-800/50 transition-colors">
+                  <div className="flex items-center gap-2 text-sm text-zinc-300 font-medium">
+                    <span className="text-amber-500">💾</span>
+                    保存済みデータ
+                    {shopInfo.referenceUrls.length > 0 && (
+                      <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">URL {shopInfo.referenceUrls.length}件</span>
+                    )}
+                    {shopInfo.scrapedContent && (
+                      <span className="bg-zinc-700 text-zinc-300 text-xs px-2 py-0.5 rounded-full">抽出テキストあり</span>
+                    )}
+                  </div>
+                  <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div className="px-4 pb-4 space-y-3 border-t border-zinc-800 pt-3">
+                  {shopInfo.referenceUrls.length > 0 && (
+                    <div>
+                      <p className="text-xs text-zinc-400 font-medium mb-1">📋 参照URL</p>
+                      <div className="flex flex-col gap-1">
+                        {shopInfo.referenceUrls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-amber-400 hover:underline truncate">{url}</a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {shopInfo.scrapedContent && (
+                    <div>
+                      <p className="text-xs text-zinc-400 font-medium mb-1">📄 抽出テキスト（AI参照中）</p>
+                      <pre className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">{shopInfo.scrapedContent}</pre>
+                    </div>
+                  )}
+                </div>
+              </details>
+            )}
 
             {/* Step 1: Pattern Selection */}
             <section className="space-y-4">
