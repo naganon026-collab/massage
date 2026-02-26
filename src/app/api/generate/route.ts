@@ -13,7 +13,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { patternTitle, q1, q2, q3, shopInfo, outputTargets = { instagram: true, gbp: true, portal: true }, generateImage = false } = body;
+        const { patternTitle, q1, q2, q3, shopInfo, outputTargets = { instagram: true, gbp: true, portal: true, line: false }, generateImage = false } = body;
 
         const shopName = shopInfo?.name || "The Gentry";
         const shopAddress = shopInfo?.address || "長野市";
@@ -31,6 +31,7 @@ export async function POST(req: Request) {
         if (outputTargets.instagram) targetNames.push("Instagram");
         if (outputTargets.gbp) targetNames.push("Googleビジネスプロフィール(GBP)");
         if (outputTargets.portal) targetNames.push("ポータルサイト");
+        if (outputTargets.line) targetNames.push("LINE");
 
         if (targetNames.length === 0) {
             return NextResponse.json(
@@ -71,6 +72,12 @@ export async function POST(req: Request) {
             properties.portalTitle = { type: SchemaType.STRING };
             properties.portal = { type: SchemaType.STRING };
             required.push("portalTitle", "portal");
+        }
+        if (outputTargets.line) {
+            if (jsonFormatGuide) jsonFormatGuide += ",";
+            jsonFormatGuide += `\n  "line": "【目的: LINE公式アカウントからの配信メッセージ】LINEらしい改行と絵文字を使い、友だち登録しているお客様に向けて親しみやすく語りかける文章。冒頭に季節の挨拶や今日のひとことを入れ、今日の施術エピソードや限定情報を温かみのある文体で伝える。文章の最後は必ず『ご予約・お問い合わせはこちら↓\n${shopLineUrl}』のようにLINE URLへの導線で締めること。（ハッシュタグ不要、文字数200〜350字程度）"`;
+            properties.line = { type: SchemaType.STRING };
+            required.push("line");
         }
 
         const toneInstruction = shopSampleTexts

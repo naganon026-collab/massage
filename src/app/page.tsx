@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-type Pattern = "A" | "B" | "C" | "D" | "E" | "F";
+type Pattern = "A" | "B" | "C" | "D" | "E" | "F" | "G";
 
 interface PatternData {
   id: Pattern;
@@ -105,6 +105,19 @@ const PATTERNS: PatternData[] = [
       q3: "利用後、どんな気持ちや状態を味わえますか？",
       ex3: "例: 〇〇な気持ちになれる／△△がより楽しくなる",
     }
+  },
+  {
+    id: "G",
+    title: "コメント・クチコミへの返信",
+    description: "SNSやGBPに届いたコメント・クチコミに、オーナーとして誠実かつ温かみのある返信を生成します",
+    questions: {
+      q1: "",
+      ex1: "",
+      q2: "",
+      ex2: "",
+      q3: "",
+      ex3: "",
+    }
   }
 ];
 
@@ -128,6 +141,7 @@ export interface ShopInfo {
     instagram: boolean;
     gbp: boolean;
     portal: boolean;
+    line: boolean;
   };
   generateImage?: boolean;
 }
@@ -139,7 +153,7 @@ export default function SEOContentGenerator() {
   const [shopInfo, setShopInfo] = useState<ShopInfo>({
     name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
     wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-    outputTargets: { instagram: true, gbp: true, portal: true },
+    outputTargets: { instagram: true, gbp: true, portal: true, line: true },
     generateImage: false
   });
   const [isConfigured, setIsConfigured] = useState<boolean>(false);
@@ -152,6 +166,11 @@ export default function SEOContentGenerator() {
 
   const [selectedPattern, setSelectedPattern] = useState<Pattern>("A");
   const [formData, setFormData] = useState({ q1: "", q2: "", q3: "" });
+
+  // パターンG（コメント返信）専用の状態
+  const [replyPlatform, setReplyPlatform] = useState<"sns" | "gbp">("sns");
+  const [receivedComment, setReceivedComment] = useState("");
+  const [replyNote, setReplyNote] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<{
     instagram?: string;
@@ -159,6 +178,8 @@ export default function SEOContentGenerator() {
     portal?: string;
     portalTitle?: string;
     imageUrl?: string;
+    reply?: string;
+    line?: string;
   } | null>(null);
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const [isPostingToWP, setIsPostingToWP] = useState(false);
@@ -198,7 +219,7 @@ export default function SEOContentGenerator() {
         setShopInfo({
           name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", scrapedContent: "", referenceUrls: [],
           wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-          outputTargets: { instagram: true, gbp: true, portal: true },
+          outputTargets: { instagram: true, gbp: true, portal: true, line: true },
           generateImage: false
         });
         setScrapedPreview("");
@@ -377,6 +398,9 @@ export default function SEOContentGenerator() {
   const handlePatternChange = (patternId: Pattern) => {
     setSelectedPattern(patternId);
     setFormData({ q1: "", q2: "", q3: "" });
+    // パターンG専用フォームをリセット
+    setReceivedComment("");
+    setReplyNote("");
     setGeneratedResults(null);
   };
 
@@ -435,12 +459,17 @@ export default function SEOContentGenerator() {
     setIsGenerating(true);
 
     try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // パターンGはコメント返信専用エンドポイントを使用
+      const endpoint = selectedPattern === "G" ? "/api/generate-reply" : "/api/generate";
+      const requestBody = selectedPattern === "G"
+        ? {
+          patternTitle: currentPattern.title,
+          platform: replyPlatform,
+          receivedComment,
+          replyNote,
+          shopInfo,
+        }
+        : {
           patternTitle: currentPattern.title,
           q1: formData.q1,
           q2: formData.q2,
@@ -448,7 +477,14 @@ export default function SEOContentGenerator() {
           shopInfo: shopInfo,
           outputTargets: shopInfo.outputTargets || { instagram: true, gbp: true, portal: true },
           generateImage: shopInfo.generateImage || false,
-        }),
+        };
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -467,6 +503,8 @@ export default function SEOContentGenerator() {
         portal: data.portal,
         portalTitle: data.portalTitle,
         imageUrl: data.imageUrl,
+        reply: data.reply,
+        line: data.line,
       });
 
     } catch (error) {
@@ -848,6 +886,18 @@ export default function SEOContentGenerator() {
                         />
                         <span className="text-sm text-zinc-200">ブログ/ポータル用</span>
                       </label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={shopInfo.outputTargets?.line ?? true}
+                          onChange={(e) => setShopInfo({
+                            ...shopInfo,
+                            outputTargets: { ...shopInfo.outputTargets!, line: e.target.checked }
+                          })}
+                          className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                        />
+                        <span className="text-sm text-zinc-200">LINE用</span>
+                      </label>
                     </div>
                   </div>
 
@@ -957,45 +1007,112 @@ export default function SEOContentGenerator() {
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">2</span>
-                <h2 className="text-xl font-semibold">事実（ファクト）の入力</h2>
+                <h2 className="text-xl font-semibold">
+                  {selectedPattern === "G" ? "返信する内容の入力" : "事実（ファクト）の入力"}
+                </h2>
               </div>
 
-              <Card className="border-zinc-800 bg-zinc-900">
-                <CardContent className="p-6 space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="q1" className="text-base text-zinc-200">{currentPattern.questions.q1}</Label>
-                    <Input
-                      id="q1"
-                      value={formData.q1}
-                      onChange={(e) => handleInputChange(e, "q1")}
-                      placeholder={currentPattern.questions.ex1}
-                      className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
-                    />
-                  </div>
+              {selectedPattern === "G" ? (
+                /* パターンG専用フォーム */
+                <Card className="border-zinc-800 bg-zinc-900">
+                  <CardContent className="p-6 space-y-6">
+                    {/* 1. プラットフォーム選択 */}
+                    <div className="space-y-3">
+                      <Label className="text-base text-zinc-200">返信するプラットフォームを選択</Label>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setReplyPlatform("sns")}
+                          className={`flex-1 py-3 px-4 rounded-xl border text-sm font-semibold transition-all ${replyPlatform === "sns"
+                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                            : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
+                            }`}
+                        >
+                          📱 SNS（Instagram・X 等）
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReplyPlatform("gbp")}
+                          className={`flex-1 py-3 px-4 rounded-xl border text-sm font-semibold transition-all ${replyPlatform === "gbp"
+                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                            : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
+                            }`}
+                        >
+                          🗺️ Google クチコミ（GBP）
+                        </button>
+                      </div>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="q2" className="text-base text-zinc-200">{currentPattern.questions.q2}</Label>
-                    <Input
-                      id="q2"
-                      value={formData.q2}
-                      onChange={(e) => handleInputChange(e, "q2")}
-                      placeholder={currentPattern.questions.ex2}
-                      className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
-                    />
-                  </div>
+                    {/* 2. もらったコメント */}
+                    <div className="space-y-2">
+                      <Label htmlFor="receivedComment" className="text-base text-zinc-200">
+                        もらったコメント・クチコミ <span className="text-red-400 text-sm">*</span>
+                      </Label>
+                      <p className="text-xs text-zinc-500">返信したいコメントやクチコミの文章をそのまま貼り付けてください。</p>
+                      <Textarea
+                        id="receivedComment"
+                        value={receivedComment}
+                        onChange={(e) => setReceivedComment(e.target.value)}
+                        placeholder={replyPlatform === "gbp"
+                          ? "例: 初めて利用しました。スタッフの方がとても丁寧で、施術後は体がスッキリしました。また来たいと思います。"
+                          : "例: 先日はありがとうございました！おかげで肩がすごく楽になりました😊 また予約します！"}
+                        className="h-[120px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-none"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="q3" className="text-base text-zinc-200">{currentPattern.questions.q3}</Label>
-                    <Input
-                      id="q3"
-                      value={formData.q3}
-                      onChange={(e) => handleInputChange(e, "q3")}
-                      placeholder={currentPattern.questions.ex3}
-                      className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                    {/* 3. 特記事項 */}
+                    <div className="space-y-2">
+                      <Label htmlFor="replyNote" className="text-base text-zinc-200">特記事項・返信に含めたい内容（任意）</Label>
+                      <p className="text-xs text-zinc-500">返信に加えたい補足情報があれば記入してください。（例: 次回来店時の特典案内、特定のメニューへの誘導など）</p>
+                      <Textarea
+                        id="replyNote"
+                        value={replyNote}
+                        onChange={(e) => setReplyNote(e.target.value)}
+                        placeholder="例: 来月キャンペーン実施予定なので触れてほしい / 次回予約への誘導を入れてほしい"
+                        className="h-[90px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-none"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                /* 通常パターン（A〜F）フォーム */
+                <Card className="border-zinc-800 bg-zinc-900">
+                  <CardContent className="p-6 space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="q1" className="text-base text-zinc-200">{currentPattern.questions.q1}</Label>
+                      <Input
+                        id="q1"
+                        value={formData.q1}
+                        onChange={(e) => handleInputChange(e, "q1")}
+                        placeholder={currentPattern.questions.ex1}
+                        className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="q2" className="text-base text-zinc-200">{currentPattern.questions.q2}</Label>
+                      <Input
+                        id="q2"
+                        value={formData.q2}
+                        onChange={(e) => handleInputChange(e, "q2")}
+                        placeholder={currentPattern.questions.ex2}
+                        className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="q3" className="text-base text-zinc-200">{currentPattern.questions.q3}</Label>
+                      <Input
+                        id="q3"
+                        value={formData.q3}
+                        onChange={(e) => handleInputChange(e, "q3")}
+                        placeholder={currentPattern.questions.ex3}
+                        className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </section>
 
             {/* Step 3: Action Button */}
@@ -1030,97 +1147,148 @@ export default function SEOContentGenerator() {
                 </div>
 
                 <Tabs defaultValue={
-                  shopInfo.outputTargets?.instagram ? "instagram" :
-                    shopInfo.outputTargets?.gbp ? "gbp" :
-                      shopInfo.outputTargets?.portal ? "portal" : "instagram"
+                  selectedPattern === "G" ? "reply" :
+                    shopInfo.outputTargets?.instagram ? "instagram" :
+                      shopInfo.outputTargets?.gbp ? "gbp" :
+                        shopInfo.outputTargets?.portal ? "portal" :
+                          shopInfo.outputTargets?.line ? "line" : "instagram"
                 } className="w-full">
                   <TabsList className="flex w-full bg-zinc-900 border border-zinc-800 p-1">
-                    {shopInfo.outputTargets?.instagram !== false && (
-                      <TabsTrigger value="instagram" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">Instagram用</TabsTrigger>
-                    )}
-                    {shopInfo.outputTargets?.gbp !== false && (
-                      <TabsTrigger value="gbp" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">Googleの最新情報用</TabsTrigger>
-                    )}
-                    {shopInfo.outputTargets?.portal !== false && (
-                      <TabsTrigger value="portal" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">ポータルサイト用</TabsTrigger>
+                    {selectedPattern === "G" ? (
+                      <TabsTrigger value="reply" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">
+                        {replyPlatform === "gbp" ? "🗺️ GBPクチコミ返信" : "📱 SNSコメント返信"}
+                      </TabsTrigger>
+                    ) : (
+                      <>
+                        {shopInfo.outputTargets?.instagram !== false && (
+                          <TabsTrigger value="instagram" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">Instagram用</TabsTrigger>
+                        )}
+                        {shopInfo.outputTargets?.gbp !== false && (
+                          <TabsTrigger value="gbp" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">Googleの最新情報用</TabsTrigger>
+                        )}
+                        {shopInfo.outputTargets?.portal !== false && (
+                          <TabsTrigger value="portal" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">ポータルサイト用</TabsTrigger>
+                        )}
+                        {shopInfo.outputTargets?.line !== false && (
+                          <TabsTrigger value="line" className="flex-1 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500">💬 LINE用</TabsTrigger>
+                        )}
+                      </>
                     )}
                   </TabsList>
 
-                  {[
-                    { id: "instagram", data: generatedResults.instagram, active: shopInfo.outputTargets?.instagram !== false },
-                    { id: "gbp", data: generatedResults.gbp, active: shopInfo.outputTargets?.gbp !== false },
-                    { id: "portal", data: generatedResults.portal, active: shopInfo.outputTargets?.portal !== false }
-                  ].filter(t => t.active && t.data).map((tab) => (
-                    <TabsContent key={tab.id} value={tab.id}>
-                      <Card className="border-zinc-800 bg-zinc-900 relative overflow-hidden group">
-                        <div className="absolute top-4 right-4 z-10 flex gap-2">
-                          {tab.id === "portal" && generatedResults.portalTitle && (
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 h-9"
-                                onClick={() => handlePostToWP("draft")}
-                                disabled={isPostingToWP}
-                              >
-                                {isPostingToWP ? (
-                                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 送信中</>
-                                ) : (
-                                  <>📝 下書き保存</>
-                                )}
-                              </Button>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 shadow-[0_0_15px_rgba(79,70,229,0.5)]"
-                                onClick={() => handlePostToWP("publish")}
-                                disabled={isPostingToWP}
-                              >
-                                {isPostingToWP ? (
-                                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 送信中</>
-                                ) : (
-                                  <><Send className="w-4 h-4 mr-2" /> すぐに公開</>
-                                )}
-                              </Button>
-                            </div>
-                          )}
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9"
-                            onClick={() => handleCopy(tab.data as string, tab.id)}
-                          >
-                            {copiedTab === tab.id ? (
-                              <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</>
-                            ) : (
-                              <><Copy className="w-4 h-4 mr-2" /> コピー</>
-                            )}
-                          </Button>
-                        </div>
-                        <CardContent className="p-6 pt-16">
-                          {tab.id === "portal" && generatedResults.portalTitle && (
-                            <div className="mb-6 p-4 bg-zinc-950 rounded-lg border border-zinc-800">
-                              <p className="text-zinc-400 text-xs mb-1 font-semibold uppercase tracking-wider">生成されたタイトル</p>
-                              <h3 className="text-lg font-bold text-white mb-2">{generatedResults.portalTitle}</h3>
-                              <p className="text-zinc-500 text-xs">※上記のタイトルと下の本文がWordPressに送信されます。</p>
-                            </div>
-                          )}
-                          {tab.id === "portal" && generatedResults.imageUrl && (
-                            <div className="mb-6">
-                              <p className="text-zinc-400 text-xs mb-2 font-semibold uppercase tracking-wider">生成されたイメージ画像（アイキャッチ対象）</p>
-                              <div className="relative w-full max-w-md aspect-square rounded-lg overflow-hidden border border-zinc-800">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={generatedResults.imageUrl} alt="AI生成画像" className="w-full h-full object-cover" />
-                              </div>
-                            </div>
-                          )}
-                          <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">
-                            {tab.data}
+                  {selectedPattern === "G" ? (
+                    /* パターンG：返信テキスト表示 */
+                    generatedResults.reply && (
+                      <TabsContent value="reply">
+                        <Card className="border-zinc-800 bg-zinc-900 relative overflow-hidden">
+                          <div className="absolute top-4 right-4 z-10">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9"
+                              onClick={() => handleCopy(generatedResults.reply as string, "reply")}
+                            >
+                              {copiedTab === "reply" ? (
+                                <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</>
+                              ) : (
+                                <><Copy className="w-4 h-4 mr-2" /> コピー</>
+                              )}
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  ))}
+                          <CardContent className="p-6 pt-16">
+                            {/* 元のコメントを表示 */}
+                            <div className="mb-4 p-3 bg-zinc-950 rounded-lg border border-zinc-700">
+                              <p className="text-xs text-zinc-500 mb-1 font-semibold">📨 受信したコメント</p>
+                              <p className="text-sm text-zinc-400 whitespace-pre-wrap">{receivedComment}</p>
+                            </div>
+                            <p className="text-xs text-amber-500 font-semibold mb-2">✍️ 生成された返信文</p>
+                            <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">
+                              {generatedResults.reply}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    )
+                  ) : (
+                    <>
+                      {[
+                        { id: "instagram", data: generatedResults.instagram, active: shopInfo.outputTargets?.instagram !== false },
+                        { id: "gbp", data: generatedResults.gbp, active: shopInfo.outputTargets?.gbp !== false },
+                        { id: "portal", data: generatedResults.portal, active: shopInfo.outputTargets?.portal !== false },
+                        { id: "line", data: generatedResults.line, active: shopInfo.outputTargets?.line !== false }
+                      ].filter(t => t.active && t.data).map((tab) => (
+                        <TabsContent key={tab.id} value={tab.id}>
+                          <Card className="border-zinc-800 bg-zinc-900 relative overflow-hidden group">
+                            <div className="absolute top-4 right-4 z-10 flex gap-2">
+                              {tab.id === "portal" && generatedResults.portalTitle && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 h-9"
+                                    onClick={() => handlePostToWP("draft")}
+                                    disabled={isPostingToWP}
+                                  >
+                                    {isPostingToWP ? (
+                                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 送信中</>
+                                    ) : (
+                                      <>📝 下書き保存</>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+                                    onClick={() => handlePostToWP("publish")}
+                                    disabled={isPostingToWP}
+                                  >
+                                    {isPostingToWP ? (
+                                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 送信中</>
+                                    ) : (
+                                      <><Send className="w-4 h-4 mr-2" /> すぐに公開</>
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9"
+                                onClick={() => handleCopy(tab.data as string, tab.id)}
+                              >
+                                {copiedTab === tab.id ? (
+                                  <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</>
+                                ) : (
+                                  <><Copy className="w-4 h-4 mr-2" /> コピー</>
+                                )}
+                              </Button>
+                            </div>
+                            <CardContent className="p-6 pt-16">
+                              {tab.id === "portal" && generatedResults.portalTitle && (
+                                <div className="mb-6 p-4 bg-zinc-950 rounded-lg border border-zinc-800">
+                                  <p className="text-zinc-400 text-xs mb-1 font-semibold uppercase tracking-wider">生成されたタイトル</p>
+                                  <h3 className="text-lg font-bold text-white mb-2">{generatedResults.portalTitle}</h3>
+                                  <p className="text-zinc-500 text-xs">※上記のタイトルと下の本文がWordPressに送信されます。</p>
+                                </div>
+                              )}
+                              {tab.id === "portal" && generatedResults.imageUrl && (
+                                <div className="mb-6">
+                                  <p className="text-zinc-400 text-xs mb-2 font-semibold uppercase tracking-wider">生成されたイメージ画像（アイキャッチ対象）</p>
+                                  <div className="relative w-full max-w-md aspect-square rounded-lg overflow-hidden border border-zinc-800">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={generatedResults.imageUrl} alt="AI生成画像" className="w-full h-full object-cover" />
+                                  </div>
+                                </div>
+                              )}
+                              <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">
+                                {tab.data}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+                      ))}
+                    </>
+                  )}
                 </Tabs>
               </section>
             )}
