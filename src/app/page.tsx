@@ -164,11 +164,13 @@ export default function SEOContentGenerator() {
   const [isPostingToWP, setIsPostingToWP] = useState(false);
 
   // shopInfoの変更をsessionStorageに自動保存（別タブから戻っても入力内容を保持）
+  // isLoadingがtrueの間（fetchShopInfo実行中）は保存しない
+  // ← ここ重要: ログイン直後にまだ空のshopInfoがsessionStorageに書き込まれるのを防ぐ
   useEffect(() => {
-    if (user) {
+    if (user && !isLoading) {
       sessionStorage.setItem('shopInfoDraft', JSON.stringify(shopInfo));
     }
-  }, [shopInfo, user]);
+  }, [shopInfo, user, isLoading]);
 
   // 設定画面の開閉状態をsessionStorageに保持
   useEffect(() => {
@@ -178,10 +180,12 @@ export default function SEOContentGenerator() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
-      if (!session?.user) {
+      if (session?.user) {
+        // OAuthリダイレクト後などonAuthStateChangeが発火しないケースに対応
+        fetchShopInfo(session.user.id);
+      } else {
         setIsLoading(false);
       }
-      // Rely on onAuthStateChange for initial fetchShopInfo to avoid dual calls.
     });
 
     const {
