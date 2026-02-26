@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: Request) {
+    // 認証チェック: ログインしていないユーザーは 401 を返す
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+
     try {
         const { title, content, status = 'draft', wpCategoryId, wpTagId, wpAuthorId, imageUrl } = await req.json();
 

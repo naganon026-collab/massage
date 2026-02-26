@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { requireAuth } from "@/lib/auth";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
+    // 認証チェック: ログインしていないユーザーは 401 を返す
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+
     if (!process.env.GEMINI_API_KEY) {
         return NextResponse.json(
             { error: "Gemini APIキーが設定されていません。" },
