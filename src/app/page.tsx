@@ -186,6 +186,7 @@ export default function SEOContentGenerator() {
       }
     });
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => subscription.unsubscribe();
   }, []);
 
@@ -299,8 +300,12 @@ export default function SEOContentGenerator() {
       // スクレイピングで得たテキストからも住所等を裏で抽出
       handleExtractInfo(data.text);
 
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert("予期せぬエラーが発生しました");
+      }
     } finally {
       setIsScraping(false);
     }
@@ -357,8 +362,12 @@ export default function SEOContentGenerator() {
       if (data.link) {
         window.open(data.link, '_blank');
       }
-    } catch (error: any) {
-      alert("エラーが発生しました: " + error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        alert("エラーが発生しました: " + error.message);
+      } else {
+        alert("予期せぬエラーが発生しました");
+      }
     } finally {
       setIsPostingToWP(false);
     }
@@ -406,9 +415,13 @@ export default function SEOContentGenerator() {
         imageUrl: data.imageUrl,
       });
 
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      alert(error.message || "テキストの生成中にエラーが発生しました。");
+      if (error instanceof Error) {
+        alert(error.message || "テキストの生成中にエラーが発生しました。");
+      } else {
+        alert("テキストの生成中にエラーが発生しました。");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -507,223 +520,263 @@ export default function SEOContentGenerator() {
             <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
               <CardContent className="pt-6">
                 <form onSubmit={handleSaveShopInfo} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="shopName">店舗名</Label>
-                      <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：The Gentry" />
+                  {/* 1. 【AIに教える情報（入力）】エリア */}
+                  <div className="space-y-6 bg-zinc-800/20 p-6 rounded-xl border border-zinc-800/50">
+                    <div className="border-b border-zinc-800 pb-4 mb-4">
+                      <h3 className="text-lg font-bold text-amber-500 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5" />
+                        【AIに教える情報】を入力・追加してください
+                      </h3>
+                      <p className="text-sm text-zinc-400 mt-1">以下の情報を元に、AIが下部の基本情報を埋めたり、記事の文体を学習したりします。</p>
                     </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="shopIndustry">業種 <span className="text-red-500 ml-1">*</span></Label>
+                      <Label htmlFor="shopIndustry" className="font-semibold text-zinc-200">業種（自動判別＆書き換え可能） <span className="text-red-500 ml-1">*</span></Label>
                       <Input id="shopIndustry" required value={shopInfo.industry} onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：美容室、エステサロン、カフェ" />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="shopAddress">住所</Label>
-                    <Input id="shopAddress" required value={shopInfo.address} onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：長野県長野市〇〇1-2-3" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="shopPhone">電話番号</Label>
-                      <Input id="shopPhone" required value={shopInfo.phone} onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：026-000-0000" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shopLine">LINE/予約へのアクセスURL</Label>
-                      <Input id="shopLine" required value={shopInfo.lineUrl} onChange={(e) => setShopInfo({ ...shopInfo, lineUrl: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：https://lin.ee/xxxxx" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="shopBusinessHours">営業時間</Label>
-                      <Input id="shopBusinessHours" required value={shopInfo.businessHours} onChange={(e) => setShopInfo({ ...shopInfo, businessHours: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：10:00〜20:00" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shopHolidays">定休日</Label>
-                      <Input id="shopHolidays" required value={shopInfo.holidays} onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white" placeholder="例：毎週火曜・年末年始" />
-                    </div>
-                  </div>
-                  <div className="space-y-4 pt-4 border-t border-zinc-800">
-                    <div>
-                      <Label>WEBサイトから自動抽出して追記</Label>
-                      <p className="text-xs text-zinc-500 mb-2">※お店のトップページやメニュー表のURLを入れると、中の文字を自動で抜き出して「店舗の独自情報」枠に合体させます。（何ページでも追加可能）</p>
+
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <Label className="font-semibold text-zinc-200">WEBサイトのURL（お店の情報元）</Label>
+                        <p className="text-xs text-zinc-500 mb-2">※お店のトップページやメニュー表のURLを入れると、中の文字を自動で抜き出してすぐ下にある「店舗の独自情報」枠に合体させます。（何ページでも追加可能）</p>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          value={scrapeUrl}
+                          onChange={(e) => setScrapeUrl(e.target.value)}
+                          className="bg-zinc-900 border-zinc-700 text-white flex-1"
+                          placeholder="https://..."
+                        />
+                        <Button type="button" onClick={handleScrapeUrl} disabled={isScraping || !scrapeUrl} className="bg-zinc-800 text-amber-500 hover:bg-zinc-700 border border-zinc-700 shrink-0">
+                          {isScraping ? "抽出中..." : "抽出して追記する"}
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        value={scrapeUrl}
-                        onChange={(e) => setScrapeUrl(e.target.value)}
-                        className="bg-zinc-900 border-zinc-700 text-white flex-1"
-                        placeholder="https://..."
+                    <div className="space-y-4 pt-2">
+                      <div>
+                        <Label className="font-semibold text-zinc-200">AIに模倣させる「あなたらしさ」（文調やトーンの学習）</Label>
+                        <p className="text-xs text-zinc-400 leading-relaxed mb-4">AIがあなたの文体（丁寧さ、親しみやすさ、絵文字の頻度など）を真似して執筆するためのサンプルを提供してください。</p>
+                      </div>
+                      <div className="space-y-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
+                        <div className="space-y-2">
+                          <Label htmlFor="shopSnsUrl" className="text-sm">今まで投稿していたSNSのURL（任意）</Label>
+                          <Input
+                            id="shopSnsUrl"
+                            value={shopInfo.snsUrl || ""}
+                            onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
+                            placeholder="例：https://instagram.com/〇〇"
+                            className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shopSampleTexts" className="text-sm">今まで書いた文章のサンプル（2〜3投稿分コピペ）（任意）</Label>
+                          <Textarea
+                            id="shopSampleTexts"
+                            value={shopInfo.sampleTexts || ""}
+                            onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
+                            placeholder="例：こんにちは！今日は新しいオイルを入荷しました✨ 深いリラックス効果があるので是非お試しください。"
+                            className="min-h-[120px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-y"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                      <Label htmlFor="shopFeatures" className="font-semibold text-zinc-200">店舗の独自情報・強み・詳細（手入力 または URL抽出結果）</Label>
+                      <textarea
+                        id="shopFeatures"
+                        value={shopInfo.features}
+                        onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })}
+                        onPaste={handleFeaturesPaste}
+                        className="flex min-h-[150px] w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="例：独自の手技で深層筋にアプローチ。完全個室で周りを気にせずリラックス。PC作業による首肩こり・眼精疲労に悩む男性への施術が得意です。"
                       />
-                      <Button type="button" onClick={handleScrapeUrl} disabled={isScraping || !scrapeUrl} className="bg-zinc-800 text-amber-500 hover:bg-zinc-700 border border-zinc-700 shrink-0">
-                        {isScraping ? "抽出中..." : "抽出して追記する"}
-                      </Button>
+                      <p className="text-xs text-zinc-500">※ここに書かれた情報や、上のURL抽出で入ってきたテキストをもとに、AIが下の【基本情報】や連絡先を自動で探します。</p>
                     </div>
                   </div>
 
-                  <div className="space-y-2 pt-4">
-                    <Label htmlFor="shopFeatures">店舗の独自情報・強み・詳細（手入力 または URL抽出結果）</Label>
-                    <textarea
-                      id="shopFeatures"
-                      value={shopInfo.features}
-                      onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })}
-                      onPaste={handleFeaturesPaste}
-                      className="flex min-h-[150px] w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="例：独自の手技で深層筋にアプローチ。完全個室で周りを気にせずリラックス。PC作業による首肩こり・眼精疲労に悩む男性への施術が得意です。"
-                    />
-                    <p className="text-xs text-zinc-500">※ここに書かれた情報や、上のURL抽出で入ってきたテキストをもとに、AIが店舗の基本情報や連絡先を自動で探します。</p>
-                  </div>
-
-                  <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-800 space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-amber-500 font-bold flex items-center gap-2">
-                        <Sparkles className="w-4 h-4" />
-                        AIに模倣させる「あなたらしさ」（文調やトーンの学習）
-                      </Label>
-                      <p className="text-xs text-zinc-400 leading-relaxed mb-4">AIがあなたの文体（丁寧さ、親しみやすさ、絵文字や改行の頻度など）を真似して執筆するためのサンプルを提供してください。</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="shopSnsUrl" className="text-sm">今まで投稿していたSNSのURL（任意）</Label>
-                      <Input
-                        id="shopSnsUrl"
-                        value={shopInfo.snsUrl || ""}
-                        onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
-                        placeholder="例：https://instagram.com/〇〇"
-                        className="bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="shopSampleTexts" className="text-sm">今まで書いた文章のサンプル（2〜3投稿分コピペ）（任意）</Label>
-                      <Textarea
-                        id="shopSampleTexts"
-                        value={shopInfo.sampleTexts || ""}
-                        onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
-                        placeholder="例：こんにちは！今日は新しいオイルを入荷しました✨ 深いリラックス効果があるので是非お試しください。"
-                        className="min-h-[120px] bg-zinc-950 border-zinc-800 focus-visible:ring-amber-500 text-zinc-100 placeholder:text-zinc-600 resize-y"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                  {/* 2. 【自動入力ボタン】 */}
+                  <div className="flex flex-col items-center justify-center py-4 space-y-4">
                     <Button
                       type="button"
                       onClick={() => handleExtractInfo(shopInfo.features + "\n" + (shopInfo.sampleTexts || ""))}
                       disabled={isExtractingInfo || (!shopInfo.features && !shopInfo.sampleTexts)}
-                      className={`font-bold border-none h-16 w-full max-w-md rounded-full shadow-xl shadow-amber-900/20 text-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${(!isExtractingInfo && (!!shopInfo.features || !!shopInfo.sampleTexts))
-                        ? "bg-amber-500 hover:bg-amber-600 text-zinc-950"
-                        : "bg-amber-500/30 text-zinc-400 cursor-not-allowed border border-amber-500/20"
+                      className={`font-bold border-none h-16 w-full max-w-md rounded-full shadow-2xl shadow-amber-900/20 text-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 ${(!isExtractingInfo && (!!shopInfo.features || !!shopInfo.sampleTexts))
+                        ? "bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950"
+                        : "bg-amber-500/20 text-zinc-400 cursor-not-allowed border border-amber-500/10"
                         }`}
                     >
                       {isExtractingInfo ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /> 保存中...</>
+                        <><Loader2 className="w-5 h-5 animate-spin" /> 自動入力中...</>
                       ) : (
-                        <><Sparkles className="w-5 h-5" /> 情報を保存</>
+                        <><Sparkles className="w-5 h-5 text-amber-900" /> ✨ ↓ 下の『店舗の基本情報』に自動入力する ↓</>
                       )}
                     </Button>
-                    <p className="text-sm font-medium text-amber-500/90 bg-amber-500/10 px-6 py-2 rounded-full border border-amber-500/20 shadow-sm">
-                      ↓ 保存することで入力枠内に足りない情報を自動補完します
-                    </p>
                   </div>
 
-                  <div className="space-y-4 pt-4 border-t border-zinc-800">
+                  {/* 3. 【店舗の基本情報（結果）】エリア */}
+                  <div className="space-y-6 bg-zinc-900/80 p-6 rounded-xl border border-zinc-800/80 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent"></div>
+                    <div className="border-b border-zinc-800 pb-4 mb-4">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Check className="w-5 h-5 text-amber-500" />
+                        【店舗の基本情報】（結果と最終確認）
+                      </h3>
+                      <p className="text-sm text-zinc-400 mt-1">AIが抽出した結果がここに入ります。間違っている箇所は手動で修正してください。</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500 ml-1">*</span></Label>
+                      <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：The Gentry" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="shopAddress" className="font-medium">住所 <span className="text-red-500 ml-1">*</span></Label>
+                      <Input id="shopAddress" required value={shopInfo.address} onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：長野県長野市〇〇1-2-3" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="shopPhone" className="font-medium">電話番号 <span className="text-red-500 ml-1">*</span></Label>
+                        <Input id="shopPhone" required value={shopInfo.phone} onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：026-000-0000" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="shopLine" className="font-medium">LINE/予約へのアクセスURL <span className="text-red-500 ml-1">*</span></Label>
+                        <Input id="shopLine" required value={shopInfo.lineUrl} onChange={(e) => setShopInfo({ ...shopInfo, lineUrl: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：https://lin.ee/xxxxx" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="shopBusinessHours" className="font-medium">営業時間 <span className="text-red-500 ml-1">*</span></Label>
+                        <Input id="shopBusinessHours" required value={shopInfo.businessHours} onChange={(e) => setShopInfo({ ...shopInfo, businessHours: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：10:00〜20:00" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="shopHolidays" className="font-medium">定休日 <span className="text-red-500 ml-1">*</span></Label>
+                        <Input id="shopHolidays" required value={shopInfo.holidays} onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：毎週火曜・年末年始" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. WordPress 投稿設定 */}
+                  <div className="space-y-4 pt-2">
                     <div>
-                      <Label className="text-amber-500 flex items-center gap-2"><Settings className="w-4 h-4" /> WordPress 連携設定（任意）</Label>
-                      <p className="text-xs text-zinc-500 mb-4 mt-2 leading-relaxed">
-                        WordPressへ直接投稿する際に、カテゴリーやタグ、店舗名（カスタムタクソノミー）を自動でセットしたい場合は以下の欄にそれぞれのIDを数字で入力してください。<br />
-                        ※複数指定する場合は「1,2」のように半角カンマで区切ってください。
+                      <h3 className="font-semibold text-amber-500 flex items-center gap-2 mb-1">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
+                        WordPress 投稿設定（任意）
+                      </h3>
+                      <p className="text-xs text-zinc-400">
+                        WordPressに連携する場合、カテゴリやタグ・著者などのIDを入力してください。投稿をWordPressへ自動送信する際に使われます。
                       </p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="wpCategoryId" className="text-xs text-zinc-400">カテゴリーID</Label>
+                        <Label htmlFor="wpCategoryId" className="font-medium">カテゴリ ID</Label>
                         <Input
                           id="wpCategoryId"
                           value={shopInfo.wpCategoryId || ""}
                           onChange={(e) => setShopInfo({ ...shopInfo, wpCategoryId: e.target.value })}
-                          className="bg-zinc-900 border-zinc-800 focus:border-amber-500/50"
-                          placeholder="例: 1,2"
+                          className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50"
+                          placeholder="例：1"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="wpTagId" className="text-xs text-zinc-400">タグID</Label>
+                        <Label htmlFor="wpTagId" className="font-medium">タグ ID</Label>
                         <Input
                           id="wpTagId"
                           value={shopInfo.wpTagId || ""}
                           onChange={(e) => setShopInfo({ ...shopInfo, wpTagId: e.target.value })}
-                          className="bg-zinc-900 border-zinc-800 focus:border-amber-500/50"
-                          placeholder="例: 3,4"
+                          className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50"
+                          placeholder="例：5"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="wpAuthorId" className="text-xs text-zinc-400 flex items-center gap-1">投稿作成者(ユーザー)ID</Label>
+                        <Label htmlFor="wpAuthorId" className="font-medium">著者（公開者）ID</Label>
                         <Input
                           id="wpAuthorId"
                           value={shopInfo.wpAuthorId || ""}
                           onChange={(e) => setShopInfo({ ...shopInfo, wpAuthorId: e.target.value })}
-                          className="bg-zinc-900 border-zinc-800 focus:border-amber-500/50"
-                          placeholder="例: 2 (空白=管理者)"
+                          className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50"
+                          placeholder="例：1"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4 pt-4 border-t border-zinc-800">
+                  {/* 5. 出力する媒体 */}
+                  <div className="space-y-3 pt-2">
                     <div>
-                      <Label>出力する媒体</Label>
-                      <p className="text-xs text-zinc-500 mb-2">※チェックを入れた媒体のみAIがテキストを生成します。</p>
+                      <h3 className="font-semibold text-zinc-200 mb-1">出力する媒体</h3>
+                      <p className="text-xs text-zinc-400">
+                        テキストを生成したい媒体を選んでください。チェックした媒体のテキストのみ生成します。
+                      </p>
                     </div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:gap-6 pb-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
+                    <div className="flex flex-wrap gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={shopInfo.outputTargets?.instagram ?? true}
-                          onChange={(e) => setShopInfo((prev) => ({ ...prev, outputTargets: { ...prev.outputTargets!, instagram: e.target.checked } }))}
-                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                          onChange={(e) => setShopInfo({
+                            ...shopInfo,
+                            outputTargets: { ...shopInfo.outputTargets!, instagram: e.target.checked }
+                          })}
+                          className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
                         />
-                        <span className="text-sm text-zinc-300">Instagram用</span>
+                        <span className="text-sm text-zinc-200">Instagram用</span>
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={shopInfo.outputTargets?.gbp ?? true}
-                          onChange={(e) => setShopInfo((prev) => ({ ...prev, outputTargets: { ...prev.outputTargets!, gbp: e.target.checked } }))}
-                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                          onChange={(e) => setShopInfo({
+                            ...shopInfo,
+                            outputTargets: { ...shopInfo.outputTargets!, gbp: e.target.checked }
+                          })}
+                          className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
                         />
-                        <span className="text-sm text-zinc-300">Google Map(MEO)用</span>
+                        <span className="text-sm text-zinc-200">Google Map/GBP用</span>
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={shopInfo.outputTargets?.portal ?? true}
-                          onChange={(e) => setShopInfo((prev) => ({ ...prev, outputTargets: { ...prev.outputTargets!, portal: e.target.checked } }))}
-                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                          onChange={(e) => setShopInfo({
+                            ...shopInfo,
+                            outputTargets: { ...shopInfo.outputTargets!, portal: e.target.checked }
+                          })}
+                          className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
                         />
-                        <span className="text-sm text-zinc-300">ブログ(ポータル)用</span>
+                        <span className="text-sm text-zinc-200">ブログ/ポータル用</span>
                       </label>
                     </div>
                   </div>
 
-                  <div className="space-y-4 pt-4 border-t border-zinc-800">
+                  {/* 6. AI画像生成オプション */}
+                  <div className="space-y-3 pt-2">
                     <div>
-                      <Label>AI画像生成オプション（任意）</Label>
-                      <p className="text-xs text-zinc-500 mb-2">※チェックを入れると、テキストと一緒にAIが関連イメージ画像を生成します。（WordPressへの自動サムネイル挿入に対応）</p>
+                      <h3 className="font-semibold text-zinc-200 mb-1">AI画像生成オプション（有料）</h3>
+                      <p className="text-xs text-zinc-400">
+                        テキストと同時にAI画像も生成します。WordPress への投稿時にアイキャッチ画像として使われます。
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2 pb-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={shopInfo.generateImage || false}
-                          onChange={(e) => setShopInfo((prev) => ({ ...prev, generateImage: e.target.checked }))}
-                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500"
-                        />
-                        <span className="text-sm text-zinc-300">テキストと同時にAI画像を生成する（1回約6円目安）</span>
-                      </label>
-                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={shopInfo.generateImage ?? false}
+                        onChange={(e) => setShopInfo({ ...shopInfo, generateImage: e.target.checked })}
+                        className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                      />
+                      <span className="text-sm text-zinc-200">テキストと同時にAI画像を生成する（追加料金で有効化）</span>
+                    </label>
                   </div>
-                  <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold h-12">
-                    設定を保存してはじめる
-                  </Button>
+
+                  <div className="flex flex-col pt-8">
+                    <Button type="submit" className="w-full h-12 text-base font-bold bg-amber-500 hover:bg-amber-600 text-zinc-950 border-none shadow-xl shadow-amber-900/20 rounded-full transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2">
+                      <Check className="w-5 h-5 text-amber-950" />
+                      設定を保存してはじめる
+                    </Button>
+                  </div>
                 </form>
               </CardContent>
             </Card>
@@ -934,7 +987,6 @@ export default function SEOContentGenerator() {
                 </Tabs>
               </section>
             )}
-
           </div>
         )}
       </main>

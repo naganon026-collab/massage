@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import * as cheerio from "cheerio";
 
 export async function POST(req: Request) {
     try {
@@ -9,26 +8,28 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "有効なURLを指定してください。" }, { status: 400 });
         }
 
-        const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) });
+        // Jina Reader を使ってJSレンダリング済みのテキストを取得
+        const jinaUrl = `https://r.jina.ai/${url}`;
+        const res = await fetch(jinaUrl, {
+            headers: {
+                "Accept": "text/plain",
+                "X-Return-Format": "text",
+            },
+            signal: AbortSignal.timeout(20000),
+        });
+
         if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
+            throw new Error(`Jina Reader エラー: ${res.status}`);
         }
 
-        const html = await res.text();
-        const $ = cheerio.load(html);
+        let text = await res.text();
 
-        // ノイズになる不要なタグを削除
-        $('script, style, noscript, nav, footer, header').remove();
-
-        // 本文テキストを抽出し、余分な空白を削除
-        let text = $('body').text().replace(/\s+/g, ' ').trim();
-
-        // トークン数削減のため、1URLあたり最大3000文字でカット
-        if (text.length > 3000) text = text.substring(0, 3000) + '...';
+        // トークン数削減のため、1URLあたり最大4000文字でカット
+        if (text.length > 4000) text = text.substring(0, 4000) + "...";
 
         return NextResponse.json({ text });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Scraping API Error:", error);
-        return NextResponse.json({ error: "WEBサイトからの情報抽出に失敗しました。" }, { status: 500 });
+        return NextResponse.json({ error: "WEBサイトからの情報抽出に失敗しました。時間をおいて再試行してください。" }, { status: 500 });
     }
 }
