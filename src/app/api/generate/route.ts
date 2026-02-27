@@ -18,7 +18,15 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { patternTitle, q1, q2, q3, shopInfo, outputTargets = { instagram: true, gbp: true, portal: true, line: false }, generateImage = false } = body;
+        const {
+            patternTitle,
+            q1,
+            q2,
+            q3,
+            shopInfo,
+            outputTargets = { instagram: true, gbp: true, portal: true, line: false },
+            news
+        } = body;
 
         const shopName = shopInfo?.name || "The Gentry";
         const shopAddress = shopInfo?.address || "長野市";
@@ -117,7 +125,23 @@ ${toneInstruction}
 {${jsonFormatGuide}
 }`;
 
-        const userPrompt = `以下の情報を元に、人間味あふれる最高のテキストを作成してください。
+        const userPrompt = news && news.title
+            ? `以下の【ニュース】と【店舗情報】を掛け合わせて、人間味のある投稿テキストを作成してください。
+
+【ニュースの概要】
+タイトル: ${news.title || "記載なし"}
+要約・ポイント: ${news.snippet || "記載なし"}
+URL: ${news.link || "記載なし"}
+
+【今回のテーマ】
+${patternTitle}
+
+【店舗の立場】
+- あなたは${shopAddress}の${shopIndustry}「${shopName}」のオーナーです。
+- 上記ニュースを見たお客様に対して、「専門家としてのコメント」＋「お店ならではの提案」＋「来店や予約への一言」を、自然な流れで伝えてください。
+- ニュース本文をそのまま引用するのではなく、「要約」と「あなたの言葉」で説明してください。
+`
+            : `以下の情報を元に、人間味あふれる最高のテキストを作成してください。
 
 【今回のテーマ】
 ${patternTitle}
@@ -156,47 +180,6 @@ ${q3 || "記載なし"}
         }
 
         const generatedResults = JSON.parse(resultText);
-
-        // 画像生成オプションが有効な場合、DALL-E 3 を呼び出す
-        if (generateImage && process.env.OPENAI_API_KEY) {
-            try {
-                // 生成されたテキストの雰囲気を反映させるため、テキストの一部をプロンプトのヒントに使う
-                const contentHint = generatedResults.portalTitle || generatedResults.instagram?.substring(0, 50) || patternTitle;
-
-                // 店舗名などの文字が入ると文字化けしやすいため、情景描写を中心に生成プロンプトを作成
-                const imagePrompt = `【重要】必ず1枚の繋がった写真（シングルフレーム）にしてください。画面が上下や左右に分割されたり、複数の写真がコラージュされた画像は絶対に避けてください。文字やテキスト、ロゴも一切含めないでください。
-プロの写真家が撮影したような、高品質で美しい横長（ランドスケープ）の写真。
-テーマ・文脈: 「${contentHint}」
-上記の文脈に関連する、悩みや問題が解決し癒やされている様子、または高品質なリラクゼーション・サービスのイメージ表現。温かみのあるライティングと落ち着いた雰囲気で、店舗の公式ウェブサイトのトップ画像としてふさわしい、清潔感があり来店意欲を高める一枚の写真にしてください。`;
-
-                const imageRes = await fetch("https://api.openai.com/v1/images/generations", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: "dall-e-3",
-                        prompt: imagePrompt,
-                        n: 1,
-                        size: "1792x1024", // DALL-E 3 supports 1024x1024, 1024x1792, or 1792x1024
-                        style: "natural" // よりリアルな写真に近づけるため自然なスタイルを指定
-                    })
-                });
-
-                if (imageRes.ok) {
-                    const imageData = await imageRes.json();
-                    if (imageData.data && imageData.data[0] && imageData.data[0].url) {
-                        generatedResults.imageUrl = imageData.data[0].url;
-                    }
-                } else {
-                    console.error("DALL-E 3 API Error:", await imageRes.text());
-                }
-            } catch (imgErr) {
-                console.error("Failed to generate image:", imgErr);
-                // 画像生成が失敗してもテキスト自体は返す
-            }
-        }
 
         return NextResponse.json(generatedResults);
     } catch (error: any) {

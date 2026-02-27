@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Copy, Loader2, Sparkles, Check, ChevronRight, ChevronLeft, Settings, Send, LogOut, History, Clock, Pencil, Trash2, Globe, FileText } from "lucide-react";
+import { Copy, Loader2, Sparkles, Check, ChevronRight, ChevronLeft, Settings, Send, LogOut, History, Clock, Pencil, Trash2, Globe, FileText, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToastContainer, useToast } from "@/components/ui/toast";
 
-type Pattern = "A" | "B" | "C" | "D" | "E" | "F" | "G";
+type Pattern = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
+
+const ADMIN_EMAIL = "naganon026@gmail.com";
 
 // 生成履歴の1件分の型
 interface HistoryEntry {
@@ -24,6 +26,8 @@ interface HistoryEntry {
     platform?: "sns" | "gbp";
     receivedComment?: string;
     replyNote?: string;
+    newsTitle?: string;
+    newsLink?: string;
   };
   results: {
     instagram?: string; gbp?: string;
@@ -45,6 +49,12 @@ interface PatternData {
     q3: string;
     ex3: string;
   };
+}
+
+interface NewsItem {
+  title: string;
+  link: string;
+  snippet: string;
 }
 
 const PATTERNS: PatternData[] = [
@@ -138,6 +148,19 @@ const PATTERNS: PatternData[] = [
       q3: "",
       ex3: "",
     }
+  },
+  {
+    id: "H",
+    title: "ニュース連動ポスト（業種別）",
+    description: "Googleニュースの最新トピックを元に、あなたのお店目線のコメント付き投稿を自動生成します。",
+    questions: {
+      q1: "",
+      ex1: "",
+      q2: "",
+      ex2: "",
+      q3: "",
+      ex3: "",
+    }
   }
 ];
 
@@ -163,7 +186,6 @@ export interface ShopInfo {
     portal: boolean;
     line: boolean;
   };
-  generateImage?: boolean;
 }
 
 export default function SEOContentGenerator() {
@@ -173,8 +195,7 @@ export default function SEOContentGenerator() {
   const [shopInfo, setShopInfo] = useState<ShopInfo>({
     name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
     wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-    outputTargets: { instagram: true, gbp: true, portal: true, line: true },
-    generateImage: false
+    outputTargets: { instagram: true, gbp: true, portal: true, line: true }
   });
   const [isConfigured, setIsConfigured] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -196,6 +217,12 @@ export default function SEOContentGenerator() {
   const [replyPlatform, setReplyPlatform] = useState<"sns" | "gbp">("sns");
   const [receivedComment, setReceivedComment] = useState("");
   const [replyNote, setReplyNote] = useState("");
+  // パターンH（ニュース連動）専用の状態
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [selectedNewsIndex, setSelectedNewsIndex] = useState<number | null>(null);
+  const [isLoadingNews, setIsLoadingNews] = useState(false);
+  // クイック設定編集用のフローティング画面
+  const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<{
     instagram?: string;
@@ -251,8 +278,7 @@ export default function SEOContentGenerator() {
         setShopInfo({
           name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", scrapedContent: "", referenceUrls: [],
           wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-          outputTargets: { instagram: true, gbp: true, portal: true, line: true },
-          generateImage: false
+          outputTargets: { instagram: true, gbp: true, portal: true, line: true }
         });
         setScrapedPreview("");
         // ログアウト時はsessionStorageもクリア
@@ -522,12 +548,78 @@ export default function SEOContentGenerator() {
     }
   };
 
+  const handleFetchNews = async () => {
+    if (!shopInfo.industry) {
+      addToast("まず初期設定で業種を入力してください。", "error");
+      return;
+    }
+    setIsLoadingNews(true);
+    try {
+      const res = await fetch("/api/news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          industry: shopInfo.industry,
+          address: shopInfo.address || "",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "ニュースの取得に失敗しました。");
+      }
+      const articles: NewsItem[] = data.articles || [];
+      setNewsItems(articles);
+      setSelectedNewsIndex(articles.length > 0 ? 0 : null);
+      if (articles.length > 0) {
+        addToast(`ニュース候補を${articles.length}件取得しました。`, "success");
+      } else {
+        addToast("本日は該当するニュースはありませんでした。", "error");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        addToast(error.message, "error");
+      } else {
+        addToast("ニュースの取得中にエラーが発生しました。", "error");
+      }
+    } finally {
+      setIsLoadingNews(false);
+    }
+  };
+
+  const handleQuickSaveSettings = async () => {
+    if (!shopInfo.industry || !shopInfo.industry.trim()) {
+      addToast("業種を入力してください。", "error");
+      return;
+    }
+    if (!shopInfo.name || !shopInfo.name.trim()) {
+      addToast("店舗名を入力してください。", "error");
+      return;
+    }
+    if (!shopInfo.address || !shopInfo.address.trim()) {
+      addToast("住所を入力してください。", "error");
+      return;
+    }
+    if (!shopInfo.sampleTexts || !shopInfo.sampleTexts.trim()) {
+      addToast("文章サンプルを2〜3件コピペしてください。", "error");
+      return;
+    }
+    if (!user) {
+      addToast("ログインしてから設定を保存してください。", "error");
+      return;
+    }
+    await saveShopInfo(shopInfo);
+    addToast("設定を保存しました。", "success");
+    setShowSettingsOverlay(false);
+  };
+
   const handlePatternChange = (patternId: Pattern) => {
     setSelectedPattern(patternId);
     setFormData({ q1: "", q2: "", q3: "" });
     // パターンG専用フォームをリセット
     setReceivedComment("");
     setReplyNote("");
+    setNewsItems([]);
+    setSelectedNewsIndex(null);
     setGeneratedResults(null);
   };
 
@@ -598,28 +690,47 @@ export default function SEOContentGenerator() {
   };
 
   const handleGenerate = async () => {
+    if (selectedPattern === "H") {
+      if (selectedNewsIndex === null || !newsItems[selectedNewsIndex]) {
+        addToast("まずニュースを選択してください。", "error");
+        return;
+      }
+    }
     setIsGenerating(true);
 
     try {
       // パターンGはコメント返信専用エンドポイントを使用
       const endpoint = selectedPattern === "G" ? "/api/generate-reply" : "/api/generate";
-      const requestBody = selectedPattern === "G"
-        ? {
-          patternTitle: currentPattern.title,
-          platform: replyPlatform,
-          receivedComment,
-          replyNote,
-          shopInfo,
-        }
-        : {
-          patternTitle: currentPattern.title,
-          q1: formData.q1,
-          q2: formData.q2,
-          q3: formData.q3,
-          shopInfo: shopInfo,
-          outputTargets: shopInfo.outputTargets || { instagram: true, gbp: true, portal: true },
-          generateImage: shopInfo.generateImage || false,
-        };
+      const selectedNews = selectedPattern === "H" && selectedNewsIndex !== null
+        ? newsItems[selectedNewsIndex]
+        : undefined;
+      const requestBody =
+        selectedPattern === "G"
+          ? {
+            patternTitle: currentPattern.title,
+            platform: replyPlatform,
+            receivedComment,
+            replyNote,
+            shopInfo,
+          }
+          : selectedPattern === "H"
+            ? {
+              patternTitle: currentPattern.title,
+              q1: "",
+              q2: "",
+              q3: "",
+              shopInfo: shopInfo,
+              outputTargets: shopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
+              news: selectedNews,
+            }
+            : {
+              patternTitle: currentPattern.title,
+              q1: formData.q1,
+              q2: formData.q2,
+              q3: formData.q3,
+              shopInfo: shopInfo,
+              outputTargets: shopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
+            };
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -651,9 +762,12 @@ export default function SEOContentGenerator() {
 
       // 生成成功後、Supabaseに履歴を保存（エラーは無視して続行）
       if (user) {
-        const inputs = selectedPattern === 'G'
-          ? { platform: replyPlatform, receivedComment, replyNote }
-          : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
+        const inputs =
+          selectedPattern === 'G'
+            ? { platform: replyPlatform, receivedComment, replyNote }
+            : selectedPattern === 'H'
+              ? { newsTitle: selectedNews?.title, newsLink: selectedNews?.link }
+              : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
         supabase.from('generation_history').insert({
           user_id: user.id,
           pattern_id: selectedPattern,
@@ -747,6 +861,265 @@ export default function SEOContentGenerator() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-amber-500/30 pb-20">
+      {/* クイック設定編集用フローティング画面 */}
+      {showSettingsOverlay && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-24 md:pt-28"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowSettingsOverlay(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-amber-500" />
+                <h2 className="text-base font-semibold text-white">店舗設定の編集</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettingsOverlay(false)}
+                className="text-zinc-500 hover:text-zinc-200 text-sm"
+              >
+                閉じる ✕
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-6 overflow-y-auto">
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">
+                  初期設定で登録した内容を、一覧でまとめて編集できます。変更内容は「設定を保存する」を押すとクラウドに反映されます。
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quickIndustry" className="text-sm font-medium text-zinc-200">
+                      業種 <span className="text-red-400 text-xs align-middle">*</span>
+                    </Label>
+                    <Input
+                      id="quickIndustry"
+                      value={shopInfo.industry || ""}
+                      onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })}
+                      placeholder="例：整体院、美容室、カフェ"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickName" className="text-sm font-medium text-zinc-200">
+                      店舗名 <span className="text-red-400 text-xs align-middle">*</span>
+                    </Label>
+                    <Input
+                      id="quickName"
+                      value={shopInfo.name}
+                      onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })}
+                      placeholder="例：The Gentry"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickAddress" className="text-sm font-medium text-zinc-200">
+                      住所 <span className="text-red-400 text-xs align-middle">*</span>
+                    </Label>
+                    <Input
+                      id="quickAddress"
+                      value={shopInfo.address}
+                      onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })}
+                      placeholder="例：長野県長野市〇〇1-2-3"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickPhone" className="text-sm font-medium text-zinc-200">電話番号</Label>
+                    <Input
+                      id="quickPhone"
+                      type="tel"
+                      value={shopInfo.phone}
+                      onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })}
+                      placeholder="例：026-000-0000"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickLine" className="text-sm font-medium text-zinc-200">LINE/予約URL</Label>
+                    <Input
+                      id="quickLine"
+                      type="url"
+                      value={shopInfo.lineUrl}
+                      onChange={(e) => setShopInfo({ ...shopInfo, lineUrl: e.target.value })}
+                      placeholder="例：https://lin.ee/xxxxx"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickBusinessHours" className="text-sm font-medium text-zinc-200">営業時間</Label>
+                    <Input
+                      id="quickBusinessHours"
+                      value={shopInfo.businessHours}
+                      onChange={(e) => setShopInfo({ ...shopInfo, businessHours: e.target.value })}
+                      placeholder="例：10:00〜20:00"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickHolidays" className="text-sm font-medium text-zinc-200">定休日</Label>
+                    <Input
+                      id="quickHolidays"
+                      value={shopInfo.holidays}
+                      onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })}
+                      placeholder="例：毎週火曜・年末年始"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quickSampleTexts" className="text-sm font-medium text-zinc-200">
+                      文章サンプル <span className="text-red-400 text-xs align-middle">*</span>
+                    </Label>
+                    <Textarea
+                      id="quickSampleTexts"
+                      required
+                      value={shopInfo.sampleTexts || ""}
+                      onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
+                      placeholder="今までの投稿文を2〜3件コピペすると、文体を学習します。"
+                      className="min-h-[80px] bg-zinc-950 border-zinc-800 text-zinc-100 resize-y"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickSnsUrl" className="text-sm font-medium text-zinc-200">SNS URL（任意）</Label>
+                    <Input
+                      id="quickSnsUrl"
+                      type="url"
+                      value={shopInfo.snsUrl || ""}
+                      onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
+                      placeholder="例：https://instagram.com/〇〇"
+                      className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quickFeatures" className="text-sm font-medium text-zinc-200">その他特記事項（任意）</Label>
+                    <Textarea
+                      id="quickFeatures"
+                      value={shopInfo.features}
+                      onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })}
+                      placeholder="例：完全個室／無料駐車場あり／メンズ専用　など"
+                      className="min-h-[80px] bg-zinc-950 border-zinc-800 text-zinc-100 resize-y"
+                    />
+                  </div>
+                  {user?.email === ADMIN_EMAIL && (
+                    <div className="space-y-3 pt-2 border-t border-zinc-800">
+                      <Label className="text-sm font-medium text-zinc-200">WordPress 投稿設定（任意）</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <Input
+                          placeholder="カテゴリID"
+                          value={shopInfo.wpCategoryId || ""}
+                          onChange={(e) => setShopInfo({ ...shopInfo, wpCategoryId: e.target.value })}
+                          className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                        <Input
+                          placeholder="タグID"
+                          value={shopInfo.wpTagId || ""}
+                          onChange={(e) => setShopInfo({ ...shopInfo, wpTagId: e.target.value })}
+                          className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                        <Input
+                          placeholder="著者ID"
+                          value={shopInfo.wpAuthorId || ""}
+                          onChange={(e) => setShopInfo({ ...shopInfo, wpAuthorId: e.target.value })}
+                          className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-2 pt-2 border-t border-zinc-800">
+                    <Label className="text-sm font-medium text-zinc-200">出力する媒体</Label>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={shopInfo.outputTargets?.instagram ?? true}
+                          onChange={(e) =>
+                            setShopInfo({
+                              ...shopInfo,
+                              outputTargets: { ...shopInfo.outputTargets!, instagram: e.target.checked },
+                            })
+                          }
+                          className="w-4 h-4 rounded accent-amber-500"
+                        />
+                        Instagram用
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={shopInfo.outputTargets?.gbp ?? true}
+                          onChange={(e) =>
+                            setShopInfo({
+                              ...shopInfo,
+                              outputTargets: { ...shopInfo.outputTargets!, gbp: e.target.checked },
+                            })
+                          }
+                          className="w-4 h-4 rounded accent-amber-500"
+                        />
+                        Google Map/GBP用
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={shopInfo.outputTargets?.portal ?? true}
+                          onChange={(e) =>
+                            setShopInfo({
+                              ...shopInfo,
+                              outputTargets: { ...shopInfo.outputTargets!, portal: e.target.checked },
+                            })
+                          }
+                          className="w-4 h-4 rounded accent-amber-500"
+                        />
+                        ブログ/ポータル用
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={shopInfo.outputTargets?.line ?? true}
+                          onChange={(e) =>
+                            setShopInfo({
+                              ...shopInfo,
+                              outputTargets: { ...shopInfo.outputTargets!, line: e.target.checked },
+                            })
+                          }
+                          className="w-4 h-4 rounded accent-amber-500"
+                        />
+                        LINE用
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-zinc-800 flex justify-end gap-3 bg-zinc-950/80">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                onClick={() => setShowSettingsOverlay(false)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                onClick={handleQuickSaveSettings}
+              >
+                設定を保存する
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -755,7 +1128,7 @@ export default function SEOContentGenerator() {
               <Sparkles className="w-5 h-5 text-zinc-950" />
             </div>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 truncate">
-              {shopInfo.name || "店舗"} <span className="text-zinc-400 font-normal text-sm hidden sm:inline-block">- Post Support</span>
+              Post Support
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -763,12 +1136,7 @@ export default function SEOContentGenerator() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  // 2回目以降の設定ボタンでは、一覧しやすい基本情報ステップから開始
-                  setSetupStep(2);
-                  setSetupPath(shopInfo.scrapedContent ? "url" : "manual");
-                  setIsConfigured(false);
-                }}
+                onClick={() => setShowSettingsOverlay(true)}
                 className="text-zinc-400 hover:text-white hidden sm:flex"
               >
                 <Settings className="w-4 h-4 mr-2" />
@@ -904,8 +1272,8 @@ export default function SEOContentGenerator() {
                           <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：The Gentry" />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="shopAddress" className="font-medium">住所 {!minimalStart && <span className="text-red-500">*</span>}</Label>
-                          <Input id="shopAddress" required={!minimalStart} value={shopInfo.address} onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：長野県長野市〇〇1-2-3" />
+                          <Label htmlFor="shopAddress" className="font-medium">住所 <span className="text-red-500">*</span></Label>
+                          <Input id="shopAddress" required value={shopInfo.address} onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：長野県長野市〇〇1-2-3" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -949,7 +1317,7 @@ export default function SEOContentGenerator() {
                         </h3>
                         <p className="text-sm text-zinc-400 mt-1">任意の項目は後から設定画面で変更できます。</p>
                       </div>
-                      {/* 任意: SNS・サンプル文・特記事項（折りたたみ） */}
+                      {/* 文体サンプル・SNS・特記事項（折りたたみ） */}
                       <details className="group bg-zinc-800/20 rounded-xl border border-zinc-800/50 overflow-hidden">
                         <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between text-sm text-zinc-300 hover:bg-zinc-800/30">
                           <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> あなたらしさ（文調の学習）・特記事項</span>
@@ -957,12 +1325,28 @@ export default function SEOContentGenerator() {
                         </summary>
                         <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
                           <div className="space-y-2">
-                            <Label htmlFor="shopSnsUrl" className="text-sm">SNSのURL（任意）</Label>
-                            <Input id="shopSnsUrl" type="url" value={shopInfo.snsUrl || ""} onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })} placeholder="例：https://instagram.com/〇〇" className="bg-zinc-950 border-zinc-800 text-zinc-100" />
+                            <Label htmlFor="shopSampleTexts" className="text-sm">
+                              今まで書いた文章のサンプル（2〜3投稿分コピペ） <span className="text-red-400 text-xs align-middle">*</span>
+                            </Label>
+                            <Textarea
+                              id="shopSampleTexts"
+                              required
+                              value={shopInfo.sampleTexts || ""}
+                              onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
+                              placeholder="例：これまでSNSに投稿していた文章を2〜3件コピペすると、文体を学習します。"
+                              className="h-[100px] bg-zinc-950 border-zinc-800 text-zinc-100 resize-none"
+                            />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="shopSampleTexts" className="text-sm">今まで書いた文章のサンプル（任意）</Label>
-                            <Textarea id="shopSampleTexts" value={shopInfo.sampleTexts || ""} onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })} placeholder="2〜3投稿分をコピペ" className="h-[100px] bg-zinc-950 border-zinc-800 text-zinc-100 resize-none" />
+                            <Label htmlFor="shopSnsUrl" className="text-sm">SNSのURL（任意）</Label>
+                            <Input
+                              id="shopSnsUrl"
+                              type="url"
+                              value={shopInfo.snsUrl || ""}
+                              onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
+                              placeholder="例：https://instagram.com/〇〇"
+                              className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="shopFeatures" className="text-sm">その他特記事項（任意）</Label>
@@ -970,27 +1354,29 @@ export default function SEOContentGenerator() {
                           </div>
                         </div>
                       </details>
-                      {/* WordPress */}
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-amber-500 text-sm flex items-center gap-2">
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" /></svg>
-                          WordPress 投稿設定（任意）
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="space-y-1">
-                            <Label htmlFor="wpCategoryId" className="text-xs">カテゴリ ID</Label>
-                            <Input id="wpCategoryId" value={shopInfo.wpCategoryId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpCategoryId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：1" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor="wpTagId" className="text-xs">タグ ID</Label>
-                            <Input id="wpTagId" value={shopInfo.wpTagId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpTagId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：5" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor="wpAuthorId" className="text-xs">著者 ID</Label>
-                            <Input id="wpAuthorId" value={shopInfo.wpAuthorId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpAuthorId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：1" />
+                      {/* WordPress（管理者のみ表示） */}
+                      {user?.email === ADMIN_EMAIL && (
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-amber-500 text-sm flex items-center gap-2">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" /></svg>
+                            WordPress 投稿設定（任意）
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-1">
+                              <Label htmlFor="wpCategoryId" className="text-xs">カテゴリ ID</Label>
+                              <Input id="wpCategoryId" value={shopInfo.wpCategoryId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpCategoryId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：1" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="wpTagId" className="text-xs">タグ ID</Label>
+                              <Input id="wpTagId" value={shopInfo.wpTagId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpTagId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：5" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="wpAuthorId" className="text-xs">著者 ID</Label>
+                              <Input id="wpAuthorId" value={shopInfo.wpAuthorId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpAuthorId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：1" />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                       {/* 出力媒体 */}
                       <div className="space-y-3">
                         <h4 className="font-semibold text-zinc-200 text-sm">出力する媒体</h4>
@@ -1013,11 +1399,6 @@ export default function SEOContentGenerator() {
                           </label>
                         </div>
                       </div>
-                      {/* AI画像 */}
-                      <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
-                        <input type="checkbox" checked={shopInfo.generateImage ?? false} onChange={(e) => setShopInfo({ ...shopInfo, generateImage: e.target.checked })} className="w-4 h-4 rounded accent-amber-500" />
-                        テキストと同時にAI画像を生成する（有料オプション）
-                      </label>
                       <div className="flex gap-3 pt-6">
                         <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(2)}>
                           <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
@@ -1191,7 +1572,11 @@ export default function SEOContentGenerator() {
               <div className="flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">2</span>
                 <h2 className="text-xl font-semibold">
-                  {selectedPattern === "G" ? "返信する内容の入力" : "事実（ファクト）の入力"}
+                  {selectedPattern === "G"
+                    ? "返信する内容の入力"
+                    : selectedPattern === "H"
+                      ? "ニュースの選択"
+                      : "事実（ファクト）の入力"}
                 </h2>
               </div>
 
@@ -1257,6 +1642,85 @@ export default function SEOContentGenerator() {
                     </div>
                   </CardContent>
                 </Card>
+              ) : selectedPattern === "H" ? (
+                /* パターンH：ニュース連動フォーム */
+                <Card className="border-zinc-800 bg-zinc-900">
+                  <CardContent className="p-6 space-y-6">
+                    <div className="space-y-2">
+                      <Label className="text-base text-zinc-200 flex items-center gap-2">
+                        <Newspaper className="w-4 h-4 text-amber-500" />
+                        業種に関連するニュースを選んでください
+                      </Label>
+                      <p className="text-xs text-zinc-500">
+                        Googleニュースから、あなたの業種（{shopInfo.industry || "未設定"}）に関連する最新トピックを取得します。
+                        気になるニュースを1つ選ぶと、その話題にお店ならではのコメントを添えた投稿を生成します。
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={handleFetchNews}
+                        disabled={isLoadingNews || !shopInfo.industry}
+                        className="mt-1 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold disabled:opacity-60"
+                      >
+                        {isLoadingNews ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            ニュースを読み込み中...
+                          </>
+                        ) : (
+                          <>
+                            <Newspaper className="w-4 h-4" />
+                            ニュース候補を取得する
+                          </>
+                        )}
+                      </Button>
+                      {!shopInfo.industry && (
+                        <p className="text-xs text-red-400 mt-1">
+                          ※ 先に初期設定で「業種」を入力してください。
+                        </p>
+                      )}
+                    </div>
+
+                    {newsItems.length > 0 && (
+                      <div className="space-y-3 pt-2 border-t border-zinc-800">
+                        <p className="text-xs text-zinc-400">下の中から、投稿の題材にしたいニュースを1つ選んでください。</p>
+                        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                          {newsItems.map((news, index) => (
+                            <label
+                              key={news.link || news.title + index}
+                              className={`flex gap-3 p-3 rounded-lg border text-sm cursor-pointer transition-colors ${selectedNewsIndex === index
+                                ? "border-amber-500 bg-amber-500/5"
+                                : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                className="mt-1 accent-amber-500"
+                                checked={selectedNewsIndex === index}
+                                onChange={() => setSelectedNewsIndex(index)}
+                              />
+                              <div className="space-y-1 flex-1">
+                                <p className="font-semibold text-zinc-100 text-sm">{news.title}</p>
+                                {news.snippet && (
+                                  <p className="text-xs text-zinc-400 line-clamp-3">{news.snippet}</p>
+                                )}
+                                {news.link && (
+                                  <a
+                                    href={news.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-amber-400 hover:underline"
+                                  >
+                                    記事を開く ↗
+                                  </a>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               ) : (
                 /* 通常パターン（A〜F）フォーム */
                 <Card className="border-zinc-800 bg-zinc-900">
@@ -1303,7 +1767,7 @@ export default function SEOContentGenerator() {
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-950 font-bold text-lg h-16 w-full max-w-sm rounded-full shadow-lg shadow-amber-900/20 transition-all active:scale-95 group flex items-center justify-center gap-2"
+                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-950 font-semibold text-base h-11 px-10 min-w-[260px] rounded-full shadow-md shadow-amber-900/20 transition-all active:scale-95 group flex items-center justify-center gap-3"
               >
                 {isGenerating ? (
                   <>
@@ -1482,15 +1946,7 @@ export default function SEOContentGenerator() {
                                   <p className="text-zinc-500 text-xs">※上記のタイトルと下の本文がWordPressに送信されます。</p>
                                 </div>
                               )}
-                              {tab.id === "portal" && generatedResults.imageUrl && (
-                                <div className="mb-6">
-                                  <p className="text-zinc-400 text-xs mb-2 font-semibold uppercase tracking-wider">生成されたイメージ画像（アイキャッチ対象）</p>
-                                  <div className="relative w-full max-w-md aspect-square rounded-lg overflow-hidden border border-zinc-800">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={generatedResults.imageUrl} alt="AI生成画像" className="w-full h-full object-cover" />
-                                  </div>
-                                </div>
-                              )}
+                              {/* 画像生成オプションは廃止済みのため、画像プレビューは表示しない */}
                               {/* 本文表示：編集モード or 閲覧モード */}
                               {editingTab === tab.id ? (
                                 <textarea
