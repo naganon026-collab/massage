@@ -18,15 +18,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const {
-            patternTitle,
-            q1,
-            q2,
-            q3,
-            shopInfo,
-            outputTargets = { instagram: true, gbp: true, portal: true, line: false },
-            news
-        } = body;
+        const { patternTitle, q1, q2, q3, shopInfo, outputTargets = { instagram: true, gbp: true, portal: true, line: false } } = body;
 
         const shopName = shopInfo?.name || "The Gentry";
         const shopAddress = shopInfo?.address || "長野市";

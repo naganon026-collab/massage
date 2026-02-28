@@ -60,6 +60,50 @@ function validateUrl(rawUrl: string): { valid: boolean; reason?: string } {
     return { valid: true };
 }
 
+/**
+ * HTMLからプレーンテキストを抽出する。
+ * script/style/noscriptなどの不要タグを除去し、ブロック要素を改行に変換した後、
+ * 全HTMLタグを削除してHTMLエンティティをデコードする。
+ */
+function extractTextFromHtml(html: string): string {
+    // script / style / noscript タグとその中身を削除
+    let text = html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+        .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "");
+
+    // ブロック要素・改行タグを改行に変換
+    text = text.replace(/<\/(p|div|li|h[1-6]|tr|blockquote|section|article|header|footer|main|nav|aside)>/gi, "\n");
+    text = text.replace(/<br\s*\/?>/gi, "\n");
+
+    // 残った全HTMLタグを除去
+    text = text.replace(/<[^>]+>/g, "");
+
+    // HTMLエンティティをデコード
+    text = text
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, "\"")
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+
+    // 連続する空行を除去して整形
+    text = text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .join("\n");
+
+    // 15,000文字を超えたら切り捨て（AIの入力上限対策）
+    if (text.length > 15000) {
+        text = text.substring(0, 15000) + "...";
+    }
+
+    return text;
+}
+
 export async function POST(req: Request) {
     // 認証チェック: ログインしていないユーザーは 401 を返す
     const authResult = await requireAuth();
@@ -78,24 +122,30 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: reason || "無効なURLです。" }, { status: 400 });
         }
 
-        // Jina Reader を使ってJSレンダリング済みのテキストを取得
-        const jinaUrl = `https://r.jina.ai/${url}`;
-        const res = await fetch(jinaUrl, {
+        // ① ブラウザ偽装してHTMLを取得（ボットブロック回避）
+        const res = await fetch(url, {
             headers: {
-                "Accept": "text/plain",
-                "X-Return-Format": "text",
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept":
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
             },
-            signal: AbortSignal.timeout(20000),
+            signal: AbortSignal.timeout(10000), // 10秒タイムアウト
         });
 
         if (!res.ok) {
-            throw new Error(`Jina Reader エラー: ${res.status}`);
+            throw new Error(`サイトの取得に失敗しました: HTTP ${res.status}`);
         }
 
-        let text = await res.text();
+        const html = await res.text();
 
-        // トークン数削減のため、1URLあたり最大4000文字でカット
-        if (text.length > 4000) text = text.substring(0, 4000) + "...";
+        // ② HTMLからテキストを抽出
+        const text = extractTextFromHtml(html);
+
+        if (!text) {
+            throw new Error("テキストを抽出できませんでした。");
+        }
 
         return NextResponse.json({ text });
     } catch (error: unknown) {

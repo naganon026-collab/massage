@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Copy, Loader2, Sparkles, Check, ChevronRight, ChevronLeft, Settings, Send, LogOut, History, Clock, Pencil, Trash2, Globe, FileText, Newspaper } from "lucide-react";
+import { Copy, Loader2, Sparkles, Check, ChevronRight, ChevronLeft, Settings, Send, LogOut, History, Clock, Pencil, Trash2, Globe, FileText, Newspaper, Store, PlusCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,15 @@ import { ToastContainer, useToast } from "@/components/ui/toast";
 type Pattern = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
 
 const ADMIN_EMAIL = "naganon026@gmail.com";
+
+// 管理者が登録した店舗の型
+interface StoreRecord {
+  id: string;
+  name: string;
+  settings: ShopInfo;
+  created_at: string;
+  updated_at: string;
+}
 
 // 生成履歴の1件分の型
 interface HistoryEntry {
@@ -223,6 +232,32 @@ export default function SEOContentGenerator() {
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   // クイック設定編集用のフローティング画面
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
+
+  // ===== 管理者向け複数店舗管理 =====
+  // 登録済み店舗一覧
+  const [stores, setStores] = useState<StoreRecord[]>([]);
+  // 生成対象として選択中の店舗ID（nullは未選択=shopInfo使用）
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  // 管理パネルの表示フラグ
+  const [showStoreManager, setShowStoreManager] = useState(false);
+  // 新規店舗登録フォームの表示フラグ
+  const [showStoreForm, setShowStoreForm] = useState(false);
+  // 編集中の店舗ID（nullは新規登録）
+  const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
+  // 店舗フォームのデータ
+  const [storeFormData, setStoreFormData] = useState<ShopInfo>({
+    name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "",
+    features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
+    wpCategoryId: "", wpTagId: "", wpAuthorId: "",
+    outputTargets: { instagram: true, gbp: true, portal: true, line: true }
+  });
+  const [isSavingStore, setIsSavingStore] = useState(false);
+  const [isDeletingStore, setIsDeletingStore] = useState<string | null>(null);
+  const [storeScrapeUrl, setStoreScrapeUrl] = useState("");
+  const [isScrapingStore, setIsScrapingStore] = useState(false);
+  const [storeMinimalStart, setStoreMinimalStart] = useState(false);
+  const [settingsScrapeUrl, setSettingsScrapeUrl] = useState("");
+  const [isScrapingSettings, setIsScrapingSettings] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<{
     instagram?: string;
@@ -285,6 +320,8 @@ export default function SEOContentGenerator() {
         sessionStorage.removeItem('shopInfoDraft');
         setIsConfigured(false);
         setIsLoading(false);
+        setStores([]);
+        setSelectedStoreId(null);
       }
     });
 
@@ -311,13 +348,24 @@ export default function SEOContentGenerator() {
         setShopInfo((prev) => ({ ...prev, ...data.settings }));
         if (data.settings.scrapedContent) setScrapedPreview(data.settings.scrapedContent);
       }
-      // 設定が存在する場合は通常画面からスタート
+      // 設定が存在する場合は通常画面からスットく
       setIsConfigured(true);
     } else {
-      // 設定がまだない場合は初期設定ステップから
-      setIsConfigured(false);
+      // 設定がまだない場合
+      // 管理者は店舗登録が主目的なので初期設定スキップ
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      if (currentUser?.email === ADMIN_EMAIL) {
+        setIsConfigured(true);
+      } else {
+        setIsConfigured(false);
+      }
     }
     await fetchHistory(userId); // ログイン後に生成履歴を読み込む
+    // 管理者の場合はstoresも取得
+    const currentUser2 = (await supabase.auth.getUser()).data.user;
+    if (currentUser2?.email === ADMIN_EMAIL) {
+      await fetchStores();
+    }
     setIsLoading(false);
   };
 
@@ -352,6 +400,219 @@ export default function SEOContentGenerator() {
     }
     setShowHistory(false);
     setTimeout(() => window.scrollTo({ top: 999, behavior: 'smooth' }), 100);
+  };
+
+  // ===== 管理者向け店舗 CRUD =====
+
+  /** storesテーブルから全店舗を取得する */
+  const fetchStores = async () => {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('id, name, settings, created_at, updated_at')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setStores(data as StoreRecord[]);
+    }
+  };
+
+  /** 店舗を新規作成または更新して保存する */
+  const handleSaveStore = async () => {
+    if (!storeFormData.name?.trim()) {
+      addToast("店舗名を入力してください。", "error");
+      return;
+    }
+    if (!storeFormData.industry?.trim()) {
+      addToast("業種を入力してください。", "error");
+      return;
+    }
+    if (!storeMinimalStart) {
+      if (!storeFormData.address?.trim()) {
+        addToast("住所を入力してください。", "error");
+        return;
+      }
+      if (!storeFormData.phone?.trim()) {
+        addToast("電話番号を入力してください。", "error");
+        return;
+      }
+      if (!storeFormData.lineUrl?.trim()) {
+        addToast("LINE/予約URLを入力してください。", "error");
+        return;
+      }
+      if (!storeFormData.businessHours?.trim()) {
+        addToast("営業時間を入力してください。", "error");
+        return;
+      }
+      if (!storeFormData.holidays?.trim()) {
+        addToast("定休日を入力してください。", "error");
+        return;
+      }
+    }
+    setIsSavingStore(true);
+    try {
+      if (editingStoreId) {
+        // 既存店舗の更新
+        const { error } = await supabase.from('stores').update({
+          name: storeFormData.name,
+          settings: storeFormData,
+          updated_at: new Date().toISOString(),
+        }).eq('id', editingStoreId);
+        if (error) throw error;
+        addToast("店舗情報を更新しました。", "success");
+      } else {
+        // 新規店舗の作成
+        const { error } = await supabase.from('stores').insert({
+          owner_email: user?.email ?? ADMIN_EMAIL,
+          name: storeFormData.name,
+          settings: storeFormData,
+        });
+        if (error) throw error;
+        addToast("新しい店舗を登録しました！", "success");
+      }
+      await fetchStores();
+      setShowStoreForm(false);
+      setEditingStoreId(null);
+      setStoreScrapeUrl("");
+      setStoreMinimalStart(false);
+      setStoreFormData({
+        name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "",
+        features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
+        wpCategoryId: "", wpTagId: "", wpAuthorId: "",
+        outputTargets: { instagram: true, gbp: true, portal: true, line: true }
+      });
+    } catch (err) {
+      if (err instanceof Error) addToast("保存に失敗しました: " + err.message, "error");
+    } finally {
+      setIsSavingStore(false);
+    }
+  };
+
+  /** 店舗を削除する */
+  const handleDeleteStore = async (storeId: string) => {
+    if (!confirm("この店舗を削除してもよいですか？")) return;
+    setIsDeletingStore(storeId);
+    const { error } = await supabase.from('stores').delete().eq('id', storeId);
+    if (error) {
+      addToast("削除に失敗しました: " + error.message, "error");
+    } else {
+      addToast("店舗を削除しました。", "success");
+      if (selectedStoreId === storeId) setSelectedStoreId(null);
+      await fetchStores();
+    }
+    setIsDeletingStore(null);
+  };
+
+  /** 店舗編集フォームを開く */
+  const openEditStore = (store: StoreRecord) => {
+    setEditingStoreId(store.id);
+    setStoreFormData(store.settings);
+    setStoreMinimalStart(false);
+    setShowStoreForm(true);
+  };
+
+  /** 管理者用：URLから店舗情報をスクレイプしてフォームに自動入力 */
+  const handleScrapeUrlForStore = async () => {
+    if (!storeScrapeUrl?.trim().startsWith("http")) {
+      addToast("有効なURLを入力してください。", "error");
+      return;
+    }
+    const urlToAdd = storeScrapeUrl.trim();
+    setIsScrapingStore(true);
+    try {
+      const res = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlToAdd }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "抽出失敗");
+
+      const extractRes = await fetch("/api/extract-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: data.text }),
+      });
+      const extracted = await extractRes.json();
+
+      setStoreFormData((prev) => {
+        const next = { ...prev };
+        if (extractRes.ok && extracted) {
+          if (extracted.industry) next.industry = extracted.industry;
+          if (extracted.name) next.name = extracted.name;
+          if (extracted.address) next.address = extracted.address;
+          if (extracted.phone) next.phone = extracted.phone;
+          if (extracted.lineUrl) next.lineUrl = extracted.lineUrl;
+          if (extracted.businessHours) next.businessHours = extracted.businessHours;
+          if (extracted.holidays) next.holidays = extracted.holidays;
+        }
+        next.scrapedContent = prev.scrapedContent
+          ? prev.scrapedContent + "\n\n---\n\n" + data.text
+          : data.text;
+        next.referenceUrls = prev.referenceUrls.includes(urlToAdd)
+          ? prev.referenceUrls
+          : [...prev.referenceUrls, urlToAdd];
+        return next;
+      });
+      setStoreScrapeUrl("");
+      addToast("URLから店舗情報を取得しました。", "success");
+    } catch (error) {
+      if (error instanceof Error) addToast(error.message, "error");
+      else addToast("予期せぬエラーが発生しました", "error");
+    } finally {
+      setIsScrapingStore(false);
+    }
+  };
+
+  /** 設定オーバーレイ用：URLからshopInfoを取得して自動入力 */
+  const handleScrapeUrlForSettings = async () => {
+    if (!settingsScrapeUrl?.trim().startsWith("http")) {
+      addToast("有効なURLを入力してください。", "error");
+      return;
+    }
+    const urlToAdd = settingsScrapeUrl.trim();
+    setIsScrapingSettings(true);
+    try {
+      const res = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlToAdd }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "抽出失敗");
+
+      const extractRes = await fetch("/api/extract-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: data.text }),
+      });
+      const extracted = await extractRes.json();
+
+      setShopInfo((prev) => {
+        const next = { ...prev };
+        if (extractRes.ok && extracted) {
+          if (extracted.industry) next.industry = extracted.industry;
+          if (extracted.name) next.name = extracted.name;
+          if (extracted.address) next.address = extracted.address;
+          if (extracted.phone) next.phone = extracted.phone;
+          if (extracted.lineUrl) next.lineUrl = extracted.lineUrl;
+          if (extracted.businessHours) next.businessHours = extracted.businessHours;
+          if (extracted.holidays) next.holidays = extracted.holidays;
+        }
+        next.scrapedContent = prev.scrapedContent
+          ? prev.scrapedContent + "\n\n---\n\n" + data.text
+          : data.text;
+        next.referenceUrls = prev.referenceUrls.includes(urlToAdd)
+          ? prev.referenceUrls
+          : [...prev.referenceUrls, urlToAdd];
+        return next;
+      });
+      setSettingsScrapeUrl("");
+      addToast("URLから店舗情報を取得しました。", "success");
+    } catch (error) {
+      if (error instanceof Error) addToast(error.message, "error");
+      else addToast("予期せぬエラーが発生しました", "error");
+    } finally {
+      setIsScrapingSettings(false);
+    }
   };
 
   // フォームsubmitに依存しない単独の保存関数
@@ -610,6 +871,7 @@ export default function SEOContentGenerator() {
     await saveShopInfo(shopInfo);
     addToast("設定を保存しました。", "success");
     setShowSettingsOverlay(false);
+    setSettingsScrapeUrl("");
   };
 
   const handlePatternChange = (patternId: Pattern) => {
@@ -704,6 +966,16 @@ export default function SEOContentGenerator() {
       const selectedNews = selectedPattern === "H" && selectedNewsIndex !== null
         ? newsItems[selectedNewsIndex]
         : undefined;
+
+      // 管理者が店舗を選択している場合はその店舗情報を使用、未選択ならデフォルトのshopInfo
+      const activeShopInfo: ShopInfo = (() => {
+        if (selectedStoreId) {
+          const found = stores.find(s => s.id === selectedStoreId);
+          if (found) return found.settings;
+        }
+        return shopInfo;
+      })();
+
       const requestBody =
         selectedPattern === "G"
           ? {
@@ -711,7 +983,7 @@ export default function SEOContentGenerator() {
             platform: replyPlatform,
             receivedComment,
             replyNote,
-            shopInfo,
+            shopInfo: activeShopInfo,
           }
           : selectedPattern === "H"
             ? {
@@ -719,8 +991,8 @@ export default function SEOContentGenerator() {
               q1: "",
               q2: "",
               q3: "",
-              shopInfo: shopInfo,
-              outputTargets: shopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
+              shopInfo: activeShopInfo,
+              outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
               news: selectedNews,
             }
             : {
@@ -728,8 +1000,8 @@ export default function SEOContentGenerator() {
               q1: formData.q1,
               q2: formData.q2,
               q3: formData.q3,
-              shopInfo: shopInfo,
-              outputTargets: shopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
+              shopInfo: activeShopInfo,
+              outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
             };
 
       const response = await fetch(endpoint, {
@@ -861,6 +1133,262 @@ export default function SEOContentGenerator() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-amber-500/30 pb-20">
+      {/* ===== 管理者用・店舗管理オーバーレイ ===== */}
+      {showStoreManager && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 pt-16 md:pt-20"
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowStoreManager(false); setShowStoreForm(false); } }}
+        >
+          <div className="w-full max-w-3xl rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Store className="w-5 h-5 text-amber-500" />
+                <h2 className="text-base font-bold text-white">
+                  {showStoreForm ? (editingStoreId ? "店舗情報を編集" : "新しい店舗を登録") : "店舗管理"}
+                </h2>
+                {!showStoreForm && (
+                  <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{stores.length}件</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowStoreManager(false); setShowStoreForm(false); setEditingStoreId(null); setStoreScrapeUrl(""); setStoreMinimalStart(false); }}
+                className="text-zinc-500 hover:text-zinc-200 text-sm"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              {showStoreForm ? (
+                /* ===== 店舗登録/編集フォーム ===== */
+                <div className="px-6 py-5 space-y-5">
+                  {/* URLから自動取得（管理者用） */}
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3">
+                    <Label className="text-sm font-medium text-amber-500">🔗 URLから店舗情報を自動取得</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="url"
+                        value={storeScrapeUrl}
+                        onChange={(e) => setStoreScrapeUrl(e.target.value)}
+                        placeholder="店舗のWEBサイトURLを入力（例：https://example.com）"
+                        className="flex-1 bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleScrapeUrlForStore())}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleScrapeUrlForStore}
+                        disabled={isScrapingStore || !storeScrapeUrl.trim().startsWith("http")}
+                        className="shrink-0 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40"
+                      >
+                        {isScrapingStore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                        {isScrapingStore ? "取得中…" : "URLから取得"}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-zinc-500">店舗のWEBサイトURLを入力して「URLから取得」をクリックすると、業種・店舗名・住所などを自動入力し、下のテキストを投稿生成時の参照情報として保存します。</p>
+                    {/* 抽出テキスト（投稿生成時の参照情報） */}
+                    <div className="space-y-2 pt-2 border-t border-zinc-800">
+                      <Label className="text-sm font-medium text-zinc-300">📄 サイトから抽出したテキスト（投稿生成時の参照情報）</Label>
+                      <p className="text-xs text-zinc-500">このテキストはAIが投稿を生成する際の参考情報として使用されます。内容を確認・編集できます。</p>
+                      <Textarea
+                        value={storeFormData.scrapedContent || ""}
+                        onChange={(e) => setStoreFormData({ ...storeFormData, scrapedContent: e.target.value })}
+                        placeholder="URLから取得するか、手動で貼り付けてください。投稿生成時にAIが参照します。"
+                        className="min-h-[140px] max-h-[160px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
+                      />
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-300">
+                    <input type="checkbox" checked={storeMinimalStart} onChange={(e) => setStoreMinimalStart(e.target.checked)} className="rounded accent-amber-500" />
+                    最小限で始める（業種・店舗名だけ入力してあとで追記する）
+                  </label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sf-industry" className="text-sm font-medium text-zinc-300">業種 <span className="text-red-400">*</span></Label>
+                      <Input id="sf-industry" value={storeFormData.industry || ""} onChange={(e) => setStoreFormData({ ...storeFormData, industry: e.target.value })} placeholder="例：美容室、整体院" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sf-name" className="text-sm font-medium text-zinc-300">店舗名 <span className="text-red-400">*</span></Label>
+                      <Input id="sf-name" value={storeFormData.name || ""} onChange={(e) => setStoreFormData({ ...storeFormData, name: e.target.value })} placeholder="例：The Gentry" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="sf-address" className="text-sm font-medium text-zinc-300">住所 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Input id="sf-address" value={storeFormData.address || ""} onChange={(e) => setStoreFormData({ ...storeFormData, address: e.target.value })} placeholder="例：長野県長野市〇〇1-2-3" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sf-phone" className="text-sm font-medium text-zinc-300">電話番号 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Input id="sf-phone" type="tel" value={storeFormData.phone || ""} onChange={(e) => setStoreFormData({ ...storeFormData, phone: e.target.value })} placeholder="例：026-000-0000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sf-lineUrl" className="text-sm font-medium text-zinc-300">LINE/予約URL {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Input id="sf-lineUrl" type="url" value={storeFormData.lineUrl || ""} onChange={(e) => setStoreFormData({ ...storeFormData, lineUrl: e.target.value })} placeholder="例：https://lin.ee/xxxxx" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sf-businessHours" className="text-sm font-medium text-zinc-300">営業時間 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Input id="sf-businessHours" value={storeFormData.businessHours || ""} onChange={(e) => setStoreFormData({ ...storeFormData, businessHours: e.target.value })} placeholder="例：10:00〜20:00" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sf-holidays" className="text-sm font-medium text-zinc-300">定休日 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Input id="sf-holidays" value={storeFormData.holidays || ""} onChange={(e) => setStoreFormData({ ...storeFormData, holidays: e.target.value })} placeholder="例：毎週火曜・年末年始" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                    </div>
+                  </div>
+
+                  <details className="group bg-zinc-800/20 rounded-xl border border-zinc-800/50 overflow-hidden">
+                    <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between text-sm text-zinc-300 hover:bg-zinc-800/30">
+                      <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> あなたらしさ（文調の学習）・特記事項</span>
+                      <span className="text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="sf-sampleTexts" className="text-sm">今まで書いた文章のサンプル（2〜3投稿分コピペ）</Label>
+                        <Textarea id="sf-sampleTexts" value={storeFormData.sampleTexts || ""} onChange={(e) => setStoreFormData({ ...storeFormData, sampleTexts: e.target.value })} placeholder="例：これまでSNSに投稿していた文章を2〜3件コピペすると、文体を学習します。" className="min-h-[80px] bg-zinc-900 border-zinc-700 text-zinc-100 resize-y" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sf-snsUrl" className="text-sm">SNSのURL（任意）</Label>
+                        <Input id="sf-snsUrl" type="url" value={storeFormData.snsUrl || ""} onChange={(e) => setStoreFormData({ ...storeFormData, snsUrl: e.target.value })} placeholder="例：https://instagram.com/〇〇" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sf-features" className="text-sm">その他特記事項（任意）</Label>
+                        <Textarea id="sf-features" value={storeFormData.features || ""} onChange={(e) => setStoreFormData({ ...storeFormData, features: e.target.value })} placeholder="例：VIPルームあり、無料駐車場" className="min-h-[60px] bg-zinc-900 border-zinc-700 text-zinc-100 resize-y" />
+                      </div>
+                    </div>
+                  </details>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* WordPress設定 */}
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-sm font-medium text-zinc-300">WordPress 投稿設定（任意）</Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <Input placeholder="カテゴリID" value={storeFormData.wpCategoryId || ""} onChange={(e) => setStoreFormData({ ...storeFormData, wpCategoryId: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                        <Input placeholder="タグID" value={storeFormData.wpTagId || ""} onChange={(e) => setStoreFormData({ ...storeFormData, wpTagId: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                        <Input placeholder="著者ID" value={storeFormData.wpAuthorId || ""} onChange={(e) => setStoreFormData({ ...storeFormData, wpAuthorId: e.target.value })} className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                      </div>
+                    </div>
+                    {/* 出力媒体 */}
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-sm font-medium text-zinc-300">出力する媒体</Label>
+                      <div className="flex flex-wrap gap-4">
+                        {[
+                          { key: "instagram", label: "Instagram用" },
+                          { key: "gbp", label: "GBP用" },
+                          { key: "portal", label: "ポータル用" },
+                          { key: "line", label: "LINE用" },
+                        ].map(({ key, label }) => (
+                          <label key={key} className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={storeFormData.outputTargets?.[key as keyof typeof storeFormData.outputTargets] ?? true}
+                              onChange={(e) => setStoreFormData({ ...storeFormData, outputTargets: { ...storeFormData.outputTargets!, [key]: e.target.checked } })}
+                              className="w-4 h-4 rounded accent-amber-500"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ===== 店舗一覧 ===== */
+                <div className="px-6 py-5 space-y-3">
+                  {stores.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-500">
+                      <Store className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">まだ店舗が登録されていません</p>
+                      <p className="text-xs mt-1">下の「＋ 新しい店舗を登録」ボタンから追加してください</p>
+                    </div>
+                  ) : (
+                    stores.map((store) => (
+                      <div key={store.id} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 hover:border-zinc-700 transition-colors">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-zinc-100 truncate">{store.name}</p>
+                          <p className="text-xs text-zinc-500 truncate">
+                            {store.settings.industry && <span className="text-amber-500/80 mr-2">{store.settings.industry}</span>}
+                            {store.settings.address}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditStore(store)}
+                            className="h-8 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800"
+                          >
+                            <Pencil className="w-3.5 h-3.5 mr-1" />
+                            編集
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteStore(store.id)}
+                            disabled={isDeletingStore === store.id}
+                            className="h-8 text-xs text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            {isDeletingStore === store.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* フッター */}
+            <div className="px-6 py-4 border-t border-zinc-800 flex justify-between gap-3 bg-zinc-950/80">
+              {showStoreForm ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                    onClick={() => { setShowStoreForm(false); setEditingStoreId(null); }}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    一覧へ戻る
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                    onClick={handleSaveStore}
+                    disabled={isSavingStore}
+                  >
+                    {isSavingStore ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />保存中...</> : <><Check className="w-4 h-4 mr-2" />{editingStoreId ? "更新する" : "登録する"}</>}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                    onClick={() => { setShowStoreManager(false); }}
+                  >
+                    閉じる
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                    onClick={() => { setEditingStoreId(null); setStoreScrapeUrl(""); setStoreMinimalStart(false); setStoreFormData({ name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [], wpCategoryId: "", wpTagId: "", wpAuthorId: "", outputTargets: { instagram: true, gbp: true, portal: true, line: true } }); setShowStoreForm(true); }}
+                  >
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    新しい店舗を登録
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* クイック設定編集用フローティング画面 */}
       {showSettingsOverlay && (
         <div
@@ -868,6 +1396,7 @@ export default function SEOContentGenerator() {
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowSettingsOverlay(false);
+              setSettingsScrapeUrl("");
             }
           }}
         >
@@ -879,7 +1408,7 @@ export default function SEOContentGenerator() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowSettingsOverlay(false)}
+                onClick={() => { setShowSettingsOverlay(false); setSettingsScrapeUrl(""); }}
                 className="text-zinc-500 hover:text-zinc-200 text-sm"
               >
                 閉じる ✕
@@ -890,6 +1419,43 @@ export default function SEOContentGenerator() {
                 <p className="text-xs text-zinc-400">
                   初期設定で登録した内容を、一覧でまとめて編集できます。変更内容は「設定を保存する」を押すとクラウドに反映されます。
                 </p>
+              </div>
+
+              {/* URLから自動取得（店舗管理・設定編集と同様） */}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3">
+                <Label className="text-sm font-medium text-amber-500">🔗 URLから店舗情報を自動取得</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    value={settingsScrapeUrl}
+                    onChange={(e) => setSettingsScrapeUrl(e.target.value)}
+                    placeholder="店舗のWEBサイトURLを入力（例：https://example.com）"
+                    className="flex-1 bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleScrapeUrlForSettings())}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleScrapeUrlForSettings}
+                    disabled={isScrapingSettings || !settingsScrapeUrl.trim().startsWith("http")}
+                    className="shrink-0 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40"
+                  >
+                    {isScrapingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                    {isScrapingSettings ? "取得中…" : "URLから取得"}
+                  </Button>
+                </div>
+                <p className="text-xs text-zinc-500">店舗のWEBサイトURLを入力して「URLから取得」をクリックすると、業種・店舗名・住所などを自動入力し、下のテキストを投稿生成時の参照情報として保存します。</p>
+                {/* 抽出テキスト（投稿生成時の参照情報） */}
+                <div className="space-y-2 pt-2 border-t border-zinc-800">
+                  <Label className="text-sm font-medium text-zinc-300">📄 サイトから抽出したテキスト（投稿生成時の参照情報）</Label>
+                  <p className="text-xs text-zinc-500">このテキストはAIが投稿を生成する際の参考情報として使用されます。内容を確認・編集できます。</p>
+                  <Textarea
+                    value={shopInfo.scrapedContent || ""}
+                    onChange={(e) => setShopInfo({ ...shopInfo, scrapedContent: e.target.value })}
+                    placeholder="URLから取得するか、手動で貼り付けてください。投稿生成時にAIが参照します。"
+                    className="min-h-[140px] max-h-[160px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1104,7 +1670,7 @@ export default function SEOContentGenerator() {
                 variant="outline"
                 size="sm"
                 className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                onClick={() => setShowSettingsOverlay(false)}
+                onClick={() => { setShowSettingsOverlay(false); setSettingsScrapeUrl(""); }}
               >
                 キャンセル
               </Button>
@@ -1132,7 +1698,30 @@ export default function SEOContentGenerator() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {isConfigured && (
+            {/* 管理者のみ「店舗管理」ボタンを表示 */}
+            {user?.email === ADMIN_EMAIL && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowStoreManager(true)}
+                className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 hidden sm:flex"
+              >
+                <Store className="w-4 h-4 mr-2" />
+                店舗管理
+              </Button>
+            )}
+            {isConfigured && user?.email !== ADMIN_EMAIL && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSettingsOverlay(true)}
+                className="text-zinc-400 hover:text-white hidden sm:flex"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                設定
+              </Button>
+            )}
+            {isConfigured && user?.email === ADMIN_EMAIL && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1148,6 +1737,7 @@ export default function SEOContentGenerator() {
               ログアウト
             </Button>
           </div>
+
         </div>
       </header>
 
@@ -1214,7 +1804,7 @@ export default function SEOContentGenerator() {
                           <textarea
                             value={scrapedPreview}
                             onChange={(e) => setScrapedPreview(e.target.value)}
-                            className="flex min-h-[120px] w-full rounded-md border border-amber-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y"
+                            className="flex min-h-[120px] max-h-[160px] w-full rounded-md border border-amber-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
                           />
                           <Button
                             type="button"
@@ -1535,12 +2125,50 @@ export default function SEOContentGenerator() {
               </section>
             )}
 
+            {/* ===== 管理者向け: 生成対象店舗の選択 ===== */}
+            {user?.email === ADMIN_EMAIL && stores.length > 0 && (
+              <section className="bg-zinc-900/70 border border-amber-500/20 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Store className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-semibold text-amber-400">生成対象の店舗を選択</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {stores.map((store) => (
+                    <button
+                      key={store.id}
+                      type="button"
+                      onClick={() => setSelectedStoreId(store.id === selectedStoreId ? null : store.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${selectedStoreId === store.id
+                        ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                        : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600"
+                        }`}
+                    >
+                      {selectedStoreId === store.id && <Check className="w-3.5 h-3.5" />}
+                      {store.name}
+                      {store.settings.industry && (
+                        <span className="text-xs opacity-60">({store.settings.industry})</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {selectedStoreId && (
+                  <p className="text-xs text-zinc-500">
+                    ✅ 選択中: <span className="text-amber-400 font-medium">{stores.find(s => s.id === selectedStoreId)?.name}</span> の店舗情報を使って生成します
+                  </p>
+                )}
+                {!selectedStoreId && (
+                  <p className="text-xs text-zinc-500">店舗を選択していない場合は、デフォルトの設定（shops テーブル）を使用します</p>
+                )}
+              </section>
+            )}
+
             {/* Step 1: Pattern Selection */}
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">1</span>
                 <h2 className="text-xl font-semibold">投稿パターンの選択</h2>
               </div>
+
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {PATTERNS.map((pattern) => (
