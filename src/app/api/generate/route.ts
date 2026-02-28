@@ -1,6 +1,39 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const generateSchema = z.object({
+    patternTitle: z.string().optional(),
+    q1: z.string().optional(),
+    q2: z.string().optional(),
+    q3: z.string().optional(),
+    shopInfo: z.object({
+        name: z.string().optional(),
+        address: z.string().optional(),
+        industry: z.string().optional(),
+        phone: z.string().optional(),
+        lineUrl: z.string().optional(),
+        businessHours: z.string().optional(),
+        holidays: z.string().optional(),
+        features: z.string().optional(),
+        snsUrl: z.string().optional(),
+        sampleTexts: z.string().optional(),
+        scrapedContent: z.string().optional(),
+    }).optional(),
+    news: z.object({
+        title: z.string().optional(),
+        snippet: z.string().optional(),
+        link: z.string().optional(),
+    }).optional().nullable(),
+    outputTargets: z.object({
+        instagram: z.boolean().optional(),
+        gbp: z.boolean().optional(),
+        portal: z.boolean().optional(),
+        line: z.boolean().optional(),
+    }).optional().default({ instagram: true, gbp: true, portal: true, line: false })
+});
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -8,6 +41,11 @@ export async function POST(req: Request) {
     // 認証チェック: ログインしていないユーザーは 401 を返す
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { user } = authResult;
+
+    // レート制限（1分間に5回まで: AI生成は重いため）
+    const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 5);
+    if (rateLimitResponse) return rateLimitResponse;
 
     if (!process.env.GEMINI_API_KEY) {
         return NextResponse.json(
@@ -18,7 +56,13 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { patternTitle, q1, q2, q3, shopInfo, news, outputTargets = { instagram: true, gbp: true, portal: true, line: false } } = body;
+        const parsed = generateSchema.safeParse(body);
+
+        if (!parsed.success) {
+            return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
+        }
+
+        const { patternTitle, q1, q2, q3, shopInfo, news, outputTargets } = parsed.data;
 
         const shopName = shopInfo?.name || "The Gentry";
         const shopAddress = shopInfo?.address || "長野市";
@@ -32,17 +76,26 @@ export async function POST(req: Request) {
         const shopSampleTexts = shopInfo?.sampleTexts || "";
         const shopScrapedContent = shopInfo?.scrapedContent || "";
 
+        // 全てのターゲットがfalseの場合はデフォルト（全媒体）で生成する
+        const effectiveTargets = {
+            instagram: outputTargets.instagram ?? true,
+            gbp: outputTargets.gbp ?? true,
+            portal: outputTargets.portal ?? true,
+            line: outputTargets.line ?? false,
+        };
+
         const targetNames = [];
-        if (outputTargets.instagram) targetNames.push("Instagram");
-        if (outputTargets.gbp) targetNames.push("Googleビジネスプロフィール(GBP)");
-        if (outputTargets.portal) targetNames.push("ポータルサイト");
-        if (outputTargets.line) targetNames.push("LINE");
+        if (effectiveTargets.instagram) targetNames.push("Instagram");
+        if (effectiveTargets.gbp) targetNames.push("Googleビジネスプロフィール(GBP)");
+        if (effectiveTargets.portal) targetNames.push("ポータルサイト");
+        if (effectiveTargets.line) targetNames.push("LINE");
 
         if (targetNames.length === 0) {
-            return NextResponse.json(
-                { error: "出力先が一つも選択されていません。" },
-                { status: 400 }
-            );
+            // 全てfalseの場合はinstagram/gbp/portalを有効にしてフォールバック
+            effectiveTargets.instagram = true;
+            effectiveTargets.gbp = true;
+            effectiveTargets.portal = true;
+            targetNames.push("Instagram", "Googleビジネスプロフィール(GBP)", "ポータルサイト");
         }
 
         const targetCount = targetNames.length;

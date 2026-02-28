@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, Send, Copy, Check } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DOMPurify from 'isomorphic-dompurify';
 
 interface DetailedArticleGeneratorProps {
     currentShop: {
@@ -238,7 +239,7 @@ export default function DetailedArticleGenerator({ currentShop }: DetailedArticl
                       prose-h2:text-amber-500 prose-h2:border-b prose-h2:border-zinc-800 prose-h2:pb-2
                       prose-blockquote:border-l-4 prose-blockquote:border-amber-500 prose-blockquote:bg-zinc-900 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg
                       prose-table:border prose-table:border-zinc-800 prose-th:bg-zinc-900 prose-td:border-zinc-800"
-                                        dangerouslySetInnerHTML={{ __html: generatedResults.content_html }}
+                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(generatedResults.content_html) }}
                                     />
                                 </div>
 

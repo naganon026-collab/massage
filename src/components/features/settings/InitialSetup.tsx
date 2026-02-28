@@ -1,0 +1,292 @@
+import React from "react";
+import { Globe, ChevronRight, FileText, Loader2, Check, Settings, Sparkles, ChevronLeft } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ShopInfo, ADMIN_EMAIL } from "@/types";
+import { User } from "@supabase/supabase-js";
+
+interface InitialSetupProps {
+    setupStep: number;
+    setSetupStep: (step: number) => void;
+    setupPath: "url" | "manual" | null;
+    setSetupPath: (path: "url" | "manual" | null) => void;
+    shopInfo: ShopInfo;
+    setShopInfo: React.Dispatch<React.SetStateAction<ShopInfo>>;
+    scrapeUrl: string;
+    setScrapeUrl: (url: string) => void;
+    isScraping: boolean;
+    isExtractingInfo: boolean;
+    handleScrapeUrl: () => Promise<void>;
+    handleExtractInfo: (text: string, save: boolean) => Promise<void>;
+    scrapedPreview: string | null;
+    setScrapedPreview: (preview: string | null) => void;
+    handleSaveShopInfo: (e: React.FormEvent) => Promise<void>;
+    user: User | null;
+}
+
+export function InitialSetup({
+    setupStep,
+    setSetupStep,
+    setupPath,
+    setSetupPath,
+    shopInfo,
+    setShopInfo,
+    scrapeUrl,
+    setScrapeUrl,
+    isScraping,
+    isExtractingInfo,
+    handleScrapeUrl,
+    handleExtractInfo,
+    scrapedPreview,
+    setScrapedPreview,
+    handleSaveShopInfo,
+    user,
+}: InitialSetupProps) {
+    return (
+        <div className="max-w-xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold text-white">初期設定（店舗情報）</h2>
+                <p className="text-zinc-400">作成される文章に埋め込むための基本情報を設定してください。</p>
+                <div className="flex items-center justify-center gap-2 pt-2">
+                    <span className={`flex items-center gap-1 text-sm ${setupStep === 1 ? "text-amber-500 font-semibold" : "text-zinc-500"}`}>
+                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 1 ? "bg-amber-500 text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>1</span>
+                        <Globe className="w-4 h-4 hidden sm:inline" />
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                    <span className={`flex items-center gap-1 text-sm ${setupStep === 2 ? "text-amber-500 font-semibold" : "text-zinc-500"}`}>
+                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 2 ? "bg-amber-500 text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>2</span>
+                        <FileText className="w-4 h-4 hidden sm:inline" />
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                    <span className={`flex items-center gap-1 text-sm ${setupStep === 3 ? "text-amber-500 font-semibold" : "text-zinc-500"}`}>
+                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 3 ? "bg-amber-500 text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>3</span>
+                    </span>
+                </div>
+            </div>
+            <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
+                <CardContent className="pt-6">
+                    <form onSubmit={handleSaveShopInfo} className="space-y-6">
+                        {setupStep === 1 && (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+                                <div className="space-y-3">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-amber-500" />
+                                        お店のホームページのアドレスを入力してください
+                                    </h3>
+                                    <p className="text-sm text-zinc-400">お店のトップページやメニュー表のアドレス（URL）を入れると、住所や電話番号などを自動で読み取ります。</p>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <Input
+                                        value={scrapeUrl}
+                                        onChange={(e) => setScrapeUrl(e.target.value)}
+                                        className="bg-zinc-950 border-zinc-700 text-white flex-1"
+                                        placeholder="https://..."
+                                    />
+                                    <Button
+                                        type="button"
+                                        onClick={() => { setSetupPath("url"); handleScrapeUrl(); }}
+                                        disabled={isScraping || !scrapeUrl.trim().startsWith("http")}
+                                        className="bg-amber-500 hover:bg-amber-400 text-zinc-950 border-none shrink-0 font-semibold"
+                                    >
+                                        {isScraping ? <><Loader2 className="w-4 h-4 animate-spin" /> 抽出中...</> : "抽出して次へ"}
+                                    </Button>
+                                </div>
+                                {scrapedPreview && setupPath === "url" && (
+                                    <div className="space-y-3 pt-4 border-t border-zinc-800">
+                                        <p className="text-xs text-amber-500 font-medium">✅ 読み取り完了 —この情報をもとに、基本情報や投稿が生成されます。</p>
+                                        <textarea
+                                            value={scrapedPreview}
+                                            onChange={(e) => setScrapedPreview(e.target.value)}
+                                            className="flex min-h-[120px] max-h-[160px] w-full rounded-md border border-amber-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
+                                        />
+                                        <Button
+                                            type="button"
+                                            onClick={async () => {
+                                                await handleExtractInfo(scrapedPreview + "\n" + shopInfo.features + "\n" + (shopInfo.sampleTexts || ""), true);
+                                                setSetupStep(2);
+                                            }}
+                                            disabled={isExtractingInfo}
+                                            className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                                        >
+                                            {isExtractingInfo ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : <><Check className="w-4 h-4" /> この内容で基本情報を入力して次へ</>}
+                                        </Button>
+                                    </div>
+                                )}
+                                <div className="pt-4 border-t border-zinc-800">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSetupPath("manual"); setSetupStep(2); }}
+                                        className="text-sm text-zinc-400 hover:text-amber-500 underline underline-offset-2 transition-colors"
+                                    >
+                                        お店のホームページがない場合はこちら
+                                    </button>
+                                    <p className="text-xs text-zinc-500 mt-1">手入力で住所や電話番号などを入力して進めます。</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {setupStep === 2 && (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+                                <div className="border-b border-zinc-800 pb-4 mb-2">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <FileText className="w-5 h-5 text-amber-500" />
+                                        店舗の基本情報
+                                    </h3>
+                                    <p className="text-sm text-zinc-400 mt-1">
+                                        {setupPath === "url" ? "自動で入力された内容を確認・修正してください。" : "以下の項目を入力してください。わからない項目は空欄でも進めます。"}
+                                    </p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="shopIndustry" className="font-medium">業種 <span className="text-red-500">*</span></Label>
+                                        <Input id="shopIndustry" required value={shopInfo.industry} onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：美容室、エステサロン、カフェ" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500">*</span></Label>
+                                        <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：The Gentry" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="shopAddress" className="font-medium">住所 <span className="text-red-500">*</span></Label>
+                                        <Input id="shopAddress" required value={shopInfo.address} onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：長野県長野市〇〇1-2-3" />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopPhone" className="font-medium">電話番号 <span className="text-red-500">*</span></Label>
+                                            <Input id="shopPhone" type="tel" required value={shopInfo.phone} onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：026-000-0000" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopLine" className="font-medium">LINE/予約URL</Label>
+                                            <Input id="shopLine" type="url" value={shopInfo.lineUrl} onChange={(e) => setShopInfo({ ...shopInfo, lineUrl: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：https://lin.ee/xxxxx" />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopBusinessHours" className="font-medium">営業時間 <span className="text-red-500">*</span></Label>
+                                            <Input id="shopBusinessHours" required value={shopInfo.businessHours} onChange={(e) => setShopInfo({ ...shopInfo, businessHours: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：10:00〜20:00" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopHolidays" className="font-medium">定休日 <span className="text-red-500">*</span></Label>
+                                            <Input id="shopHolidays" required value={shopInfo.holidays} onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：毎週火曜・年末年始" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3 pt-4">
+                                    <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(1)}>
+                                        <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
+                                    </Button>
+                                    <Button type="button" className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold flex-1" onClick={() => setSetupStep(3)}>
+                                        次へ <ChevronRight className="w-4 h-4 ml-1" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {setupStep === 3 && (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+                                <div className="border-b border-zinc-800 pb-4 mb-2">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <Settings className="w-5 h-5 text-amber-500" />
+                                        オプション設定
+                                    </h3>
+                                    <p className="text-sm text-zinc-400 mt-1">任意の項目は後から設定画面で変更できます。</p>
+                                </div>
+                                <details className="group bg-zinc-800/20 rounded-xl border border-zinc-800/50 overflow-hidden">
+                                    <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between text-sm text-zinc-300 hover:bg-zinc-800/30">
+                                        <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> あなたらしさ（文調の学習）・特記事項</span>
+                                        <span className="text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopSampleTexts" className="text-sm">
+                                                今まで書いた文章のサンプル（2〜3投稿分コピペ） <span className="text-red-400 text-xs align-middle">*</span>
+                                            </Label>
+                                            <Textarea
+                                                id="shopSampleTexts"
+                                                required
+                                                value={shopInfo.sampleTexts || ""}
+                                                onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
+                                                placeholder="例：これまでSNSに投稿していた文章を2〜3件コピペすると、文体を学習します。"
+                                                className="h-[100px] bg-zinc-950 border-zinc-800 text-zinc-100 resize-none"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopSnsUrl" className="text-sm">SNSのURL（任意）</Label>
+                                            <Input
+                                                id="shopSnsUrl"
+                                                type="url"
+                                                value={shopInfo.snsUrl || ""}
+                                                onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
+                                                placeholder="例：https://instagram.com/〇〇"
+                                                className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="shopFeatures" className="text-sm">その他特記事項（任意）</Label>
+                                            <textarea id="shopFeatures" value={shopInfo.features} onChange={(e) => setShopInfo({ ...shopInfo, features: e.target.value })} placeholder="例：VIPルームあり、無料駐車場" className="flex min-h-[80px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white resize-y" />
+                                        </div>
+                                    </div>
+                                </details>
+
+                                {user?.email === ADMIN_EMAIL && (
+                                    <div className="space-y-3">
+                                        <h4 className="font-semibold text-amber-500 text-sm flex items-center gap-2">
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" /></svg>
+                                            WordPress 投稿設定（任意）
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="space-y-1">
+                                                <Label htmlFor="wpCategoryId" className="text-xs">カテゴリ ID</Label>
+                                                <Input id="wpCategoryId" value={shopInfo.wpCategoryId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpCategoryId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：1" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="wpTagId" className="text-xs">タグ ID</Label>
+                                                <Input id="wpTagId" value={shopInfo.wpTagId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpTagId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：5" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="wpAuthorId" className="text-xs">著者 ID</Label>
+                                                <Input id="wpAuthorId" value={shopInfo.wpAuthorId || ""} onChange={(e) => setShopInfo({ ...shopInfo, wpAuthorId: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white" placeholder="例：1" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="space-y-3">
+                                    <h4 className="font-semibold text-zinc-200 text-sm">出力する媒体</h4>
+                                    <div className="flex flex-wrap gap-6">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...shopInfo.outputTargets!, instagram: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            Instagram用
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...shopInfo.outputTargets!, gbp: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            Google Map/GBP用
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...shopInfo.outputTargets!, portal: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            ブログ/ポータル用
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...shopInfo.outputTargets!, line: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            LINE用
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3 pt-6">
+                                    <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(2)}>
+                                        <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
+                                    </Button>
+                                    <Button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold">
+                                        <Check className="w-4 h-4 mr-2 inline" />
+                                        設定を保存してはじめる
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}

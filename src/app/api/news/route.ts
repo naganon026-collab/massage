@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const newsSchema = z.object({
+  industry: z.string().min(1, "業種が指定されていません。").max(100),
+  address: z.string().max(100).optional(),
+});
 
 interface NewsItem {
   title: string;
@@ -41,16 +48,20 @@ function parseGoogleNewsRSS(xml: string): NewsItem[] {
 export async function POST(req: Request) {
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;
+  const { user } = authResult;
+
+  const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 20); // ニュースは外部RSSなので少し緩め
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const { industry, address } = await req.json();
+    const body = await req.json();
+    const parsed = newsSchema.safeParse(body);
 
-    if (!industry) {
-      return NextResponse.json(
-        { error: "業種が指定されていません。" },
-        { status: 400 }
-      );
+    if (!parsed.success) {
+      return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
     }
+
+    const { industry, address } = parsed.data;
 
     const baseQuery = `${industry} ニュース`;
     const locationHint = address ? ` ${address}` : "";

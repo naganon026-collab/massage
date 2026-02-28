@@ -1,17 +1,37 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const wpPostSchema = z.object({
+    title: z.string().min(1, "タイトルは必須です。").max(200, "タイトルが長すぎます。"),
+    content: z.string().min(1, "本文は必須です。"),
+    status: z.enum(['draft', 'publish']).optional().default('draft'),
+    wpCategoryId: z.string().optional(),
+    wpTagId: z.string().optional(),
+    wpAuthorId: z.string().optional(),
+    imageUrl: z.string().url("有効な画像URLを指定してください。").optional().or(z.literal('')),
+});
 
 export async function POST(req: Request) {
     // 認証チェック: ログインしていないユーザーは 401 を返す
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { user } = authResult;
+
+    // レート制限（1分あたり10回まで）
+    const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 10);
+    if (rateLimitResponse) return rateLimitResponse;
 
     try {
-        const { title, content, status = 'draft', wpCategoryId, wpTagId, wpAuthorId, imageUrl } = await req.json();
+        const body = await req.json();
+        const parsed = wpPostSchema.safeParse(body);
 
-        if (!title || !content) {
-            return NextResponse.json({ error: "タイトルと本文は必須です。" }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
         }
+
+        const { title, content, status, wpCategoryId, wpTagId, wpAuthorId, imageUrl } = parsed.data;
 
         const wpUrl = process.env.WP_API_URL;
         const wpUser = process.env.WP_USERNAME;

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const extractSchema = z.object({
+    text: z.string().min(1, "テキストが提供されていません。").max(20000, "テキストが長すぎます。"),
+});
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -8,6 +14,10 @@ export async function POST(req: Request) {
     // 認証チェック: ログインしていないユーザーは 401 を返す
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { user } = authResult;
+
+    const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 10);
+    if (rateLimitResponse) return rateLimitResponse;
 
     if (!process.env.GEMINI_API_KEY) {
         return NextResponse.json(
@@ -17,11 +27,14 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { text } = await req.json();
+        const body = await req.json();
+        const parsed = extractSchema.safeParse(body);
 
-        if (!text) {
-            return NextResponse.json({ error: "テキストが提供されていません。" }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
         }
+
+        const { text } = parsed.data;
 
         const systemPrompt = `あなたは情報抽出の専門AIです。
 与えられたテキスト（店舗の紹介文やWEBサイトからのスクレイピング結果など）から、「業種」「店舗名」「店舗の住所」「電話番号」「LINEなどの連絡・予約用URL」「営業時間」「定休日」を探し、JSON形式で正確に抽出してください。

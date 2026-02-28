@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const replySchema = z.object({
+    platform: z.enum(["gbp", "sns", ""]).optional(),
+    receivedComment: z.string().min(1, "コメントは必須です。"),
+    replyNote: z.string().optional(),
+    shopInfo: z.object({
+        name: z.string().optional(),
+        address: z.string().optional(),
+        industry: z.string().optional(),
+        businessHours: z.string().optional(),
+        holidays: z.string().optional(),
+        features: z.string().optional(),
+        sampleTexts: z.string().optional(),
+    }).optional()
+});
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -8,6 +25,10 @@ export async function POST(req: Request) {
     // 認証チェック: ログインしていないユーザーは 401 を返す
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { user } = authResult;
+
+    const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 10);
+    if (rateLimitResponse) return rateLimitResponse;
 
     if (!process.env.GEMINI_API_KEY) {
         return NextResponse.json(
@@ -18,7 +39,13 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { platform, receivedComment, replyNote, shopInfo } = body;
+        const parsed = replySchema.safeParse(body);
+
+        if (!parsed.success) {
+            return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
+        }
+
+        const { platform, receivedComment, replyNote, shopInfo } = parsed.data;
 
         // 店舗情報の取得
         const shopName = shopInfo?.name || "当店";

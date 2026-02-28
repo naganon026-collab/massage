@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const scrapeSchema = z.object({
+    url: z.string().url("無効なURLです。").max(2000, "URLが長すぎます。"),
+});
 
 /**
  * SSRF対策: 危険なURLかどうかをチェックする。
@@ -108,13 +114,20 @@ export async function POST(req: Request) {
     // 認証チェック: ログインしていないユーザーは 401 を返す
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { user } = authResult;
+
+    const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 20); // スクレイピングは1分間に20回まで
+    if (rateLimitResponse) return rateLimitResponse;
 
     try {
-        const { url } = await req.json();
+        const body = await req.json();
+        const parsed = scrapeSchema.safeParse(body);
 
-        if (!url || typeof url !== "string") {
-            return NextResponse.json({ error: "URLを指定してください。" }, { status: 400 });
+        if (!parsed.success) {
+            return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
         }
+
+        const { url } = parsed.data;
 
         // SSRF対策: URLバリデーション
         const { valid, reason } = validateUrl(url);

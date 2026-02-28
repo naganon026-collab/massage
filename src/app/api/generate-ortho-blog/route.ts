@@ -1,9 +1,33 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { requireAuth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const blogSchema = z.object({
+    keyword: z.string().min(1, "キーワードは必須です。"),
+    clinicName: z.string().min(1, "クリニック名（店舗名）は必須です。"),
+    address: z.string().optional(),
+    hours: z.string().optional(),
+    strengthApproach: z.string().optional(),
+    strengthTimePerf: z.string().optional(),
+    strengthPrivacy: z.string().optional(),
+    stanceOwner: z.string().optional(),
+    features: z.string().optional(),
+});
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
+    // 認証チェック: ログインしていないユーザーは 401 を返す
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+    const { user } = authResult;
+
+    // レート制限（1分間に5回まで）
+    const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 5);
+    if (rateLimitResponse) return rateLimitResponse;
+
     if (!process.env.GEMINI_API_KEY) {
         console.error("GEMINI_API_KEY is not set in environment variables.");
         return NextResponse.json(
@@ -14,6 +38,12 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
+        const parsed = blogSchema.safeParse(body);
+
+        if (!parsed.success) {
+            return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
+        }
+
         const {
             keyword,
             clinicName,
@@ -24,14 +54,7 @@ export async function POST(req: Request) {
             strengthPrivacy,
             stanceOwner,
             features
-        } = body;
-
-        if (!keyword || !clinicName) {
-            return NextResponse.json(
-                { error: "必須項目（キーワード、クリニック名）が不足しています。" },
-                { status: 400 }
-            );
-        }
+        } = parsed.data;
 
         const systemPrompt = `あなたは日本最高峰のローカルSEOおよびLLMO（大規模言語モデル最適化）の専門家であり、ハイエンドな男性向けライフスタイルメディアの凄腕編集長です。
 
