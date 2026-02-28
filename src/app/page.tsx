@@ -217,7 +217,6 @@ export default function SEOContentGenerator() {
   // 初期設定のステップ形式: 1=URL入力, 2=基本情報, 3=オプション
   const [setupStep, setSetupStep] = useState<1 | 2 | 3>(1);
   const [setupPath, setSetupPath] = useState<"url" | "manual" | null>(null);
-  const [minimalStart, setMinimalStart] = useState(false);
 
   const [selectedPattern, setSelectedPattern] = useState<Pattern>("A");
   const [formData, setFormData] = useState({ q1: "", q2: "", q3: "" });
@@ -255,7 +254,6 @@ export default function SEOContentGenerator() {
   const [isDeletingStore, setIsDeletingStore] = useState<string | null>(null);
   const [storeScrapeUrl, setStoreScrapeUrl] = useState("");
   const [isScrapingStore, setIsScrapingStore] = useState(false);
-  const [storeMinimalStart, setStoreMinimalStart] = useState(false);
   const [settingsScrapeUrl, setSettingsScrapeUrl] = useState("");
   const [isScrapingSettings, setIsScrapingSettings] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -419,33 +417,33 @@ export default function SEOContentGenerator() {
   const handleSaveStore = async () => {
     if (!storeFormData.name?.trim()) {
       addToast("店舗名を入力してください。", "error");
+      alert("店舗名を入力してください。");
       return;
     }
     if (!storeFormData.industry?.trim()) {
       addToast("業種を入力してください。", "error");
+      alert("業種を入力してください。");
       return;
     }
-    if (!storeMinimalStart) {
-      if (!storeFormData.address?.trim()) {
-        addToast("住所を入力してください。", "error");
-        return;
-      }
-      if (!storeFormData.phone?.trim()) {
-        addToast("電話番号を入力してください。", "error");
-        return;
-      }
-      if (!storeFormData.lineUrl?.trim()) {
-        addToast("LINE/予約URLを入力してください。", "error");
-        return;
-      }
-      if (!storeFormData.businessHours?.trim()) {
-        addToast("営業時間を入力してください。", "error");
-        return;
-      }
-      if (!storeFormData.holidays?.trim()) {
-        addToast("定休日を入力してください。", "error");
-        return;
-      }
+    if (!storeFormData.address?.trim()) {
+      addToast("住所を入力してください。", "error");
+      alert("住所を入力してください。");
+      return;
+    }
+    if (!storeFormData.phone?.trim()) {
+      addToast("電話番号を入力してください。", "error");
+      alert("電話番号を入力してください。");
+      return;
+    }
+    if (!storeFormData.businessHours?.trim()) {
+      addToast("営業時間を入力してください。", "error");
+      alert("営業時間を入力してください。");
+      return;
+    }
+    if (!storeFormData.holidays?.trim()) {
+      addToast("定休日を入力してください。", "error");
+      alert("定休日を入力してください。");
+      return;
     }
     setIsSavingStore(true);
     try {
@@ -470,9 +468,9 @@ export default function SEOContentGenerator() {
       }
       await fetchStores();
       setShowStoreForm(false);
+      setShowStoreManager(false);
       setEditingStoreId(null);
       setStoreScrapeUrl("");
-      setStoreMinimalStart(false);
       setStoreFormData({
         name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "",
         features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
@@ -505,7 +503,6 @@ export default function SEOContentGenerator() {
   const openEditStore = (store: StoreRecord) => {
     setEditingStoreId(store.id);
     setStoreFormData(store.settings);
-    setStoreMinimalStart(false);
     setShowStoreForm(true);
   };
 
@@ -860,10 +857,6 @@ export default function SEOContentGenerator() {
       addToast("住所を入力してください。", "error");
       return;
     }
-    if (!shopInfo.sampleTexts || !shopInfo.sampleTexts.trim()) {
-      addToast("文章サンプルを2〜3件コピペしてください。", "error");
-      return;
-    }
     if (!user) {
       addToast("ログインしてから設定を保存してください。", "error");
       return;
@@ -1153,7 +1146,7 @@ export default function SEOContentGenerator() {
               </div>
               <button
                 type="button"
-                onClick={() => { setShowStoreManager(false); setShowStoreForm(false); setEditingStoreId(null); setStoreScrapeUrl(""); setStoreMinimalStart(false); }}
+                onClick={() => { setShowStoreManager(false); setShowStoreForm(false); setEditingStoreId(null); setStoreScrapeUrl(""); }}
                 className="text-zinc-500 hover:text-zinc-200 text-sm"
               >
                 <X className="w-5 h-5" />
@@ -1201,11 +1194,6 @@ export default function SEOContentGenerator() {
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-300">
-                    <input type="checkbox" checked={storeMinimalStart} onChange={(e) => setStoreMinimalStart(e.target.checked)} className="rounded accent-amber-500" />
-                    最小限で始める（業種・店舗名だけ入力してあとで追記する）
-                  </label>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="sf-industry" className="text-sm font-medium text-zinc-300">業種 <span className="text-red-400">*</span></Label>
@@ -1216,23 +1204,23 @@ export default function SEOContentGenerator() {
                       <Input id="sf-name" value={storeFormData.name || ""} onChange={(e) => setStoreFormData({ ...storeFormData, name: e.target.value })} placeholder="例：The Gentry" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="sf-address" className="text-sm font-medium text-zinc-300">住所 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Label htmlFor="sf-address" className="text-sm font-medium text-zinc-300">住所 <span className="text-red-400">*</span></Label>
                       <Input id="sf-address" value={storeFormData.address || ""} onChange={(e) => setStoreFormData({ ...storeFormData, address: e.target.value })} placeholder="例：長野県長野市〇〇1-2-3" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sf-phone" className="text-sm font-medium text-zinc-300">電話番号 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Label htmlFor="sf-phone" className="text-sm font-medium text-zinc-300">電話番号 <span className="text-red-400">*</span></Label>
                       <Input id="sf-phone" type="tel" value={storeFormData.phone || ""} onChange={(e) => setStoreFormData({ ...storeFormData, phone: e.target.value })} placeholder="例：026-000-0000" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sf-lineUrl" className="text-sm font-medium text-zinc-300">LINE/予約URL {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Label htmlFor="sf-lineUrl" className="text-sm font-medium text-zinc-300">LINE/予約URL</Label>
                       <Input id="sf-lineUrl" type="url" value={storeFormData.lineUrl || ""} onChange={(e) => setStoreFormData({ ...storeFormData, lineUrl: e.target.value })} placeholder="例：https://lin.ee/xxxxx" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sf-businessHours" className="text-sm font-medium text-zinc-300">営業時間 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Label htmlFor="sf-businessHours" className="text-sm font-medium text-zinc-300">営業時間 <span className="text-red-400">*</span></Label>
                       <Input id="sf-businessHours" value={storeFormData.businessHours || ""} onChange={(e) => setStoreFormData({ ...storeFormData, businessHours: e.target.value })} placeholder="例：10:00〜20:00" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sf-holidays" className="text-sm font-medium text-zinc-300">定休日 {!storeMinimalStart && <span className="text-red-400">*</span>}</Label>
+                      <Label htmlFor="sf-holidays" className="text-sm font-medium text-zinc-300">定休日 <span className="text-red-400">*</span></Label>
                       <Input id="sf-holidays" value={storeFormData.holidays || ""} onChange={(e) => setStoreFormData({ ...storeFormData, holidays: e.target.value })} placeholder="例：毎週火曜・年末年始" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                     </div>
                   </div>
@@ -1377,7 +1365,7 @@ export default function SEOContentGenerator() {
                     type="button"
                     size="sm"
                     className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
-                    onClick={() => { setEditingStoreId(null); setStoreScrapeUrl(""); setStoreMinimalStart(false); setStoreFormData({ name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [], wpCategoryId: "", wpTagId: "", wpAuthorId: "", outputTargets: { instagram: true, gbp: true, portal: true, line: true } }); setShowStoreForm(true); }}
+                    onClick={() => { setEditingStoreId(null); setStoreScrapeUrl(""); setStoreFormData({ name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [], wpCategoryId: "", wpTagId: "", wpAuthorId: "", outputTargets: { instagram: true, gbp: true, portal: true, line: true } }); setShowStoreForm(true); }}
                   >
                     <PlusCircle className="w-4 h-4 mr-2" />
                     新しい店舗を登録
@@ -1543,11 +1531,10 @@ export default function SEOContentGenerator() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="quickSampleTexts" className="text-sm font-medium text-zinc-200">
-                      文章サンプル <span className="text-red-400 text-xs align-middle">*</span>
+                      文章サンプル
                     </Label>
                     <Textarea
                       id="quickSampleTexts"
-                      required
                       value={shopInfo.sampleTexts || ""}
                       onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
                       placeholder="今までの投稿文を2〜3件コピペすると、文体を学習します。"
@@ -1848,10 +1835,6 @@ export default function SEOContentGenerator() {
                           {setupPath === "url" ? "自動で入力された内容を確認・修正してください。" : "以下の項目を入力してください。わからない項目は空欄でも進めます。"}
                         </p>
                       </div>
-                      <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-300">
-                        <input type="checkbox" checked={minimalStart} onChange={(e) => setMinimalStart(e.target.checked)} className="rounded accent-amber-500" />
-                        最小限で始める（業種・店舗名だけ入力してあとで追記する）
-                      </label>
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="shopIndustry" className="font-medium">業種 <span className="text-red-500">*</span></Label>
@@ -1867,22 +1850,22 @@ export default function SEOContentGenerator() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="shopPhone" className="font-medium">電話番号 {!minimalStart && <span className="text-red-500">*</span>}</Label>
-                            <Input id="shopPhone" type="tel" required={!minimalStart} value={shopInfo.phone} onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：026-000-0000" />
+                            <Label htmlFor="shopPhone" className="font-medium">電話番号 <span className="text-red-500">*</span></Label>
+                            <Input id="shopPhone" type="tel" required value={shopInfo.phone} onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：026-000-0000" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="shopLine" className="font-medium">LINE/予約URL {!minimalStart && <span className="text-red-500">*</span>}</Label>
-                            <Input id="shopLine" type="url" required={!minimalStart} value={shopInfo.lineUrl} onChange={(e) => setShopInfo({ ...shopInfo, lineUrl: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：https://lin.ee/xxxxx" />
+                            <Label htmlFor="shopLine" className="font-medium">LINE/予約URL</Label>
+                            <Input id="shopLine" type="url" value={shopInfo.lineUrl} onChange={(e) => setShopInfo({ ...shopInfo, lineUrl: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：https://lin.ee/xxxxx" />
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="shopBusinessHours" className="font-medium">営業時間 {!minimalStart && <span className="text-red-500">*</span>}</Label>
-                            <Input id="shopBusinessHours" required={!minimalStart} value={shopInfo.businessHours} onChange={(e) => setShopInfo({ ...shopInfo, businessHours: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：10:00〜20:00" />
+                            <Label htmlFor="shopBusinessHours" className="font-medium">営業時間 <span className="text-red-500">*</span></Label>
+                            <Input id="shopBusinessHours" required value={shopInfo.businessHours} onChange={(e) => setShopInfo({ ...shopInfo, businessHours: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：10:00〜20:00" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="shopHolidays" className="font-medium">定休日 {!minimalStart && <span className="text-red-500">*</span>}</Label>
-                            <Input id="shopHolidays" required={!minimalStart} value={shopInfo.holidays} onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：毎週火曜・年末年始" />
+                            <Label htmlFor="shopHolidays" className="font-medium">定休日 <span className="text-red-500">*</span></Label>
+                            <Input id="shopHolidays" required value={shopInfo.holidays} onChange={(e) => setShopInfo({ ...shopInfo, holidays: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：毎週火曜・年末年始" />
                           </div>
                         </div>
                       </div>
