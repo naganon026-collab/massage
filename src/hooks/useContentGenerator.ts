@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Pattern, HistoryEntry, NewsItem, ShopInfo, PATTERNS, StoreRecord } from "@/types";
+import { Pattern, HistoryEntry, NewsItem, ShopInfo, PATTERNS, StoreRecord, ShortScriptData } from "@/types";
+const REFINE_TAB_IDS = ["instagram", "gbp", "portal", "line", "short"] as const;
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -33,6 +34,7 @@ export function useContentGenerator(
         imageUrl?: string;
         reply?: string;
         line?: string;
+        shortScript?: string | ShortScriptData;
     } | null>(null);
 
     const [copiedTab, setCopiedTab] = useState<string | null>(null);
@@ -42,6 +44,15 @@ export function useContentGenerator(
     const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+
+    const [refineInstruction, setRefineInstructionState] = useState<Record<string, string | null>>(
+        Object.fromEntries(REFINE_TAB_IDS.map((id) => [id, null]))
+    );
+    const [isRefining, setIsRefining] = useState(false);
+
+    const setRefineInstruction = (tabId: string, value: string | null) => {
+        setRefineInstructionState((prev) => ({ ...prev, [tabId]: value }));
+    };
 
     const currentPattern = PATTERNS.find(p => p.id === selectedPattern)!;
 
@@ -189,7 +200,7 @@ export function useContentGenerator(
                             q2: "",
                             q3: "",
                             shopInfo: activeShopInfo,
-                            outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
+                            outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
                             news: selectedNews,
                         }
                         : {
@@ -198,7 +209,7 @@ export function useContentGenerator(
                             q2: formData.q2,
                             q3: formData.q3,
                             shopInfo: activeShopInfo,
-                            outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false },
+                            outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
                         };
 
             const response = await fetch(endpoint, {
@@ -227,6 +238,7 @@ export function useContentGenerator(
                 imageUrl: data.imageUrl,
                 reply: data.reply,
                 line: data.line,
+                shortScript: data.shortScript,
             });
 
             if (user) {
@@ -248,6 +260,7 @@ export function useContentGenerator(
                         portalTitle: data.portalTitle,
                         line: data.line,
                         reply: data.reply,
+                        shortScript: data.shortScript,
                     },
                 }).then(({ error }) => {
                     if (error) console.error('履歴保存エラー:', error);
@@ -323,6 +336,54 @@ export function useContentGenerator(
         setTimeout(() => setCopiedTab(null), 2000);
     };
 
+    const handleRefine = async (
+        tabId: string,
+        currentText: string,
+        extra?: { portalTitle?: string }
+    ) => {
+        const instruction = refineInstruction[tabId];
+        if (!instruction?.trim()) {
+            addToast("改善指示を1つ選んでから「選択して再生成」を押してください。", "error");
+            return;
+        }
+        const activeShopInfo: ShopInfo = selectedStoreId
+            ? (stores.find((s) => s.id === selectedStoreId)?.settings ?? shopInfo)
+            : shopInfo;
+
+        setIsRefining(true);
+        try {
+            const body: Record<string, unknown> = {
+                currentText,
+                instruction,
+                target: tabId,
+                shopInfo: {
+                    name: activeShopInfo.name,
+                    industry: activeShopInfo.industry,
+                    lineUrl: activeShopInfo.lineUrl,
+                    sampleTexts: activeShopInfo.sampleTexts,
+                },
+                patternTitle: currentPattern.title,
+            };
+            if (tabId === "portal" && extra?.portalTitle) body.portalTitle = extra.portalTitle;
+
+            const res = await fetch("/api/generate-refine", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "再生成に失敗しました。");
+
+            setGeneratedResults((prev) => (prev ? { ...prev, ...data } : prev));
+            addToast("改善して再生成しました。", "success");
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "再生成中にエラーが発生しました。";
+            addToast(msg, "error");
+        } finally {
+            setIsRefining(false);
+        }
+    };
+
     return {
         selectedPattern, setSelectedPattern,
         formData, setFormData,
@@ -349,6 +410,10 @@ export function useContentGenerator(
         handleFetchNews,
         handleGenerate,
         handlePostToWP,
-        handleCopy
+        handleCopy,
+        refineInstruction,
+        setRefineInstruction,
+        isRefining,
+        handleRefine,
     };
 }

@@ -14,7 +14,7 @@ export function useStoreManager(user: any, addToast: (msg: string, type: "succes
         name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "",
         features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
         wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-        outputTargets: { instagram: true, gbp: true, portal: true, line: true }
+        outputTargets: { instagram: true, gbp: true, portal: true, line: true, short: false }
     });
     const [isSavingStore, setIsSavingStore] = useState(false);
     const [isDeletingStore, setIsDeletingStore] = useState<string | null>(null);

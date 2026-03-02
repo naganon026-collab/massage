@@ -23,7 +23,52 @@ export interface ShopInfo {
         gbp: boolean;
         portal: boolean;
         line: boolean;
+        short?: boolean;
     };
+    /** ショート動画の想定尺（秒）。10 / 20 / 30 / 45 / 60 / 90 */
+    shortTargetDuration?: number;
+    /** 主な投稿先: reels | tiktok | shorts | 指定なし */
+    shortPlatform?: string;
+    /** ショート用の話し言葉サンプル（台本のトーン学習用） */
+    shortSampleScript?: string;
+    /** ショート用の自由メモ（フック・CTAの希望など） */
+    shortMemo?: string;
+    /** ショートのフックタイプ（SHORT_HOOK_OPTIONS の id） */
+    shortHookType?: string;
+}
+
+/** バズりやすいショート動画のフック選択肢（リサーチベース） */
+export const SHORT_HOOK_OPTIONS: { id: string; label: string; promptNote: string }[] = [
+    { id: "question", label: "問いかけ型", promptNote: "視聴者に質問を投げかけ、答えを探させる。例：「〇〇で悩んでいませんか？」「〇〇、気になりませんか？」。脳に答えを探させる効果で離脱を防ぐ。" },
+    { id: "empathy", label: "共感・あるある型", promptNote: "ターゲットの悩みを代弁する。例：「〇〇、ありますよね…」「〇〇で困ってる方、多いんです」。視聴者が「自分ごと」と感じる。" },
+    { id: "benefit", label: "ベネフィット型", promptNote: "得られる価値を数字・時間で明確に。例：「〇〇が〇分で変わる方法」「〇〇がすっと楽になる、たった一つのこと」。メリットを先に伝えて続きを見せる。" },
+    { id: "result_first", label: "衝撃結果を先出し", promptNote: "完成品・変化・お客様の声を冒頭で見せる。例：「この施術の後、お客様がこう言いました」「結果から言うと…」。逆説構成で維持率が上がる。" },
+    { id: "curiosity", label: "好奇心ギャップ", promptNote: "「〇〇の人が知らないこと」「〇割が間違えてる〇〇」など、知りたくなる一言で続きを約束。謎を残して視聴を継続させる。" },
+    { id: "contrarian", label: "常識逆張り", promptNote: "「〇〇はやめて。代わりに〇〇を」と正反対の提案。常識を疑わせて正解を教える構成で信頼と興味を引く。" },
+    { id: "before_after", label: "ビフォーアフター", promptNote: "施術前の状態を一言で示し、この後の変化を予告。例：「施術前はこうでした。そのあと…」。変化のストーリーで引き込む。" },
+    { id: "confession", label: "意外な告白型", promptNote: "「言いにくいけど、〇〇なんです」「実は〇〇で…」と少し踏み込んだ告白で親近感と興味を同時に出す。" },
+    { id: "number", label: "数字で惹く", promptNote: "「〇割の人が気づいていない〇〇」「〇秒で変わる」など数字で具体性と信頼感を出す。スクロールを止めやすい。" },
+    { id: "direct_question", label: "直接質問", promptNote: "「〇〇したこと、ありますか？」「〇〇で困った経験は？」と自分事にさせる問い。Yes/Noで考えさせる。" },
+];
+
+/** 改善して再生成の選択肢（1つ選択） */
+export const REFINE_OPTIONS: { id: string; label: string }[] = [
+    { id: "shorter", label: "もっと短くする" },
+    { id: "casual", label: "もっとカジュアルに" },
+    { id: "formal", label: "もう少し丁寧・フォーマルに" },
+    { id: "empathy", label: "共感・「あるある」を強くする" },
+    { id: "line_natural", label: "LINE誘導をもっと自然に" },
+    { id: "simplify", label: "専門用語を減らしてわかりやすく" },
+    { id: "emoji_more", label: "絵文字を増やす" },
+    { id: "emoji_less", label: "絵文字を減らす" },
+    { id: "hook_stronger", label: "もっとフックを強く" },
+];
+
+/** ショート動画台本の構造（APIはJSON文字列で返す） */
+export interface ShortScriptData {
+    hook: string;
+    scenes: { sec: number; text: string; note?: string }[];
+    cta: string;
 }
 
 // 管理者が登録した店舗の型
@@ -52,6 +97,8 @@ export interface HistoryEntry {
         instagram?: string; gbp?: string;
         portal?: string; portalTitle?: string;
         line?: string; reply?: string; imageUrl?: string;
+        /** ショート動画台本（JSON文字列 or ShortScriptData） */
+        shortScript?: string | ShortScriptData;
     };
     created_at: string;
 }

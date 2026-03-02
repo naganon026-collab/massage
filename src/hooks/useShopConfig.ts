@@ -12,7 +12,7 @@ export function useShopConfig(
     const [shopInfo, setShopInfo] = useState<ShopInfo>({
         name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [],
         wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-        outputTargets: { instagram: true, gbp: true, portal: true, line: true }
+        outputTargets: { instagram: true, gbp: true, portal: true, line: true, short: false }
     });
     const [isConfigured, setIsConfigured] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -149,6 +149,42 @@ export function useShopConfig(
         } else {
             setIsConfigured(true);
             addToast("クラウドに設定を保存しました！", "success");
+        }
+    };
+
+    const getMinimalShopInfo = (): ShopInfo => ({
+        name: "未設定の店舗",
+        address: "未設定",
+        phone: "",
+        lineUrl: "",
+        businessHours: "未設定",
+        holidays: "未設定",
+        features: "",
+        industry: "サロン",
+        snsUrl: "",
+        sampleTexts: "",
+        scrapedContent: "",
+        referenceUrls: [],
+        wpCategoryId: "",
+        wpTagId: "",
+        wpAuthorId: "",
+        outputTargets: { instagram: true, gbp: true, portal: true, line: true, short: false }
+    });
+
+    const handleSkipWithMinimal = async () => {
+        if (!user) return;
+        const minimal = getMinimalShopInfo();
+        setShopInfo(minimal);
+        const { error } = await supabase.from('shops').upsert({
+            user_id: user.id,
+            settings: minimal,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        if (error) {
+            addToast("スキップの保存に失敗しました：" + error.message, "error");
+        } else {
+            setIsConfigured(true);
+            addToast("あとで設定から店舗情報を入力できます", "success");
         }
     };
 
@@ -307,6 +343,7 @@ export function useShopConfig(
         handleScrapeUrlForSettings,
         saveShopInfo,
         handleSaveShopInfo,
+        handleSkipWithMinimal,
         handleExtractInfo,
         handleScrapeUrl,
         handleQuickSaveSettings,

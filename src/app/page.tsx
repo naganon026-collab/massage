@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import {
   Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send,
-  LogOut, History, Clock, Pencil, Trash2, Newspaper, Store, X
+  LogOut, History, Clock, Pencil, Trash2, Newspaper, Store, X, ArrowDown, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToastContainer, useToast } from "@/components/ui/toast";
 
-import { ADMIN_EMAIL, PATTERNS, ShopInfo } from "@/types";
+import { ADMIN_EMAIL, PATTERNS, REFINE_OPTIONS, ShopInfo, ShortScriptData } from "@/types";
 import { useStoreManager } from "@/hooks/useStoreManager";
 import { useShopConfig } from "@/hooks/useShopConfig";
 import { useContentGenerator } from "@/hooks/useContentGenerator";
@@ -26,16 +26,16 @@ import { InitialSetup } from "@/components/features/settings/InitialSetup";
 function LoginPage({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
-      <div className="w-16 h-16 mb-8 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-900/20">
-        <Sparkles className="w-8 h-8 text-zinc-950" />
+      <div className="w-20 h-20 mb-8 rounded-2xl gradient-accent flex items-center justify-center glow-amber-sm transition-smooth">
+        <Sparkles className="w-10 h-10 text-zinc-950" />
       </div>
-      <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Post Support</h1>
-      <p className="text-zinc-400 mb-8 text-center max-w-sm leading-relaxed">
+      <h1 className="font-display text-4xl font-bold text-white mb-2 tracking-tight">Post Support</h1>
+      <p className="text-zinc-400 mb-10 text-center max-w-sm leading-relaxed text-[15px]">
         店舗の魅力を最大限に引き出す、高品質な投稿テキストと画像をAIが自動生成します。
       </p>
       <Button
         onClick={onLogin}
-        className="bg-white hover:bg-zinc-200 text-zinc-900 font-bold !px-16 py-4 rounded-full shadow-xl transition-all active:scale-95 flex items-center gap-3 text-base"
+        className="bg-white hover:bg-zinc-100 text-zinc-900 font-bold !px-16 py-4 rounded-full shadow-xl glow-amber-sm transition-smooth active:scale-[0.98] flex items-center gap-3 text-base"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -52,8 +52,11 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 // ========== ローディング画面 ==========
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4">
+      <div className="w-12 h-12 rounded-xl gradient-accent flex items-center justify-center glow-amber-sm animate-pulse">
+        <Sparkles className="w-6 h-6 text-zinc-950" />
+      </div>
+      <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
     </div>
   );
 }
@@ -64,6 +67,7 @@ export default function SEOContentGenerator() {
   const [user, setUser] = useState<User | null>(null);
   const { toasts, addToast, removeToast } = useToast();
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all");
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // ===== カスタムフック =====
@@ -101,7 +105,7 @@ export default function SEOContentGenerator() {
           name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "",
           features: "", industry: "", snsUrl: "", sampleTexts: "", scrapedContent: "",
           referenceUrls: [], wpCategoryId: "", wpTagId: "", wpAuthorId: "",
-          outputTargets: { instagram: true, gbp: true, portal: true, line: true }
+          outputTargets: { instagram: true, gbp: true, portal: true, line: true, short: false }
         });
         shopConfig.setScrapedPreview("");
         sessionStorage.removeItem("shopInfoDraft");
@@ -133,7 +137,7 @@ export default function SEOContentGenerator() {
 
   const { shopInfo, setShopInfo, isConfigured, setupStep, setSetupStep, setupPath, setSetupPath,
     scrapeUrl, setScrapeUrl, isScraping, isExtractingInfo, scrapedPreview, setScrapedPreview,
-    handleScrapeUrl, handleExtractInfo, handleSaveShopInfo,
+    handleScrapeUrl, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
     settingsScrapeUrl, setSettingsScrapeUrl, isScrapingSettings,
     handleScrapeUrlForSettings, handleQuickSaveSettings,
   } = shopConfig;
@@ -153,6 +157,7 @@ export default function SEOContentGenerator() {
     isPostingToWP, generationHistory, showHistory, setShowHistory,
     deletingHistoryId, handleFetchNews, handleGenerate, handlePostToWP,
     handleCopy, handleRestoreHistory, handleDeleteHistory,
+    refineInstruction, setRefineInstruction, isRefining, handleRefine,
   } = contentGen;
 
   // 選択中の店舗があればその設定、なければデフォルトのshopInfoを使う
@@ -161,7 +166,7 @@ export default function SEOContentGenerator() {
     : shopInfo;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-amber-500/30 pb-20">
+    <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-amber-500/30 pb-20 selection:text-zinc-950">
       {/* トースト通知 */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
@@ -201,13 +206,13 @@ export default function SEOContentGenerator() {
       />
 
       {/* ===== ヘッダー ===== */}
-      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur-xl">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-lg gradient-accent flex items-center justify-center glow-amber-sm transition-smooth">
               <Sparkles className="w-5 h-5 text-zinc-950" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 truncate">
+            <h1 className="font-display text-xl font-bold tracking-tight text-white flex items-center gap-2 truncate">
               Post Support
               {shopInfo.name && (
                 <span className="text-sm font-normal text-zinc-500 truncate hidden sm:inline">— {shopInfo.name}</span>
@@ -275,48 +280,24 @@ export default function SEOContentGenerator() {
             scrapedPreview={scrapedPreview}
             setScrapedPreview={(v) => setScrapedPreview(v ?? "")}
             handleSaveShopInfo={handleSaveShopInfo}
+            handleSkipWithMinimal={handleSkipWithMinimal}
             user={user}
           />
         ) : (
           /* ===== メイン生成UI ===== */
           <div className="space-y-10 animate-in fade-in duration-500">
 
-            {/* 保存済みデータサマリー */}
-            {(shopInfo.referenceUrls.length > 0 || shopInfo.scrapedContent) && (
-              <details className="group bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
-                <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-zinc-800/50 transition-colors">
-                  <div className="flex items-center gap-2 text-sm text-zinc-300 font-medium">
-                    <span className="text-amber-500">💾</span>
-                    保存済みデータ
-                    {shopInfo.referenceUrls.length > 0 && (
-                      <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">URL {shopInfo.referenceUrls.length}件</span>
-                    )}
-                    {shopInfo.scrapedContent && (
-                      <span className="bg-zinc-700 text-zinc-300 text-xs px-2 py-0.5 rounded-full">抽出テキストあり</span>
-                    )}
-                  </div>
-                  <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
-                </summary>
-                <div className="px-4 pb-4 space-y-3 border-t border-zinc-800 pt-3">
-                  {shopInfo.referenceUrls.length > 0 && (
-                    <div>
-                      <p className="text-xs text-zinc-400 font-medium mb-1">📋 参照URL</p>
-                      <div className="flex flex-col gap-1">
-                        {shopInfo.referenceUrls.map((url: string, i: number) => (
-                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                            className="text-xs text-amber-400 hover:underline truncate">{url}</a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {shopInfo.scrapedContent && (
-                    <div>
-                      <p className="text-xs text-zinc-400 font-medium mb-1">📄 抽出テキスト（AI参照中）</p>
-                      <pre className="text-xs text-zinc-400 bg-zinc-950 rounded p-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">{shopInfo.scrapedContent}</pre>
-                    </div>
-                  )}
-                </div>
-              </details>
+            {/* 未設定時バナー：設定を促す */}
+            {isConfigured && shopInfo.name === "未設定の店舗" && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-amber-200">
+                  初期設定を完了すると、より良い文章が生成されます。
+                </p>
+                <Button variant="outline" size="sm" onClick={() => setShowSettingsOverlay(true)} className="border-amber-500/40 text-amber-400 hover:bg-amber-500/20 min-h-[40px]">
+                  <Settings className="w-4 h-4 mr-1.5" />
+                  設定を完了する
+                </Button>
+              </div>
             )}
 
             {/* 生成履歴パネル */}
@@ -325,21 +306,60 @@ export default function SEOContentGenerator() {
                 <button
                   type="button"
                   onClick={() => setShowHistory(v => !v)}
-                  className="flex items-center gap-2 w-full text-left text-sm text-zinc-400 hover:text-zinc-200 transition-colors group"
+                  className="flex items-center gap-2 w-full text-left text-sm text-zinc-400 hover:text-zinc-200 transition-colors group min-h-[44px] py-2"
                 >
-                  <History className="w-4 h-4 text-amber-500/70 group-hover:text-amber-500 transition-colors" />
+                  <History className="w-4 h-4 text-amber-500/70 group-hover:text-amber-500 transition-colors shrink-0" />
                   <span className="font-medium">生成履歴</span>
                   <span className="text-xs text-zinc-600 ml-1">（{generationHistory.length}件）</span>
-                  <span className={`ml-auto text-zinc-600 transition-transform duration-200 ${showHistory ? "rotate-90" : ""}`}>▶</span>
+                  <span className={`ml-auto text-zinc-600 transition-transform duration-200 shrink-0 ${showHistory ? "rotate-90" : ""}`}>▶</span>
                 </button>
 
                 {showHistory && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    {generationHistory.map((entry) => {
-                      const previewText = entry.results.instagram ?? entry.results.gbp ?? entry.results.line ?? entry.results.reply ?? entry.results.portal ?? "";
+                  <>
+                    <div className="flex gap-2 flex-wrap">
+                      {(["all", "today", "week"] as const).map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setHistoryFilter(key)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-smooth min-h-[36px] ${historyFilter === key ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600"}`}
+                        >
+                          {key === "all" ? "すべて" : key === "today" ? "今日" : "今週"}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {(() => {
+                      const now = new Date();
+                      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                      const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+                      const filteredHistory = generationHistory.filter((entry) => {
+                        const t = new Date(entry.created_at).getTime();
+                        if (historyFilter === "today") return t >= todayStart;
+                        if (historyFilter === "week") return t >= weekStart;
+                        return true;
+                      });
+                      return filteredHistory.length === 0 ? (
+                        <p className="col-span-full text-sm text-zinc-500 py-4">該当する履歴がありません</p>
+                      ) : (
+                      filteredHistory.map((entry) => {
+                      const shortPreview = (() => {
+                        const s = entry.results.shortScript;
+                        if (!s) return "";
+                        if (typeof s === "string") {
+                          try {
+                            const p = JSON.parse(s) as ShortScriptData;
+                            return p.hook || s.slice(0, 80);
+                          } catch {
+                            return s.slice(0, 80);
+                          }
+                        }
+                        return (s as ShortScriptData).hook || "";
+                      })();
+                      const previewText = entry.results.instagram ?? entry.results.gbp ?? entry.results.line ?? entry.results.reply ?? entry.results.portal ?? shortPreview ?? "";
                       const dateStr = new Date(entry.created_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
                       return (
-                        <div key={entry.id} className="relative group bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 transition-all duration-200">
+                        <div key={entry.id} className="relative group bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 card-elevated transition-smooth">
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <Clock className="w-3 h-3 text-zinc-500 shrink-0" />
@@ -370,24 +390,27 @@ export default function SEOContentGenerator() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleRestoreHistory(entry)}
-                            className="w-full h-7 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 rounded-lg"
+                            className="w-full min-h-[44px] text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 rounded-lg py-2"
                           >
                             ↩ 再利用する
                           </Button>
                         </div>
                       );
-                    })}
+                    })
+                      );
+                    })()}
                   </div>
+                  </>
                 )}
               </section>
             )}
 
             {/* 管理者向け：生成対象店舗の選択 */}
             {user?.email === ADMIN_EMAIL && stores.length > 0 && (
-              <section className="bg-zinc-900/70 border border-amber-500/20 rounded-xl p-4 space-y-3">
+              <section className="bg-zinc-900/70 border border-amber-500/20 rounded-xl p-4 space-y-3 card-elevated transition-smooth">
                 <div className="flex items-center gap-2">
                   <Store className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-semibold text-amber-400">生成対象の店舗を選択</span>
+                  <span className="font-display text-sm font-semibold text-amber-400">生成対象の店舗を選択</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {stores.map((store) => (
@@ -417,14 +440,14 @@ export default function SEOContentGenerator() {
             {/* ===== STEP 1: パターン選択 ===== */}
             <section className="space-y-4">
               <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">1</span>
-                <h2 className="text-xl font-semibold">投稿パターンの選択</h2>
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">1</span>
+                <h2 className="font-display text-xl font-semibold text-white">投稿パターンの選択</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {PATTERNS.map((pattern) => (
                   <Card
                     key={pattern.id}
-                    className={`cursor-pointer transition-all duration-200 border-zinc-800 bg-zinc-900/50 hover:border-amber-500/50 hover:bg-zinc-900 ${selectedPattern === pattern.id ? "ring-2 ring-amber-500 border-amber-500 bg-zinc-900 shadow-[0_0_15px_rgba(245,158,11,0.1)]" : ""
+                    className={`cursor-pointer transition-smooth border-zinc-800 bg-zinc-900/50 card-elevated hover:border-amber-500/40 hover:bg-zinc-900 ${selectedPattern === pattern.id ? "ring-2 ring-amber-500 border-amber-500 bg-zinc-900 glow-amber-sm" : ""
                       }`}
                     onClick={() => handlePatternChange(pattern.id)}
                   >
@@ -444,15 +467,15 @@ export default function SEOContentGenerator() {
             {/* ===== STEP 2: 入力フォーム ===== */}
             <section className="space-y-4">
               <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">2</span>
-                <h2 className="text-xl font-semibold">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">2</span>
+                <h2 className="font-display text-xl font-semibold text-white">
                   {selectedPattern === "G" ? "返信する内容の入力" : selectedPattern === "H" ? "ニュースの選択" : "事実（ファクト）の入力"}
                 </h2>
               </div>
 
               {selectedPattern === "G" ? (
                 /* パターンG：コメント返信フォーム */
-                <Card className="border-zinc-800 bg-zinc-900">
+                <Card className="border-zinc-800 bg-zinc-900/80 card-elevated transition-smooth">
                   <CardContent className="p-6 space-y-6">
                     <div className="space-y-3">
                       <Label className="text-base text-zinc-200">返信するプラットフォームを選択</Label>
@@ -505,7 +528,7 @@ export default function SEOContentGenerator() {
                 </Card>
               ) : selectedPattern === "H" ? (
                 /* パターンH：ニュース連動フォーム */
-                <Card className="border-zinc-800 bg-zinc-900">
+                <Card className="border-zinc-800 bg-zinc-900/80 card-elevated transition-smooth">
                   <CardContent className="p-6 space-y-6">
                     <div className="space-y-2">
                       <Label className="text-base text-zinc-200 flex items-center gap-2">
@@ -550,7 +573,7 @@ export default function SEOContentGenerator() {
                 </Card>
               ) : (
                 /* 通常パターン（A〜F）フォーム */
-                <Card className="border-zinc-800 bg-zinc-900">
+                <Card className="border-zinc-800 bg-zinc-900/80 card-elevated transition-smooth">
                   <CardContent className="p-6 space-y-6">
                     {(["q1", "q2", "q3"] as const).map((qKey) => (
                       <div key={qKey} className="space-y-2">
@@ -569,12 +592,49 @@ export default function SEOContentGenerator() {
               )}
             </section>
 
+            {/* 入力完了ヒント */}
+            {(() => {
+              const canGenerate =
+                selectedPattern === "G" ? receivedComment.trim().length > 0
+                : selectedPattern === "H" ? newsItems.length > 0 && selectedNewsIndex !== null
+                : (formData.q1.trim() || formData.q2.trim() || formData.q3.trim());
+              return canGenerate ? (
+                <p className="text-center text-sm text-amber-500/90 flex items-center justify-center gap-1.5">
+                  <Check className="w-4 h-4" />
+                  入力完了 — 生成できます
+                </p>
+              ) : (
+                <p className="text-center text-sm text-zinc-500">
+                  {selectedPattern === "G" ? "コメントを入力すると生成できます" : selectedPattern === "H" ? "ニュースを取得して1つ選ぶと生成できます" : "3つの質問に答えると生成できます"}
+                </p>
+              );
+            })()}
+
+            {/* 出力先の説明（設定で変更可能であることを明示） */}
+            <div className="flex flex-wrap items-center justify-center gap-2 py-2 text-sm text-zinc-500">
+              <span>出力先:</span>
+              {[
+                activeShopInfo.outputTargets?.instagram !== false && "Instagram",
+                activeShopInfo.outputTargets?.gbp !== false && "GBP",
+                activeShopInfo.outputTargets?.portal !== false && "ポータル",
+                activeShopInfo.outputTargets?.line !== false && "LINE",
+                activeShopInfo.outputTargets?.short && "ショート動画",
+              ].filter(Boolean).join("、")}
+              <button
+                type="button"
+                onClick={() => setShowSettingsOverlay(true)}
+                className="text-amber-500 hover:text-amber-400 underline underline-offset-2"
+              >
+                設定で変更
+              </button>
+            </div>
+
             {/* ===== 生成ボタン ===== */}
-            <div className="flex justify-center pt-4">
+            <div className="flex flex-col items-center gap-3 pt-2">
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-950 font-semibold text-base h-11 px-10 min-w-[260px] rounded-full shadow-md shadow-amber-900/20 transition-all active:scale-95 group flex items-center justify-center gap-3"
+                className="gradient-accent hover:opacity-95 text-zinc-950 font-semibold text-base h-12 px-10 min-w-[280px] rounded-full glow-amber transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[48px]"
               >
                 {isGenerating ? (
                   <><Loader2 className="h-5 w-5 animate-spin text-zinc-950" /><span>AIがテキストを生成中...</span></>
@@ -582,33 +642,54 @@ export default function SEOContentGenerator() {
                   <><span>この内容で生成する</span><ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" /></>
                 )}
               </Button>
+              {generatedResults && (
+                <button
+                  type="button"
+                  onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="flex items-center gap-2 text-sm text-amber-500 hover:text-amber-400 transition-colors"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                  結果へジャンプ
+                </button>
+              )}
             </div>
 
             {/* ===== STEP 3: 生成結果 ===== */}
             {generatedResults && (
-              <section ref={resultsRef} className="space-y-4 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">3</span>
-                  <h2 className="text-xl font-semibold text-amber-500">生成完了</h2>
+              <section ref={resultsRef} className="space-y-4 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-500 scroll-mt-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold">3</span>
+                  <h2 className="font-display text-xl font-semibold text-amber-400">生成完了</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setGeneratedResults(null); setEditingTab(null); }}
+                    className="ml-auto text-zinc-400 hover:text-amber-500 hover:bg-amber-500/10 h-9 min-h-[44px] px-3"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1.5" />
+                    もう一度生成
+                  </Button>
                 </div>
 
                 <Tabs defaultValue={
                   selectedPattern === "G" ? "reply" :
                     activeShopInfo.outputTargets?.instagram ? "instagram" :
                       activeShopInfo.outputTargets?.gbp ? "gbp" :
-                        activeShopInfo.outputTargets?.portal ? "portal" : "line"
+                        activeShopInfo.outputTargets?.portal ? "portal" :
+                          activeShopInfo.outputTargets?.short ? "short" : "line"
                 } className="w-full">
-                  <TabsList className="flex w-full bg-zinc-900 border border-zinc-800 p-1 overflow-x-auto scrollbar-none">
+                  <TabsList className="flex w-full bg-zinc-900/80 border border-zinc-800 p-1.5 overflow-x-auto scrollbar-none rounded-xl transition-smooth gap-1">
                     {selectedPattern === "G" ? (
-                      <TabsTrigger value="reply" className="flex-1 min-w-fit data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap">
+                      <TabsTrigger value="reply" className="flex-1 min-w-fit min-h-[44px] py-2 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap">
                         {replyPlatform === "gbp" ? "🗺️ GBP返信" : "📱 SNS返信"}
                       </TabsTrigger>
                     ) : (
                       <>
-                        {activeShopInfo.outputTargets?.instagram !== false && <TabsTrigger value="instagram" className="flex-1 min-w-fit data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">Instagram用</span><span className="sm:hidden">📸 IG</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.gbp !== false && <TabsTrigger value="gbp" className="flex-1 min-w-fit data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">Googleの最新情報用</span><span className="sm:hidden">🗺️ GBP</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.portal !== false && <TabsTrigger value="portal" className="flex-1 min-w-fit data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">ポータルサイト用</span><span className="sm:hidden">📝 ブログ</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.line !== false && <TabsTrigger value="line" className="flex-1 min-w-fit data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">💬 LINE用</span><span className="sm:hidden">💬 LINE</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.instagram !== false && <TabsTrigger value="instagram" className="flex-1 min-w-fit min-h-[44px] py-2 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">Instagram用</span><span className="sm:hidden">📸 IG</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.gbp !== false && <TabsTrigger value="gbp" className="flex-1 min-w-fit min-h-[44px] py-2 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">Googleの最新情報用</span><span className="sm:hidden">🗺️ GBP</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.portal !== false && <TabsTrigger value="portal" className="flex-1 min-w-fit min-h-[44px] py-2 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">ポータルサイト用</span><span className="sm:hidden">📝 ブログ</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.line !== false && <TabsTrigger value="line" className="flex-1 min-w-fit min-h-[44px] py-2 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">💬 LINE用</span><span className="sm:hidden">💬 LINE</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.short && <TabsTrigger value="short" className="flex-1 min-w-fit min-h-[44px] py-2 data-[state=active]:bg-zinc-800 data-[state=active]:text-amber-500 whitespace-nowrap"><span className="hidden sm:inline">🎬 ショート台本</span><span className="sm:hidden">🎬 ショート</span></TabsTrigger>}
                       </>
                     )}
                   </TabsList>
@@ -617,7 +698,7 @@ export default function SEOContentGenerator() {
                     /* パターンG 返信テキスト */
                     generatedResults.reply && (
                       <TabsContent value="reply">
-                        <Card className="border-zinc-800 bg-zinc-900 relative overflow-hidden">
+                        <Card className="border-zinc-800 bg-zinc-900/80 card-elevated relative overflow-hidden transition-smooth">
                           <div className="absolute top-4 right-4 z-10">
                             <Button variant="secondary" size="sm" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9" onClick={() => handleCopy(generatedResults.reply as string, "reply")}>
                               {copiedTab === "reply" ? <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</> : <><Copy className="w-4 h-4 mr-2" /> コピー</>}
@@ -641,9 +722,10 @@ export default function SEOContentGenerator() {
                       { id: "gbp", data: generatedResults.gbp, active: activeShopInfo.outputTargets?.gbp !== false },
                       { id: "portal", data: generatedResults.portal, active: activeShopInfo.outputTargets?.portal !== false },
                       { id: "line", data: generatedResults.line, active: activeShopInfo.outputTargets?.line !== false },
+                      { id: "short", data: generatedResults.shortScript, active: !!activeShopInfo.outputTargets?.short },
                     ].filter(t => t.active && t.data).map((tab) => (
                       <TabsContent key={tab.id} value={tab.id}>
-                        <Card className="border-zinc-800 bg-zinc-900 relative overflow-hidden group">
+                        <Card className="border-zinc-800 bg-zinc-900/80 card-elevated relative overflow-hidden group transition-smooth">
                           <div className="absolute top-4 right-4 z-10 flex gap-2">
                             {/* ポータル向けWordPress投稿ボタン */}
                             {tab.id === "portal" && generatedResults.portalTitle && (
@@ -656,18 +738,37 @@ export default function SEOContentGenerator() {
                                 </Button>
                               </div>
                             )}
-                            {/* 編集トグル */}
-                            <Button
-                              variant="secondary" size="sm"
-                              className={`h-9 border ${editingTab === tab.id ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"}`}
-                              onClick={() => setEditingTab(editingTab === tab.id ? null : tab.id)}
-                            >
-                              {editingTab === tab.id ? <><Check className="w-4 h-4 mr-2 text-amber-400" /> 編集完了</> : <><Pencil className="w-4 h-4 mr-2" /> 編集</>}
-                            </Button>
-                            {/* コピー */}
-                            <Button variant="secondary" size="sm" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9" onClick={() => handleCopy(tab.data as string, tab.id)}>
-                              {copiedTab === tab.id ? <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</> : <><Copy className="w-4 h-4 mr-2" /> コピー</>}
-                            </Button>
+                            {tab.id !== "short" && (
+                              <>
+                                <Button
+                                  variant="secondary" size="sm"
+                                  className={`h-9 border ${editingTab === tab.id ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40" : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"}`}
+                                  onClick={() => setEditingTab(editingTab === tab.id ? null : tab.id)}
+                                >
+                                  {editingTab === tab.id ? <><Check className="w-4 h-4 mr-2 text-amber-400" /> 編集完了</> : <><Pencil className="w-4 h-4 mr-2" /> 編集</>}
+                                </Button>
+                                <Button variant="secondary" size="sm" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9" onClick={() => handleCopy(tab.data as string, tab.id)}>
+                                  {copiedTab === tab.id ? <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</> : <><Copy className="w-4 h-4 mr-2" /> コピー</>}
+                                </Button>
+                              </>
+                            )}
+                            {tab.id === "short" && (() => {
+                              const raw = tab.data as string;
+                              let parsed: ShortScriptData | null = null;
+                              try {
+                                parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+                              } catch {
+                                // ignore
+                              }
+                              const copyText = parsed
+                                ? `【フック】\n${parsed.hook}\n\n【本編】\n${(parsed.scenes || []).map(s => `[${s.sec}秒] ${s.text}${s.note ? ` （${s.note}）` : ""}`).join("\n")}\n\n【CTA】\n${parsed.cta}`
+                                : raw || "";
+                              return (
+                                <Button variant="secondary" size="sm" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9" onClick={() => handleCopy(copyText, "short")}>
+                                  {copiedTab === "short" ? <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</> : <><Copy className="w-4 h-4 mr-2" /> コピー</>}
+                                </Button>
+                              );
+                            })()}
                           </div>
                           <CardContent className="p-6 pt-16">
                             {tab.id === "portal" && generatedResults.portalTitle && (
@@ -677,7 +778,44 @@ export default function SEOContentGenerator() {
                                 <p className="text-zinc-500 text-xs">※上記のタイトルと下の本文がWordPressに送信されます。</p>
                               </div>
                             )}
-                            {editingTab === tab.id ? (
+                            {tab.id === "short" ? (() => {
+                              const raw = tab.data as string;
+                              let parsed: ShortScriptData | null = null;
+                              try {
+                                parsed = typeof raw === "string" ? JSON.parse(raw) : (raw as ShortScriptData);
+                              } catch {
+                                // ignore
+                              }
+                              if (!parsed || !parsed.hook) {
+                                return <div className="text-zinc-400 text-sm">台本の解析に失敗しました。生データ: <pre className="mt-2 p-3 bg-zinc-950 rounded text-xs overflow-x-auto">{String(raw ?? "").slice(0, 500)}</pre></div>;
+                              }
+                              return (
+                                <div className="space-y-6 text-zinc-300">
+                                  <div>
+                                    <p className="text-xs font-semibold text-amber-500 mb-1">🎬 フック（冒頭3〜5秒）</p>
+                                    <p className="font-medium">{parsed.hook}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-amber-500 mb-2">📝 本編</p>
+                                    <ul className="space-y-2">
+                                      {(parsed.scenes || []).map((s, i) => (
+                                        <li key={i} className="flex gap-3 items-start">
+                                          <span className="shrink-0 text-zinc-500 text-xs w-10">[{s.sec}秒]</span>
+                                          <div>
+                                            <p className="font-medium">{s.text}</p>
+                                            {s.note && <p className="text-xs text-zinc-500 mt-0.5">{s.note}</p>}
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-amber-500 mb-1">👉 CTA（最後の誘導）</p>
+                                    <p className="font-medium">{parsed.cta}</p>
+                                  </div>
+                                </div>
+                              );
+                            })() : editingTab === tab.id ? (
                               <textarea
                                 className="w-full min-h-[240px] bg-zinc-950 border border-amber-500/30 rounded-lg p-4 text-zinc-300 text-sm font-medium leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-all"
                                 value={tab.data as string}
@@ -689,6 +827,39 @@ export default function SEOContentGenerator() {
                             )}
                           </CardContent>
                         </Card>
+                        {/* 改善して再生成 */}
+                        <div className="mt-4 p-4 rounded-xl border border-zinc-800 bg-zinc-900/50">
+                          <p className="text-sm font-medium text-zinc-300 mb-3">改善して再生成</p>
+                          <p className="text-xs text-zinc-500 mb-3">指示を1つ選んでからボタンを押すと、このタブの文章だけを改善して再生成します。</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-2 mb-4">
+                            {REFINE_OPTIONS.map((opt) => (
+                              <label key={opt.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                                <input
+                                  type="radio"
+                                  name={`refine-${tab.id}`}
+                                  checked={(refineInstruction[tab.id] ?? null) === opt.id}
+                                  onChange={() => setRefineInstruction(tab.id, opt.id)}
+                                  className="w-3.5 h-3.5 accent-amber-500"
+                                />
+                                {opt.label}
+                              </label>
+                            ))}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40"
+                            disabled={isRefining}
+                            onClick={() => {
+                              const currentText = typeof tab.data === "string" ? tab.data : JSON.stringify(tab.data);
+                              const extra = tab.id === "portal" && generatedResults.portalTitle ? { portalTitle: generatedResults.portalTitle } : undefined;
+                              handleRefine(tab.id, currentText, extra);
+                            }}
+                          >
+                            {isRefining ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 再生成中...</> : "選択して再生成"}
+                          </Button>
+                        </div>
                       </TabsContent>
                     ))
                   )}

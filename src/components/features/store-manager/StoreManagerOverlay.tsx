@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { StoreRecord } from "@/types";
+import { StoreRecord, SHORT_HOOK_OPTIONS } from "@/types";
 
 interface StoreManagerOverlayProps {
     showStoreManager: boolean;
@@ -51,15 +51,15 @@ export function StoreManagerOverlay({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 pt-16 md:pt-20"
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm px-4 pt-16 md:pt-20"
             onClick={(e) => { if (e.target === e.currentTarget) { setShowStoreManager(false); setShowStoreForm(false); } }}
         >
-            <div className="w-full max-w-3xl rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="w-full max-w-3xl rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl card-elevated max-h-[85vh] overflow-hidden flex flex-col">
                 {/* ヘッダー */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
                     <div className="flex items-center gap-2">
                         <Store className="w-5 h-5 text-amber-500" />
-                        <h2 className="text-base font-bold text-white">
+                        <h2 className="font-display text-base font-bold text-white">
                             {showStoreForm ? (editingStoreId ? "店舗情報を編集" : "新しい店舗を登録") : "店舗管理"}
                         </h2>
                         {!showStoreForm && (
@@ -187,6 +187,7 @@ export function StoreManagerOverlay({
                                             { key: "gbp", label: "GBP用" },
                                             { key: "portal", label: "ポータル用" },
                                             { key: "line", label: "LINE用" },
+                                            { key: "short", label: "ショート動画の台本" },
                                         ].map(({ key, label }) => (
                                             <label key={key} className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
                                                 <input
@@ -200,6 +201,71 @@ export function StoreManagerOverlay({
                                         ))}
                                     </div>
                                 </div>
+                                {(storeFormData.outputTargets?.short) && (
+                                    <div className="space-y-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
+                                        <Label className="text-sm font-medium text-amber-400">ショート動画の設定</Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs text-zinc-400">フックのタイプ</Label>
+                                                <select
+                                                    value={storeFormData.shortHookType ?? SHORT_HOOK_OPTIONS[0].id}
+                                                    onChange={(e) => setStoreFormData({ ...storeFormData, shortHookType: e.target.value })}
+                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                                                >
+                                                    {SHORT_HOOK_OPTIONS.map((opt) => (
+                                                        <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs text-zinc-400">想定尺（秒）</Label>
+                                        <select
+                                            value={storeFormData.shortTargetDuration ?? 60}
+                                            onChange={(e) => setStoreFormData({ ...storeFormData, shortTargetDuration: Number(e.target.value) })}
+                                            className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                                        >
+                                            <option value={10}>10秒</option>
+                                            <option value={20}>20秒</option>
+                                            <option value={30}>30秒</option>
+                                            <option value={45}>45秒</option>
+                                            <option value={60}>60秒</option>
+                                            <option value={90}>90秒</option>
+                                        </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs text-zinc-400">主な投稿先</Label>
+                                                <select
+                                                    value={storeFormData.shortPlatform ?? ""}
+                                                    onChange={(e) => setStoreFormData({ ...storeFormData, shortPlatform: e.target.value })}
+                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                                                >
+                                                    <option value="">指定なし</option>
+                                                    <option value="Instagram Reels">Instagram Reels</option>
+                                                    <option value="TikTok">TikTok</option>
+                                                    <option value="YouTube Shorts">YouTube Shorts</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-zinc-400">ショート用サンプル台本</Label>
+                                            <Textarea
+                                                value={storeFormData.shortSampleScript ?? ""}
+                                                onChange={(e) => setStoreFormData({ ...storeFormData, shortSampleScript: e.target.value })}
+                                                placeholder="話し言葉のサンプルを貼り付けるとトーンが揃います"
+                                                className="min-h-[80px] bg-zinc-950 border-zinc-800 text-zinc-100 resize-y"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-zinc-400">ショート用メモ</Label>
+                                            <Input
+                                                value={storeFormData.shortMemo ?? ""}
+                                                onChange={(e) => setStoreFormData({ ...storeFormData, shortMemo: e.target.value })}
+                                                placeholder="例：CTAはLINE誘導のみ"
+                                                className="bg-zinc-950 border-zinc-800 text-zinc-100"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -287,7 +353,7 @@ export function StoreManagerOverlay({
                                 type="button"
                                 size="sm"
                                 className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
-                                onClick={() => { setEditingStoreId(null); setStoreScrapeUrl(""); setStoreFormData({ name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [], wpCategoryId: "", wpTagId: "", wpAuthorId: "", outputTargets: { instagram: true, gbp: true, portal: true, line: true } }); setShowStoreForm(true); }}
+                                onClick={() => { setEditingStoreId(null); setStoreScrapeUrl(""); setStoreFormData({ name: "", address: "", phone: "", lineUrl: "", businessHours: "", holidays: "", features: "", industry: "", snsUrl: "", sampleTexts: "", referenceUrls: [], wpCategoryId: "", wpTagId: "", wpAuthorId: "", outputTargets: { instagram: true, gbp: true, portal: true, line: true, short: false } }); setShowStoreForm(true); }}
                             >
                                 <PlusCircle className="w-4 h-4 mr-2" />
                                 新しい店舗を登録

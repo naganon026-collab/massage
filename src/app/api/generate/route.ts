@@ -3,6 +3,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
+import { SHORT_HOOK_OPTIONS } from "@/types";
 
 const generateSchema = z.object({
     patternTitle: z.string().optional(),
@@ -21,6 +22,11 @@ const generateSchema = z.object({
         snsUrl: z.string().optional(),
         sampleTexts: z.string().optional(),
         scrapedContent: z.string().optional(),
+        shortTargetDuration: z.number().optional(),
+        shortPlatform: z.string().optional(),
+        shortSampleScript: z.string().optional(),
+        shortMemo: z.string().optional(),
+        shortHookType: z.string().optional(),
     }).optional(),
     news: z.object({
         title: z.string().optional(),
@@ -32,7 +38,8 @@ const generateSchema = z.object({
         gbp: z.boolean().optional(),
         portal: z.boolean().optional(),
         line: z.boolean().optional(),
-    }).optional().default({ instagram: true, gbp: true, portal: true, line: false })
+        short: z.boolean().optional(),
+    }).optional().default({ instagram: true, gbp: true, portal: true, line: false, short: false })
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -75,6 +82,11 @@ export async function POST(req: Request) {
         const shopSnsUrl = shopInfo?.snsUrl || "";
         const shopSampleTexts = shopInfo?.sampleTexts || "";
         const shopScrapedContent = shopInfo?.scrapedContent || "";
+        const shortTargetDuration = shopInfo?.shortTargetDuration ?? 60;
+        const shortPlatform = shopInfo?.shortPlatform || "";
+        const shortSampleScript = shopInfo?.shortSampleScript || "";
+        const shortMemo = shopInfo?.shortMemo || "";
+        const shortHookType = shopInfo?.shortHookType || "";
 
         // 全てのターゲットがfalseの場合はデフォルト（全媒体）で生成する
         const effectiveTargets = {
@@ -82,6 +94,7 @@ export async function POST(req: Request) {
             gbp: outputTargets.gbp ?? true,
             portal: outputTargets.portal ?? true,
             line: outputTargets.line ?? false,
+            short: outputTargets.short ?? false,
         };
 
         const targetNames = [];
@@ -89,6 +102,7 @@ export async function POST(req: Request) {
         if (effectiveTargets.gbp) targetNames.push("Googleビジネスプロフィール(GBP)");
         if (effectiveTargets.portal) targetNames.push("ポータルサイト");
         if (effectiveTargets.line) targetNames.push("LINE");
+        if (effectiveTargets.short) targetNames.push("ショート動画の台本");
 
         if (targetNames.length === 0) {
             // 全てfalseの場合はinstagram/gbp/portalを有効にしてフォールバック
@@ -137,6 +151,29 @@ export async function POST(req: Request) {
             properties.line = { type: SchemaType.STRING };
             required.push("line");
         }
+        if (outputTargets.short) {
+            if (jsonFormatGuide) jsonFormatGuide += ",";
+            const shortSceneCount = Math.floor(shortTargetDuration / 2);
+            jsonFormatGuide += `\n  "shortScript": "【ショート動画の台本】有効なJSON文字列1つ。{\\"hook\\": \\"冒頭で言う一言（15字前後）\\", \\"scenes\\": [{\\"sec\\": 0, \\"text\\": \\"その2秒間に表示するテキスト\\", \\"note\\": \\"画面メモ（任意）\\"}, {\\"sec\\": 2, \\"text\\": \\"次の2秒間のテキスト\\"}, ...], \\"cta\\": \\"最後の誘導（20字前後）\\"}。scenesは必ず2秒間隔で、secは0,2,4,6,...と${shortTargetDuration}秒まで、合計${shortSceneCount}個以上。各textはその2秒間で表示するテロップ・ナレーション（1ブロック10〜16字目安）。"`;
+            properties.shortScript = { type: SchemaType.STRING };
+            required.push("shortScript");
+        }
+
+        const selectedHookOption = shortHookType ? SHORT_HOOK_OPTIONS.find(o => o.id === shortHookType) : null;
+        const shortInstruction = effectiveTargets.short
+            ? `
+
+【ショート動画の台本（shortScript）について】
+- 想定尺は${shortTargetDuration}秒です。本編は「2秒ごとに別のテキストが表示される」形式にしてください。
+- 冒頭の hook は3〜5秒で言い切れる一言（10〜15字程度）にし、必ず以下の【選ばれたフックタイプ】に沿って生成してください。
+${selectedHookOption ? `【選ばれたフックタイプ】${selectedHookOption.label}\n${selectedHookOption.promptNote}\n→ 上記の型に沿って、今回のテーマ・お客様の悩みに合う具体的な hook 文言を1つ生成すること。` : "- 問いかけ・共感・驚きのいずれかで視聴者を止める hook にすること。"}
+- scenes は必ず2秒間隔で生成すること。sec は 0, 2, 4, 6, 8, … と2秒ごとに${shortTargetDuration}秒まで（例：60秒なら約30個）。各 scene の text は「その2秒間に表示するテロップ・ナレーション」で、1ブロックあたり10〜16字程度の文にすること。2秒ごとに違うテキストが切り替わる台本にしてください。note には画面の切り替えや見せ方のメモを任意で。
+- 最後の cta は「LINEで予約」「プロフィールのリンクから」など、${shopLineUrl ? `LINE（${shopLineUrl}）` : "予約・問い合わせ"}への誘導を20字前後で。
+${shortPlatform ? `- 主な投稿先は「${shortPlatform}」を想定し、そのプラットフォームに合ったテンポとフックにしてください。` : ""}
+${shortSampleScript ? `- 以下の【ショート用サンプル台本】の話し方・テンポ・言い回しを参考にし、同じトーンで書いてください。\n\n【ショート用サンプル台本】\n${shortSampleScript}` : ""}
+${shortMemo ? `- 店舗からの希望・メモ：${shortMemo}` : ""}
+`
+            : "";
 
         const toneInstruction = shopSampleTexts
             ? `- 以下の【あなたが過去に書いた文章サンプル】の「文のテンポ、絵文字の有無・頻度、改行のクセ、語尾のニュアンス、親しみやすさ」などを徹底的に分析して真似してください。\n\n【あなたが過去に書いた文章サンプル】\n${shopSampleTexts}`
@@ -165,6 +202,7 @@ ${shopScrapedContent ? `【WEBサイトから抽出した参考情報】\n${shop
 
 【⭕️目指すべきトーン＆マナー（自然・誠実・プロの視点 または サンプル準拠）】
 ${toneInstruction}
+${shortInstruction}
 
 【出力JSONフォーマット（Markdown装飾のバッククォートを含めず、純粋なJSON文字列のみ出力）】
 {${jsonFormatGuide}
