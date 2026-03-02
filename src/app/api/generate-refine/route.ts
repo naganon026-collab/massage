@@ -108,7 +108,7 @@ ${isShort ? "\n必ず有効なJSON文字列1つで返すこと。hook, scenes, c
                     type: SchemaType.OBJECT,
                     properties,
                     required,
-                },
+                } as import("@google/generative-ai").Schema,
             },
         });
 
