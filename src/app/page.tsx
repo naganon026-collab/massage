@@ -823,7 +823,9 @@ export default function SEOContentGenerator() {
                                 spellCheck={false}
                               />
                             ) : (
-                              <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">{tab.data}</div>
+                              <div className="whitespace-pre-wrap text-zinc-300 font-medium leading-relaxed">
+                                {typeof tab.data === "string" ? tab.data : (tab.data != null ? JSON.stringify(tab.data) : "")}
+                              </div>
                             )}
                           </CardContent>
                         </Card>

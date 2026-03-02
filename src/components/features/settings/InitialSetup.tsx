@@ -47,6 +47,15 @@ export function InitialSetup({
     handleSkipWithMinimal,
     user,
 }: InitialSetupProps) {
+    const ot = shopInfo.outputTargets;
+    const outputTargetsWith = (key: keyof NonNullable<ShopInfo["outputTargets"]>, value: boolean) => ({
+        instagram: ot?.instagram ?? true,
+        gbp: ot?.gbp ?? true,
+        portal: ot?.portal ?? true,
+        line: ot?.line ?? true,
+        short: ot?.short ?? false,
+        [key]: value,
+    });
     return (
         <div className="max-w-xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center space-y-2">
@@ -269,23 +278,23 @@ export function InitialSetup({
                                     <h4 className="font-semibold text-zinc-200 text-sm">出力する媒体</h4>
                                     <div className="flex flex-wrap gap-6">
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...(shopInfo.outputTargets ?? {}), instagram: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("instagram", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             Instagram用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...(shopInfo.outputTargets ?? {}), gbp: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("gbp", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             Google Map/GBP用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...(shopInfo.outputTargets ?? {}), portal: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("portal", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             ブログ/ポータル用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...(shopInfo.outputTargets ?? {}), line: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("line", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             LINE用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: { ...(shopInfo.outputTargets ?? {}), short: e.target.checked } })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("short", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             ショート動画の台本
                                         </label>
                                     </div>

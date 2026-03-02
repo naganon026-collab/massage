@@ -37,6 +37,15 @@ export function SettingsOverlay({
     handleQuickSaveSettings,
     user,
 }: SettingsOverlayProps) {
+    const ot = shopInfo.outputTargets;
+    const outputTargetsWith = (key: keyof NonNullable<ShopInfo["outputTargets"]>, value: boolean) => ({
+        instagram: ot?.instagram ?? true,
+        gbp: ot?.gbp ?? true,
+        portal: ot?.portal ?? true,
+        line: ot?.line ?? true,
+        short: ot?.short ?? false,
+        [key]: value,
+    });
     if (!showSettingsOverlay) return null;
 
     return (
@@ -316,7 +325,7 @@ export function SettingsOverlay({
                                     onChange={(e) =>
                                         setShopInfo({
                                             ...shopInfo,
-                                            outputTargets: { ...(shopInfo.outputTargets ?? {}), [key]: e.target.checked },
+                                            outputTargets: outputTargetsWith(key, e.target.checked),
                                         })
                                     }
                                     className="w-4 h-4 rounded accent-amber-500"
