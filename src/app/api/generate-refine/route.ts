@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         const parsed = refineSchema.safeParse(body);
         if (!parsed.success) {
             return NextResponse.json(
-                { error: "入力内容に誤りがあります。", details: parsed.format() },
+                { error: "入力内容に誤りがあります。", details: parsed.error.format() },
                 { status: 400 }
             );
         }
