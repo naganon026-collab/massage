@@ -20,10 +20,10 @@ interface SettingsOverlayProps {
     user: User | null;
 }
 
-const sectionTitle = "text-base font-semibold text-white mt-8 first:mt-0 mb-3";
-const fieldLabel = "text-sm font-medium text-zinc-200 mb-1.5 block";
-const fieldHint = "text-xs text-zinc-500 mt-1";
-const inputBase = "w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/40 transition-colors";
+const sectionTitle = "text-lg font-bold text-white mt-8 first:mt-0 mb-3 pb-1 border-b border-zinc-800";
+const fieldLabel = "text-sm font-semibold text-zinc-100 mb-1.5 block";
+const fieldHint = "text-sm text-zinc-400 mt-1";
+const inputBase = "w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/40 transition-colors";
 
 export function SettingsOverlay({
     showSettingsOverlay,
@@ -61,7 +61,7 @@ export function SettingsOverlay({
             <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl card-elevated max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 shrink-0">
                     <div className="flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-amber-500" />
+                        <Settings className="w-5 h-5 text-emerald-500" />
                         <h2 className="font-display text-lg font-semibold text-white">店舗設定の編集</h2>
                     </div>
                     <button
@@ -73,51 +73,8 @@ export function SettingsOverlay({
                     </button>
                 </div>
                 <div className="px-6 py-5 space-y-1 overflow-y-auto flex-1">
-                    <p className="text-sm text-zinc-400 mb-6">
-                        初期設定で登録した内容を編集できます。変更後は「設定を保存する」でクラウドに反映されます。
-                    </p>
-
-                    {/* 保存済みデータ */}
-                    {(shopInfo.referenceUrls?.length > 0 || shopInfo.scrapedContent) && (
-                        <details className="group bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden mb-6">
-                            <summary className="flex items-center justify-between px-4 py-3.5 cursor-pointer list-none select-none hover:bg-zinc-800/50 transition-colors">
-                                <div className="flex items-center gap-2.5 text-sm font-medium text-zinc-200">
-                                    <span className="text-amber-500">💾</span>
-                                    保存済みデータ
-                                    {shopInfo.referenceUrls?.length > 0 && (
-                                        <span className="bg-amber-500/20 text-amber-400 text-xs px-2.5 py-0.5 rounded-full">URL {shopInfo.referenceUrls.length}件</span>
-                                    )}
-                                    {shopInfo.scrapedContent && (
-                                        <span className="bg-zinc-700 text-zinc-300 text-xs px-2.5 py-0.5 rounded-full">抽出テキストあり</span>
-                                    )}
-                                </div>
-                                <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
-                                {shopInfo.referenceUrls?.length > 0 && (
-                                    <div>
-                                        <p className="text-xs text-zinc-400 font-medium mb-2">📋 参照URL（取得済み）</p>
-                                        <div className="flex flex-col gap-1.5">
-                                            {shopInfo.referenceUrls.map((url: string, i: number) => (
-                                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-400 hover:underline truncate max-w-full">
-                                                    {url}
-                                                </a>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {shopInfo.scrapedContent && (
-                                    <div>
-                                        <p className="text-xs text-zinc-400 font-medium mb-2">📄 抽出テキスト（AI参照中）</p>
-                                        <p className="text-xs text-zinc-500">下の「お店のURLを入力」のテキストエリアで編集できます。</p>
-                                    </div>
-                                )}
-                            </div>
-                        </details>
-                    )}
-
                     {/* URLから取得 */}
-                    <h3 className={sectionTitle}>お店のURLを入力</h3>
+                    <h3 className={sectionTitle}>① お店のURLを入力して基本情報を自動入力</h3>
                     <p className={fieldHint}>店舗のWEBサイトURLを入力すると、業種・店舗名・住所などを自動で取得し、投稿生成時の参照情報として保存します。</p>
                     <div className="flex gap-2 mt-3">
                         <Input
@@ -133,24 +90,23 @@ export function SettingsOverlay({
                             variant="secondary"
                             onClick={handleScrapeUrlForSettings}
                             disabled={isScrapingSettings || !settingsScrapeUrl.trim().startsWith("http")}
-                            className="shrink-0 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border-amber-500/40 h-[46px] px-5"
+                            className="shrink-0 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border-emerald-500/40 h-[46px] px-5"
                         >
                             {isScrapingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
                             {isScrapingSettings ? "取得中…" : "URLから取得"}
                         </Button>
                     </div>
-                    <details className="mt-3 group/details rounded-lg border border-zinc-800 overflow-hidden bg-zinc-900/30">
-                        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-zinc-800/50 transition-colors text-sm text-zinc-300">
-                            <span>URLから取得した情報・直接貼り付け</span>
+                    <details open className="mt-3 group/details rounded-lg border border-zinc-800 overflow-hidden bg-zinc-900/30">
+                        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-zinc-800/50 transition-colors text-sm text-zinc-200">
+                            <span>URLから取得した情報</span>
                             <span className="text-zinc-500 text-xs transition-transform group-open/details:rotate-180">▼</span>
                         </summary>
                         <div className="px-4 pb-4 pt-0">
-                            <p className="text-xs text-zinc-500 mb-2">サイトから取得したテキスト、または「当店について」「アクセス」などのテキストを貼り付けてください。投稿生成時にAIが参照します。</p>
                             <Textarea
                                 value={shopInfo.scrapedContent || ""}
                                 onChange={(e) => setShopInfo({ ...shopInfo, scrapedContent: e.target.value })}
                                 placeholder="「当店について」「アクセス」「営業時間」などのテキストをここに貼り付けてください。"
-                                className={`h-[150px] mt-2 ${inputBase} resize-none overflow-y-auto`}
+                                className={`h-[180px] mt-2 ${inputBase} resize-y overflow-y-auto`}
                             />
                         </div>
                     </details>
@@ -174,7 +130,7 @@ export function SettingsOverlay({
                                 id="quickName"
                                 value={shopInfo.name}
                                 onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })}
-                                placeholder="例：The Gentry"
+                                placeholder="例：サロン名"
                                 className={inputBase}
                             />
                         </div>
@@ -237,7 +193,7 @@ export function SettingsOverlay({
                     </div>
 
                     {/* あなたらしさ・特記事項 */}
-                    <h3 className={sectionTitle}>あなたらしさ（文調の学習）・特記事項</h3>
+                    <h3 className={sectionTitle}>②あなたらしさ（文調の学習）・特記事項</h3>
                     <div>
                         <Label htmlFor="quickSampleTexts" className={fieldLabel}>文章サンプル</Label>
                         <p className={fieldHint}>今までの投稿文を2〜3件コピペすると、文体を学習します。</p>
@@ -246,7 +202,7 @@ export function SettingsOverlay({
                             value={shopInfo.sampleTexts || ""}
                             onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
                             placeholder="これまでSNSに投稿していた文章を2〜3件貼り付けてください。"
-                            className={`min-h-[100px] mt-2 ${inputBase} resize-y`}
+                            className={`min-h-[120px] mt-2 ${inputBase} resize-y`}
                         />
                     </div>
                     <div>
@@ -277,7 +233,7 @@ export function SettingsOverlay({
                             <p className={fieldHint}>記事をWordPressに送る場合のカテゴリ・タグ・著者ID</p>
                             <div className="grid grid-cols-3 gap-4 mt-3">
                                 <div>
-                                    <label className="text-xs text-zinc-500 mb-1 block">カテゴリID</label>
+                                    <label className="text-sm text-zinc-300 mb-1 block">カテゴリID</label>
                                     <Input
                                         value={shopInfo.wpCategoryId || ""}
                                         onChange={(e) => setShopInfo({ ...shopInfo, wpCategoryId: e.target.value })}
@@ -286,7 +242,7 @@ export function SettingsOverlay({
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-zinc-500 mb-1 block">タグID</label>
+                                    <label className="text-sm text-zinc-300 mb-1 block">タグID</label>
                                     <Input
                                         value={shopInfo.wpTagId || ""}
                                         onChange={(e) => setShopInfo({ ...shopInfo, wpTagId: e.target.value })}
@@ -295,7 +251,7 @@ export function SettingsOverlay({
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-zinc-500 mb-1 block">著者ID</label>
+                                    <label className="text-sm text-zinc-300 mb-1 block">著者ID</label>
                                     <Input
                                         value={shopInfo.wpAuthorId || ""}
                                         onChange={(e) => setShopInfo({ ...shopInfo, wpAuthorId: e.target.value })}
@@ -308,17 +264,17 @@ export function SettingsOverlay({
                     )}
 
                     {/* 出力する媒体 */}
-                    <h3 className={sectionTitle}>出力する媒体</h3>
+                    <h3 className={sectionTitle}>③出力する媒体</h3>
                     <p className={fieldHint}>チェックした媒体用のテキストが生成されます。</p>
                     <div className="flex flex-wrap gap-x-6 gap-y-3 mt-3">
                         {[
                             { key: "instagram" as const, label: "Instagram用" },
                             { key: "gbp" as const, label: "Google Map/GBP用" },
-                            { key: "portal" as const, label: "ブログ/ポータル用" },
+                            { key: "portal" as const, label: "ブログ用" },
                             { key: "line" as const, label: "LINE用" },
                             { key: "short" as const, label: "ショート動画の台本" },
                         ].map(({ key, label }) => (
-                            <label key={key} className="flex items-center gap-2.5 text-sm text-zinc-200 cursor-pointer select-none">
+                            <label key={key} className="flex items-center gap-2.5 text-sm text-zinc-100 cursor-pointer select-none">
                                 <input
                                     type="checkbox"
                                     checked={shopInfo.outputTargets?.[key] ?? (key !== "short")}
@@ -328,7 +284,7 @@ export function SettingsOverlay({
                                             outputTargets: outputTargetsWith(key, e.target.checked),
                                         })
                                     }
-                                    className="w-4 h-4 rounded accent-amber-500"
+                                    className="w-4 h-4 rounded accent-emerald-500"
                                 />
                                 {label}
                             </label>
@@ -339,16 +295,16 @@ export function SettingsOverlay({
                     {(shopInfo.outputTargets?.short) && (
                         <>
                             <h3 className={sectionTitle}>ショート動画の設定</h3>
-                            <div className="space-y-5 p-5 rounded-xl border border-amber-500/30 bg-amber-500/5">
+                            <div className="space-y-5 p-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
                                 <div>
-                                    <label htmlFor="short-hook-type" className={`${fieldLabel} text-amber-400/90`}>
+                                    <label htmlFor="short-hook-type" className={`${fieldLabel} text-emerald-400/90`}>
                                         フックのタイプ（冒頭で視聴者を止めるパターン）
                                     </label>
                                     <select
                                         id="short-hook-type"
                                         value={shopInfo.shortHookType ?? SHORT_HOOK_OPTIONS[0].id}
                                         onChange={(e) => setShopInfo({ ...shopInfo, shortHookType: e.target.value })}
-                                        className={`mt-2 ${inputBase} border-amber-500/40`}
+                                        className={`mt-2 ${inputBase} border-emerald-500/40`}
                                         aria-label="バズりやすいフックの選択肢"
                                     >
                                         {SHORT_HOOK_OPTIONS.map((opt) => (
@@ -421,7 +377,7 @@ export function SettingsOverlay({
                     </Button>
                     <Button
                         type="button"
-                        className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold px-6 py-2.5"
+                        className="gradient-accent hover:opacity-95 text-zinc-950 font-semibold px-6 py-2.5"
                         onClick={() => handleQuickSaveSettings(() => {
                             setShowSettingsOverlay(false);
                             setSettingsScrapeUrl("");

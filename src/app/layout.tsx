@@ -27,19 +27,19 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://seo-generator.vercel.app"),
-  title: "The Gentry - Post Support",
+  title: "LogicPost",
   description: "マッサージ・ヘッドスパ・整体などの店舗向け、SNS・ブログ用SEOテキスト生成アシスタントツールです。",
   openGraph: {
-    title: "The Gentry - Post Support",
+    title: "LogicPost",
     description: "プロフェッショナルな店舗向けSEOコンテンツ生成AIツール",
     url: "https://seo-generator.vercel.app", // デプロイ先URLに応じて変更推奨
-    siteName: "The Gentry",
+    siteName: "LogicPost",
     images: [
       {
         url: "/og-image.png", // public配下に後で設定可能
         width: 1200,
         height: 630,
-        alt: "The Gentry - Post Support",
+        alt: "LogicPost",
       },
     ],
     locale: "ja_JP",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Gentry - Post Support",
+    title: "LogicPost",
     description: "店舗向けのSEO特化型テキスト生成アシスタント",
     images: ["/og-image.png"],
   },

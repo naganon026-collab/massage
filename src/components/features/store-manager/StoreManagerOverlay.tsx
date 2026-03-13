@@ -123,7 +123,7 @@ export function StoreManagerOverlay({
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="sf-name" className="text-sm font-medium text-zinc-300">店舗名 <span className="text-red-400">*</span></Label>
-                                    <Input id="sf-name" value={storeFormData.name || ""} onChange={(e) => setStoreFormData({ ...storeFormData, name: e.target.value })} placeholder="例：The Gentry" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                                    <Input id="sf-name" value={storeFormData.name || ""} onChange={(e) => setStoreFormData({ ...storeFormData, name: e.target.value })} placeholder="例：サロン名" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <Label htmlFor="sf-address" className="text-sm font-medium text-zinc-300">住所 <span className="text-red-400">*</span></Label>
@@ -149,7 +149,7 @@ export function StoreManagerOverlay({
 
                             <details className="group bg-zinc-800/20 rounded-xl border border-zinc-800/50 overflow-hidden">
                                 <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between text-sm text-zinc-300 hover:bg-zinc-800/30">
-                                    <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> あなたらしさ（文調の学習）・特記事項</span>
+                                    <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> あなたらしさ（文調の学習）・特記事項</span>
                                     <span className="text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
                                 </summary>
                                 <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
@@ -185,7 +185,7 @@ export function StoreManagerOverlay({
                                         {[
                                             { key: "instagram", label: "Instagram用" },
                                             { key: "gbp", label: "GBP用" },
-                                            { key: "portal", label: "ポータル用" },
+                                            { key: "portal", label: "ブログ用" },
                                             { key: "line", label: "LINE用" },
                                             { key: "short", label: "ショート動画の台本" },
                                         ].map(({ key, label }) => (

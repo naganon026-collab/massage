@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ShopInfo, ADMIN_EMAIL } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -25,22 +25,28 @@ export function useShopConfig(
     const [settingsScrapeUrl, setSettingsScrapeUrl] = useState("");
     const [isScrapingSettings, setIsScrapingSettings] = useState(false);
 
-    // shopInfoの変更をsessionStorageに自動保存
+    // debounce用タイマーを保持するref
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // shopInfoの変更をsessionStorageに自動保存（500msデバウンスで書き込み頻度を抑制）
     useEffect(() => {
         if (user && !isLoading) {
-            sessionStorage.setItem('shopInfoDraft', JSON.stringify(shopInfo));
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(() => {
+                sessionStorage.setItem('shopInfoDraft', JSON.stringify(shopInfo));
+            }, 500);
         }
+        return () => {
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        };
     }, [shopInfo, user, isLoading]);
 
-    const fetchShopInfo = async (userId: string) => {
+    const fetchShopInfo = async (userId: string, userEmail?: string) => {
         setIsLoading(true);
         const { data } = await supabase.from('shops').select('settings').eq('user_id', userId).maybeSingle();
 
-        let isAdmin = false;
-        const currentUser = (await supabase.auth.getUser()).data.user;
-        if (currentUser?.email === ADMIN_EMAIL) {
-            isAdmin = true;
-        }
+        // 引数で渡されたメールアドレスを使い、追加のgetUser()呼び出しを排除
+        const isAdmin = userEmail === ADMIN_EMAIL;
 
         if (data && data.settings) {
             const draft = sessionStorage.getItem('shopInfoDraft');

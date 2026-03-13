@@ -131,23 +131,39 @@
   font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, sans-serif;
 }
 
-/* アクセントグラデーション・グロー（スタイリッシュ用） */
+/* アクセントグラデーション・グロー（水色→緑→黄緑） */
 .gradient-accent {
-  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #f59e0b 100%);
+  background: linear-gradient(90deg, #22d3ee 0%, #34d399 50%, #a3e635 100%);
   background-size: 200% 200%;
 }
 .gradient-accent-subtle {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.12) 0%, rgba(52, 211, 153, 0.08) 100%);
 }
-.glow-amber {
-  box-shadow: 0 0 24px -4px rgba(245, 158, 11, 0.25), 0 0 8px -2px rgba(245, 158, 11, 0.15);
+.gradient-accent-text {
+  background: linear-gradient(90deg, #22d3ee 0%, #34d399 50%, #a3e635 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.glow-amber,
+.glow-accent {
+  box-shadow: 0 0 24px -4px rgba(52, 211, 153, 0.3), 0 0 8px -2px rgba(34, 211, 238, 0.2);
 }
 .glow-amber-sm {
-  box-shadow: 0 0 12px -2px rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 12px -2px rgba(52, 211, 153, 0.25);
 }
 .card-elevated {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px -2px rgba(0, 0, 0, 0.25);
 }
 .transition-smooth {
   transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* ランディングページ スクロールreveal（下から表示） */
+.lp-reveal {
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.lp-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
 }

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Pattern, HistoryEntry, NewsItem, ShopInfo, PATTERNS, StoreRecord, ShortScriptData } from "@/types";
+import { useState } from "react";
+import { Pattern, HistoryEntry, NewsItem, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData } from "@/types";
 const REFINE_TAB_IDS = ["instagram", "gbp", "portal", "line", "short"] as const;
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -25,6 +25,8 @@ export function useContentGenerator(
     const [selectedNewsIndex, setSelectedNewsIndex] = useState<number | null>(null);
     const [isLoadingNews, setIsLoadingNews] = useState(false);
 
+    const [uploadImageData, setUploadImageData] = useState<{ mimeType: string; data: string } | null>(null);
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedResults, setGeneratedResults] = useState<{
         instagram?: string;
@@ -35,6 +37,7 @@ export function useContentGenerator(
         reply?: string;
         line?: string;
         shortScript?: string | ShortScriptData;
+        llmo?: LlmoArticleData;
     } | null>(null);
 
     const [copiedTab, setCopiedTab] = useState<string | null>(null);
@@ -49,6 +52,7 @@ export function useContentGenerator(
         Object.fromEntries(REFINE_TAB_IDS.map((id) => [id, null]))
     );
     const [isRefining, setIsRefining] = useState(false);
+    const [isLlmoGenerating, setIsLlmoGenerating] = useState(false);
 
     const setRefineInstruction = (tabId: string, value: string | null) => {
         setRefineInstructionState((prev) => ({ ...prev, [tabId]: value }));
@@ -68,13 +72,8 @@ export function useContentGenerator(
         }
     };
 
-    useEffect(() => {
-        if (user?.id) {
-            fetchHistory(user.id);
-        } else {
-            setGenerationHistory([]);
-        }
-    }, [user?.id]);
+    // fetchHistoryはonShopFetchedコールバック経由（page.tsx）からのみ呼ばれる
+    // useEffectでの自動呼び出しを廃止し、二重フェッチを防止
 
     const handleRestoreHistory = (entry: HistoryEntry) => {
         const patternId = entry.pattern_id as Pattern;
@@ -84,6 +83,8 @@ export function useContentGenerator(
             setReplyPlatform(entry.inputs.platform ?? 'sns');
             setReceivedComment(entry.inputs.receivedComment ?? '');
             setReplyNote(entry.inputs.replyNote ?? '');
+        } else if (patternId === 'I') {
+            setUploadImageData(null);
         } else {
             setFormData({
                 q1: entry.inputs.q1 ?? '',
@@ -115,6 +116,7 @@ export function useContentGenerator(
 
     const handlePatternChange = (patternId: Pattern) => {
         setSelectedPattern(patternId);
+        if (patternId !== "I") setUploadImageData(null);
         setFormData({ q1: "", q2: "", q3: "" });
         setReceivedComment("");
         setReplyNote("");
@@ -168,6 +170,12 @@ export function useContentGenerator(
                 return;
             }
         }
+        if (selectedPattern === "I") {
+            if (!uploadImageData) {
+                addToast("画像をアップロードしてください。", "error");
+                return;
+            }
+        }
         setIsGenerating(true);
 
         try {
@@ -202,15 +210,28 @@ export function useContentGenerator(
                             shopInfo: activeShopInfo,
                             outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
                             news: selectedNews,
+                            generatedAt: new Date().toISOString(),
                         }
-                        : {
-                            patternTitle: currentPattern.title,
-                            q1: formData.q1,
-                            q2: formData.q2,
-                            q3: formData.q3,
-                            shopInfo: activeShopInfo,
-                            outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
-                        };
+                        : selectedPattern === "I"
+                            ? {
+                                patternTitle: currentPattern.title,
+                                q1: "",
+                                q2: "",
+                                q3: "",
+                                shopInfo: activeShopInfo,
+                                outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
+                                imageData: uploadImageData!,
+                                generatedAt: new Date().toISOString(),
+                            }
+                            : {
+                                patternTitle: currentPattern.title,
+                                q1: formData.q1,
+                                q2: formData.q2,
+                                q3: formData.q3,
+                                shopInfo: activeShopInfo,
+                                outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
+                                generatedAt: new Date().toISOString(),
+                            };
 
             const response = await fetch(endpoint, {
                 method: "POST",
@@ -239,6 +260,7 @@ export function useContentGenerator(
                 reply: data.reply,
                 line: data.line,
                 shortScript: data.shortScript,
+                llmo: data.llmo,
             });
 
             if (user) {
@@ -247,7 +269,9 @@ export function useContentGenerator(
                         ? { platform: replyPlatform, receivedComment, replyNote }
                         : selectedPattern === 'H'
                             ? { newsTitle: selectedNews?.title, newsLink: selectedNews?.link }
-                            : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
+                            : selectedPattern === 'I'
+                                ? { imageUploaded: true }
+                                : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
                 supabase.from('generation_history').insert({
                     user_id: user.id,
                     pattern_id: selectedPattern,
@@ -261,6 +285,7 @@ export function useContentGenerator(
                         line: data.line,
                         reply: data.reply,
                         shortScript: data.shortScript,
+                        llmo: data.llmo,
                     },
                 }).then(({ error }) => {
                     if (error) console.error('履歴保存エラー:', error);
@@ -384,6 +409,60 @@ export function useContentGenerator(
         }
     };
 
+    const handleGenerateLlmo = async () => {
+        if (!generatedResults?.portal || !generatedResults?.portalTitle) {
+            addToast("まずブログ用のタイトルと本文を生成してください。", "error");
+            return;
+        }
+
+        const activeShopInfo: ShopInfo = selectedStoreId
+            ? (stores.find((s) => s.id === selectedStoreId)?.settings ?? shopInfo)
+            : shopInfo;
+
+        setIsLlmoGenerating(true);
+        try {
+            const res = await fetch("/api/llmo-enhance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: generatedResults.portalTitle,
+                    html: generatedResults.portal,
+                    shopInfo: {
+                        name: activeShopInfo.name,
+                        address: activeShopInfo.address,
+                        industry: activeShopInfo.industry,
+                        features: activeShopInfo.features,
+                    },
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || "LLMO対応データの生成に失敗しました。");
+            }
+
+            setGeneratedResults(prev => prev ? { ...prev, llmo: data as LlmoArticleData } : prev);
+
+            if (user && generatedResults) {
+                supabase.from('generation_history')
+                    .update({ results: { ...generatedResults, llmo: data as LlmoArticleData } })
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .then(({ error }) => {
+                        if (error) console.error('LLMO結果の履歴更新エラー:', error);
+                        else fetchHistory(user.id);
+                    });
+            }
+
+            addToast("LLMO対応の構造化データを生成しました。", "success");
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "LLMO対応データの生成中にエラーが発生しました。";
+            addToast(msg, "error");
+        } finally {
+            setIsLlmoGenerating(false);
+        }
+    };
+
     return {
         selectedPattern, setSelectedPattern,
         formData, setFormData,
@@ -393,6 +472,7 @@ export function useContentGenerator(
         newsItems, setNewsItems,
         selectedNewsIndex, setSelectedNewsIndex,
         isLoadingNews, setIsLoadingNews,
+        uploadImageData, setUploadImageData,
         isGenerating, setIsGenerating,
         generatedResults, setGeneratedResults,
         copiedTab, setCopiedTab,
@@ -415,5 +495,7 @@ export function useContentGenerator(
         setRefineInstruction,
         isRefining,
         handleRefine,
+        isLlmoGenerating,
+        handleGenerateLlmo,
     };
 }

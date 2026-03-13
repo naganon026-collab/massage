@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: 'The Gentry - Post Support',
-        short_name: 'The Gentry',
+        name: 'LogicPost',
+        short_name: 'LogicPost',
         description: 'マッサージ・ヘッドスパ店舗向けのSEOテキスト生成アシスタント',
         start_url: '/',
         display: 'standalone',

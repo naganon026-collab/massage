@@ -5,11 +5,68 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { SHORT_HOOK_OPTIONS } from "@/types";
 
+const WEEKDAY_JA = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"] as const;
+
+const NAGANO_LAT = 36.6486;
+const NAGANO_LON = 138.1928;
+
+function formatDateForPrompt(isoDate: string): string {
+    const d = new Date(isoDate);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const weekday = WEEKDAY_JA[d.getDay()];
+    const hour = d.getHours();
+    const ampm = hour < 12 ? "午前" : "午後";
+    const h = hour % 12 || 12;
+    return `${y}年${m}月${day}日（${weekday}）、${ampm}${h}時頃`;
+}
+
+function weatherCodeToJa(code: number): string {
+    if (code === 0) return "晴れ";
+    if (code >= 1 && code <= 3) return "曇りがち";
+    if (code === 45 || code === 48) return "霧";
+    if (code >= 51 && code <= 67) return "雨";
+    if (code >= 71 && code <= 77) return "雪";
+    if (code >= 80 && code <= 82) return "にわか雨";
+    if (code >= 85 && code <= 86) return "にわか雪";
+    if (code >= 95 && code <= 99) return "雷";
+    return "曇り";
+}
+
+async function getWeatherForNagano(dateStr: string): Promise<string | null> {
+    const today = new Date().toISOString().slice(0, 10);
+    const isPast = dateStr < today;
+    const base = isPast
+        ? "https://archive-api.open-meteo.com/v1/archive"
+        : "https://api.open-meteo.com/v1/forecast";
+    const url = `${base}?latitude=${NAGANO_LAT}&longitude=${NAGANO_LON}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo&start_date=${dateStr}&end_date=${dateStr}`;
+    try {
+        const res = await fetch(url, { next: { revalidate: 3600 } } as RequestInit);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const code = data.daily?.weather_code?.[0];
+        const max = data.daily?.temperature_2m_max?.[0];
+        const min = data.daily?.temperature_2m_min?.[0];
+        if (code == null) return null;
+        const weather = weatherCodeToJa(Number(code));
+        const temp = max != null && min != null ? `、最高${Math.round(max)}℃、最低${Math.round(min)}℃` : "";
+        return `${weather}${temp}`;
+    } catch {
+        return null;
+    }
+}
+
 const generateSchema = z.object({
     patternTitle: z.string().optional(),
     q1: z.string().optional(),
     q2: z.string().optional(),
     q3: z.string().optional(),
+    generatedAt: z.string().optional(),
+    imageData: z.object({
+        mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+        data: z.string(), // base64
+    }).optional(),
     shopInfo: z.object({
         name: z.string().optional(),
         address: z.string().optional(),
@@ -69,9 +126,19 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
         }
 
-        const { patternTitle, q1, q2, q3, shopInfo, news, outputTargets } = parsed.data;
+        const { patternTitle, q1, q2, q3, shopInfo, news, outputTargets, imageData, generatedAt } = parsed.data;
 
-        const shopName = shopInfo?.name || "The Gentry";
+        const nowIso = generatedAt || new Date().toISOString();
+        const dateContextJa = formatDateForPrompt(nowIso);
+        const dateStr = nowIso.slice(0, 10);
+        const weatherText = await getWeatherForNagano(dateStr);
+        const [y, m, d] = dateStr.split("-").map(Number);
+        const dateJaShort = `${y}年${m}月${d}日`;
+        const weatherLine = weatherText
+            ? `\n【長野市の天気】${dateJaShort}は${weatherText}。投稿文に、天気・気温に合った表現を自然に含めてください（文脈に合う場合のみ）。\n`
+            : "";
+
+        const shopName = shopInfo?.name || "お店";
         const shopAddress = shopInfo?.address || "長野市";
         const shopIndustry = shopInfo?.industry || "サロン";
         const shopPhone = shopInfo?.phone || "";
@@ -140,7 +207,7 @@ export async function POST(req: Request) {
             const phoneHtml = purePhoneNumber ? `📞<a href="tel:${purePhoneNumber}" style="color:#333; font-weight:bold; text-decoration:none;">${shopPhone}</a>` : `📞${shopPhone}`;
 
             jsonFormatGuide += `\n  "portalTitle": "【目的: 検索でクリックされやすい＆ブログ用のタイトル】文字数は30〜40文字程度で、先頭に【〇〇市】などを入れず、自然かつ魅力的な文言。例：『繰り返すひどい眼精疲労…首の深層筋をほぐして視界クリアに！』 / なければ空文字",`;
-            jsonFormatGuide += `\n  "portal": "<div class=\\"seo-content\\"><h3>フックとなる見出し</h3><p>本文（共感・原因の解説）</p><h4>${shopName}の独自のアプローチ</h4><p>本文（手技の解説と結果）</p><ul><li>お客様のリアルな反応</li></ul><div class=\\"shop-info\\"><p>📍${shopAddress}</p><p>${phoneHtml}</p><p>🕒${shopBusinessHours}</p><p>🎌${shopHolidays}</p><div style=\\"text-align:center;\\"><a href=\\"${shopLineUrl}\\" style=\\"${lineButtonStyle}\\">LINEでのご予約・ご相談はこちら</a></div></div></div> のような、HTMLタグで構造化・装飾された長文のコラム風テキスト。必ず末尾にLINEへの誘導リンクを含めること。"`;
+            jsonFormatGuide += `\n  "portal": "<div class=\\"seo-content\\"><h3>フックとなる見出し</h3><p>【導入】季節・天気の一言からはじめ、必ず『その時期ならではのお客様の悩み』に自然につなげる導入段落にすること。天気の話だけで終わらせず、1つの段落の中で「気候」→「髪や体の状態」→「よくある悩み」へとなめらかにつなぐ。</p><h4>${shopName}の独自のアプローチ</h4><p>【本文】上記の悩みに対して、${shopName}だからこそできる具体的なアプローチ・メニュー・施術の流れと、その結果どんな変化が得られたかを1つのストーリーとして説明する。</p><h4>お客様の声</h4><ul><li>【お客様の声①】「○○でお悩みだったお客様が、△△の施術を受けて『□□』と感じてくださった」など、前後の状況がわかるように1文の前に軽い説明を添える。</li><li>【お客様の声②】同様に、誰のどんな悩みに対する声か分かるように短く補足してから引用する。</li></ul><div class=\\"shop-info\\"><p>📍${shopAddress}</p><p>${phoneHtml}</p><p>🕒${shopBusinessHours}</p><p>🎌${shopHolidays}</p><div style=\\"text-align:center;\\"><a href=\\"${shopLineUrl}\\" style=\\"${lineButtonStyle}\\">LINEでのご予約・ご相談はこちら</a></div></div></div> のような、HTMLタグで構造化・装飾された長文のコラム風テキスト。必ず「導入 → アプローチ → お客様の声 → 店舗情報」という流れが自然につながるようにし、末尾には必ずLINEへの誘導リンクを含めること。"`;
             properties.portalTitle = { type: SchemaType.STRING };
             properties.portal = { type: SchemaType.STRING };
             required.push("portalTitle", "portal");
@@ -185,7 +252,11 @@ ${shortMemo ? `- 店舗からの希望・メモ：${shortMemo}` : ""}
 
         const systemPrompt = `あなたは${shopAddress}の${shopIndustry}「${shopName}」のオーナー兼、誠実で経験豊富なプロの施術者（スタッフ）です。
 店舗の基本情報：【営業時間: ${shopBusinessHours}】【定休日: ${shopHolidays}】
-以下の【厳守ルール】と【店舗の独自情報】に従って、お客様の悩みを解決した今日のリアルなエピソードを、${targetString}用の${targetCount}種類のテキストで執筆してください。
+
+【制作日時】
+今回の投稿は「${dateContextJa}」を想定して執筆してください。「今日」「今週」「この時期」などの表現は、この日付・曜日・季節に合わせて自然に使ってください。${weatherLine}
+
+以下の【厳守ルール】と【店舗の独自情報】に従って、お客様の悩みを解決したリアルなエピソードを、${targetString}用の${targetCount}種類のテキストで執筆してください。
 
 【店舗の独自情報・強み・想い（学習データ）】
 以下の店舗の独自性やこだわり、参考WEBサイトの情報を、わざとらしくならないよう自然に文章のエッセンスとして組み込んでください。（※情報がない場合は無視してください）
@@ -208,8 +279,16 @@ ${shortInstruction}
 {${jsonFormatGuide}
 }`;
 
-        const userPrompt = news && news.title
-            ? `以下の【ニュース】と【店舗情報】を掛け合わせて、人間味のある投稿テキストを作成してください。
+        const userPrompt = imageData
+            ? `以下の【アップロードされた画像】の内容を分析し、${shopAddress}の${shopIndustry}「${shopName}」のオーナーとして、その画像に合った投稿文を作成してください。
+
+【画像分析の指示】
+- 画像に写っているもの（施術の様子、メニュー、店内、ビフォーアフター、商品、スタッフ、お客様の反応など）を具体的に把握してください。
+- 画像の雰囲気・トーン（リラックス、プロフェッショナル、温かみなど）を活かした投稿文にしてください。
+- 画像の内容をそのまま説明するのではなく、「お店の視点」で、来店や予約につながる自然な投稿文にしてください。
+`
+            : news && news.title
+                ? `以下の【ニュース】と【店舗情報】を掛け合わせて、人間味のある投稿テキストを作成してください。
 
 【ニュースの概要】
 タイトル: ${news.title || "記載なし"}
@@ -224,7 +303,7 @@ ${patternTitle}
 - 上記ニュースを見たお客様に対して、「専門家としてのコメント」＋「お店ならではの提案」＋「来店や予約への一言」を、自然な流れで伝えてください。
 - ニュース本文をそのまま引用するのではなく、「要約」と「あなたの言葉」で説明してください。
 `
-            : `以下の情報を元に、人間味あふれる最高のテキストを作成してください。
+                : `以下の情報を元に、人間味あふれる最高のテキストを作成してください。
 
 【今回のテーマ】
 ${patternTitle}
@@ -255,7 +334,12 @@ ${q3 || "記載なし"}
             }
         });
 
-        const result = await model.generateContent(userPrompt);
+        const result = imageData
+            ? await model.generateContent([
+                { inlineData: { mimeType: imageData.mimeType, data: imageData.data } },
+                { text: userPrompt },
+            ])
+            : await model.generateContent(userPrompt);
         const resultText = result.response.text();
 
         if (!resultText) {

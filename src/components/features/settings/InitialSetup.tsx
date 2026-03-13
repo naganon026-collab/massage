@@ -62,18 +62,18 @@ export function InitialSetup({
                 <h2 className="font-display text-2xl font-bold text-white">初期設定（店舗情報）</h2>
                 <p className="text-zinc-400">作成される文章に埋め込むための基本情報を設定してください。</p>
                 <div className="flex items-center justify-center gap-2 pt-2">
-                    <span className={`flex items-center gap-1 text-sm ${setupStep === 1 ? "text-amber-500 font-semibold" : "text-zinc-500"}`}>
-                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 1 ? "bg-amber-500 text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>1</span>
+                    <span className={`flex items-center gap-1 text-sm ${setupStep === 1 ? "text-emerald-500 font-semibold" : "text-zinc-500"}`}>
+                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 1 ? "gradient-accent text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>1</span>
                         <Globe className="w-4 h-4 hidden sm:inline" />
                     </span>
                     <ChevronRight className="w-4 h-4 text-zinc-600" />
-                    <span className={`flex items-center gap-1 text-sm ${setupStep === 2 ? "text-amber-500 font-semibold" : "text-zinc-500"}`}>
-                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 2 ? "bg-amber-500 text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>2</span>
+                    <span className={`flex items-center gap-1 text-sm ${setupStep === 2 ? "text-emerald-500 font-semibold" : "text-zinc-500"}`}>
+                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 2 ? "gradient-accent text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>2</span>
                         <FileText className="w-4 h-4 hidden sm:inline" />
                     </span>
                     <ChevronRight className="w-4 h-4 text-zinc-600" />
-                    <span className={`flex items-center gap-1 text-sm ${setupStep === 3 ? "text-amber-500 font-semibold" : "text-zinc-500"}`}>
-                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 3 ? "bg-amber-500 text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>3</span>
+                    <span className={`flex items-center gap-1 text-sm ${setupStep === 3 ? "text-emerald-500 font-semibold" : "text-zinc-500"}`}>
+                        <span className={`flex w-7 h-7 items-center justify-center rounded-full ${setupStep === 3 ? "gradient-accent text-zinc-950" : "bg-zinc-700 text-zinc-400"}`}>3</span>
                     </span>
                 </div>
             </div>
@@ -84,10 +84,10 @@ export function InitialSetup({
                             <div className="space-y-6 animate-in fade-in duration-300">
                                 <div className="space-y-3">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Globe className="w-5 h-5 text-amber-500" />
+                                        <Globe className="w-5 h-5 text-emerald-500" />
                                         お店のホームページのアドレスを入力してください
                                     </h3>
-                                    <p className="text-sm text-zinc-400">お店のトップページやメニュー表のアドレス（URL）を入れると、住所や電話番号などを自動で読み取ります。</p>
+                                    <p className="text-sm text-zinc-300">お店のトップページやメニュー表のアドレス（URL）を入れると、住所や電話番号などを自動で読み取ります。</p>
                                 </div>
                                 <div className="flex gap-2 items-center">
                                     <Input
@@ -100,18 +100,18 @@ export function InitialSetup({
                                         type="button"
                                         onClick={() => { setSetupPath("url"); handleScrapeUrl(); }}
                                         disabled={isScraping || !scrapeUrl.trim().startsWith("http")}
-                                        className="bg-amber-500 hover:bg-amber-400 text-zinc-950 border-none shrink-0 font-semibold"
+                                        className="gradient-accent hover:opacity-95 text-zinc-950 border-none shrink-0 font-semibold"
                                     >
                                         {isScraping ? <><Loader2 className="w-4 h-4 animate-spin" /> 抽出中...</> : "抽出して次へ"}
                                     </Button>
                                 </div>
                                 {scrapedPreview && setupPath === "url" && (
                                     <div className="space-y-3 pt-4 border-t border-zinc-800">
-                                        <p className="text-xs text-amber-500 font-medium">✅ 読み取り完了 —この情報をもとに、基本情報や投稿が生成されます。</p>
+                                        <p className="text-xs text-emerald-500 font-medium">✅ 読み取り完了 —この情報をもとに、基本情報や投稿が生成されます。</p>
                                         <textarea
                                             value={scrapedPreview}
                                             onChange={(e) => setScrapedPreview(e.target.value)}
-                                            className="flex min-h-[120px] max-h-[160px] w-full rounded-md border border-amber-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
+                                            className="flex min-h-[120px] max-h-[160px] w-full rounded-md border border-emerald-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y overflow-y-auto"
                                         />
                                         <Button
                                             type="button"
@@ -120,7 +120,7 @@ export function InitialSetup({
                                                 setSetupStep(2);
                                             }}
                                             disabled={isExtractingInfo}
-                                            className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                                            className="w-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
                                         >
                                             {isExtractingInfo ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : <><Check className="w-4 h-4" /> この内容で基本情報を入力して次へ</>}
                                         </Button>
@@ -130,17 +130,17 @@ export function InitialSetup({
                                     <button
                                         type="button"
                                         onClick={() => { setSetupPath("manual"); setSetupStep(2); }}
-                                        className="text-sm text-zinc-400 hover:text-amber-500 underline underline-offset-2 transition-colors"
+                                        className="text-sm text-zinc-400 hover:text-emerald-500 underline underline-offset-2 transition-colors"
                                     >
                                         お店のホームページがない場合はこちら
                                     </button>
-                                    <p className="text-xs text-zinc-500">手入力で住所や電話番号などを入力して進めます。</p>
+                                    <p className="text-sm text-zinc-400">手入力で住所や電話番号などを入力して進めます。</p>
                                     {handleSkipWithMinimal && (
                                         <div className="pt-2">
                                             <button
                                                 type="button"
                                                 onClick={handleSkipWithMinimal}
-                                                className="text-sm text-zinc-500 hover:text-amber-500 transition-colors"
+                                                className="text-sm text-zinc-500 hover:text-emerald-500 transition-colors"
                                             >
                                                 とばしてアプリを使う → あとで設定から入力
                                             </button>
@@ -154,11 +154,11 @@ export function InitialSetup({
                             <div className="space-y-6 animate-in fade-in duration-300">
                                 <div className="border-b border-zinc-800 pb-4 mb-2">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <FileText className="w-5 h-5 text-amber-500" />
+                                        <FileText className="w-5 h-5 text-emerald-500" />
                                         店舗の基本情報
                                     </h3>
-                                    <p className="text-sm text-zinc-400 mt-1">
-                                        {setupPath === "url" ? "自動で入力された内容を確認・修正してください。" : "以下の項目を入力してください。わからない項目は空欄でも進めます。"}
+                                    <p className="text-sm text-zinc-300 mt-1">
+                                    {setupPath === "url" ? "自動で入力された内容を確認・修正してください。" : "以下の項目を入力してください。わからない項目は空欄でも進めます。"}
                                     </p>
                                 </div>
                                 <div className="space-y-4">
@@ -168,7 +168,7 @@ export function InitialSetup({
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500">*</span></Label>
-                                        <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：The Gentry" />
+                                        <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：サロン名" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shopAddress" className="font-medium">住所 <span className="text-red-500">*</span></Label>
@@ -199,7 +199,7 @@ export function InitialSetup({
                                     <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(1)}>
                                         <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
                                     </Button>
-                                    <Button type="button" className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold flex-1" onClick={() => setSetupStep(3)}>
+                                    <Button type="button" className="gradient-accent hover:opacity-95 text-zinc-950 font-semibold flex-1" onClick={() => setSetupStep(3)}>
                                         次へ <ChevronRight className="w-4 h-4 ml-1" />
                                     </Button>
                                 </div>
@@ -210,14 +210,14 @@ export function InitialSetup({
                             <div className="space-y-6 animate-in fade-in duration-300">
                                 <div className="border-b border-zinc-800 pb-4 mb-2">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Settings className="w-5 h-5 text-amber-500" />
+                                        <Settings className="w-5 h-5 text-emerald-500" />
                                         オプション設定
                                     </h3>
-                                    <p className="text-sm text-zinc-400 mt-1">任意の項目は後から設定画面で変更できます。</p>
+                                    <p className="text-sm text-zinc-300 mt-1">任意の項目は後から設定画面で変更できます。</p>
                                 </div>
                                 <details className="group bg-zinc-800/20 rounded-xl border border-zinc-800/50 overflow-hidden">
                                     <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between text-sm text-zinc-300 hover:bg-zinc-800/30">
-                                        <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> あなたらしさ（文調の学習）・特記事項</span>
+                                        <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> あなたらしさ（文調の学習）・特記事項</span>
                                         <span className="text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
                                     </summary>
                                     <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
@@ -254,7 +254,7 @@ export function InitialSetup({
 
                                 {user?.email === ADMIN_EMAIL && (
                                     <div className="space-y-3">
-                                        <h4 className="font-semibold text-amber-500 text-sm flex items-center gap-2">
+                                        <h4 className="font-semibold text-emerald-500 text-sm flex items-center gap-2">
                                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z" /></svg>
                                             WordPress 投稿設定（任意）
                                         </h4>
@@ -277,39 +277,39 @@ export function InitialSetup({
                                 <div className="space-y-3">
                                     <h4 className="font-semibold text-zinc-200 text-sm">出力する媒体</h4>
                                     <div className="flex flex-wrap gap-6">
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
                                             <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("instagram", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             Instagram用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
                                             <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("gbp", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             Google Map/GBP用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
                                             <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("portal", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
-                                            ブログ/ポータル用
+                                            ブログ用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
                                             <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("line", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             LINE用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-200">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
                                             <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("short", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
                                             ショート動画の台本
                                         </label>
                                     </div>
                                 </div>
                                 {(shopInfo.outputTargets?.short) && (
-                                    <div className="space-y-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
+                                    <div className="space-y-4 p-4 rounded-xl border border-emerald-500/30 bg-amber-500/5">
                                         <h4 className="font-semibold text-amber-400 text-sm">ショート動画の設定（精度向上のため任意で入力）</h4>
-                                        <p className="text-xs text-zinc-500">バズりやすいフックのタイプを選ぶと、台本の冒頭が安定して出ます。</p>
+                                        <p className="text-sm text-zinc-400">バズりやすいフックのタイプを選ぶと、台本の冒頭が安定して出ます。</p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <div className="space-y-2">
-                                                <label className="text-xs text-zinc-400">想定尺（秒）</label>
+                                                <label className="text-sm text-zinc-300">想定尺（秒）</label>
                                                 <select
                                                     value={shopInfo.shortTargetDuration ?? 60}
                                                     onChange={(e) => setShopInfo({ ...shopInfo, shortTargetDuration: Number(e.target.value) })}
-                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                                 >
                                                     <option value={10}>10秒</option>
                                                     <option value={20}>20秒</option>
@@ -320,11 +320,11 @@ export function InitialSetup({
                                                 </select>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-xs text-zinc-400">主な投稿先</label>
+                                                <label className="text-sm text-zinc-300">主な投稿先</label>
                                                 <select
                                                     value={shopInfo.shortPlatform ?? ""}
                                                     onChange={(e) => setShopInfo({ ...shopInfo, shortPlatform: e.target.value })}
-                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                                 >
                                                     <option value="">指定なし</option>
                                                     <option value="Instagram Reels">Instagram Reels</option>
@@ -333,11 +333,11 @@ export function InitialSetup({
                                                 </select>
                                             </div>
                                             <div className="space-y-2 sm:col-span-1">
-                                                <label className="text-xs text-zinc-400">フックのタイプ</label>
+                                                <label className="text-sm text-zinc-300">フックのタイプ</label>
                                                 <select
                                                     value={shopInfo.shortHookType ?? SHORT_HOOK_OPTIONS[0].id}
                                                     onChange={(e) => setShopInfo({ ...shopInfo, shortHookType: e.target.value })}
-                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                                 >
                                                     {SHORT_HOOK_OPTIONS.map((opt) => (
                                                         <option key={opt.id} value={opt.id}>{opt.label}</option>
@@ -346,7 +346,7 @@ export function InitialSetup({
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs text-zinc-400">ショート用サンプル台本（話し言葉のサンプルがあるとトーンが揃います）</label>
+                                            <label className="text-sm text-zinc-300">ショート用サンプル台本（話し言葉のサンプルがあるとトーンが揃います）</label>
                                             <textarea
                                                 value={shopInfo.shortSampleScript ?? ""}
                                                 onChange={(e) => setShopInfo({ ...shopInfo, shortSampleScript: e.target.value })}
@@ -355,13 +355,13 @@ export function InitialSetup({
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs text-zinc-400">ショート用メモ（フック・CTAの希望など）</label>
+                                            <label className="text-sm text-zinc-300">ショート用メモ（フック・CTAの希望など）</label>
                                             <input
                                                 type="text"
                                                 value={shopInfo.shortMemo ?? ""}
                                                 onChange={(e) => setShopInfo({ ...shopInfo, shortMemo: e.target.value })}
                                                 placeholder="例：冒頭は問いかけで、CTAはLINE誘導のみ"
-                                                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                             />
                                         </div>
                                     </div>
@@ -370,7 +370,7 @@ export function InitialSetup({
                                     <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(2)}>
                                         <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
                                     </Button>
-                                    <Button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold">
+                                    <Button type="submit" className="flex-1 gradient-accent hover:opacity-95 text-zinc-950 font-semibold">
                                         <Check className="w-4 h-4 mr-2 inline" />
                                         設定を保存してはじめる
                                     </Button>
