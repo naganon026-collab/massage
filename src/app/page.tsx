@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -535,6 +537,7 @@ export default function SEOContentGenerator() {
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   });
   const { fetchHistory } = contentGen;
+  const router = useRouter();
 
   // ===== 認証 =====
   useEffect(() => {
@@ -591,6 +594,11 @@ export default function SEOContentGenerator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 管理者は常に /admin へ（フックは早期 return の前に必ず呼ぶ）
+  useEffect(() => {
+    if (user?.email === ADMIN_EMAIL) router.replace("/admin");
+  }, [user?.email, router]);
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -606,7 +614,10 @@ export default function SEOContentGenerator() {
   if (shopConfig.isLoading) return <LoadingScreen />;
   if (!user) return <LoginPage onLogin={handleLogin} />;
 
-  const { shopInfo, setShopInfo, isConfigured, setupStep, setSetupStep, setupPath, setSetupPath,
+  // 管理者は /admin へリダイレクトするので一瞬だけローディング表示
+  if (user.email === ADMIN_EMAIL) return <LoadingScreen />;
+
+  const { shopInfo, setShopInfo, isConfigured, setIsConfigured, setupStep, setSetupStep, setupPath, setSetupPath,
     scrapeUrl, setScrapeUrl, isScraping, isExtractingInfo, scrapedPreview, setScrapedPreview,
     handleScrapeUrl, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
     settingsScrapeUrl, setSettingsScrapeUrl, isScrapingSettings,
@@ -656,6 +667,17 @@ export default function SEOContentGenerator() {
     <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-emerald-500/30 pb-20 selection:text-zinc-950">
       {/* トースト通知 */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* 開発環境のみ：初回設定画面を再表示するデバッグボタン */}
+      {process.env.NODE_ENV === "development" && (
+        <button
+          type="button"
+          onClick={() => setIsConfigured(false)}
+          className="fixed bottom-4 right-4 z-50 bg-red-500 text-white text-xs px-3 py-2 rounded-lg opacity-50 hover:opacity-100"
+        >
+          🔧 初回設定をリセット
+        </button>
+      )}
 
       {/* ===== オーバーレイ群 ===== */}
       <StoreManagerOverlay
@@ -723,6 +745,16 @@ export default function SEOContentGenerator() {
               </Button>
             )}
 
+            {/* 管理者のみ：管理画面リンク */}
+            {user?.email === ADMIN_EMAIL && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-100 transition-colors px-2 py-1 rounded hover:bg-zinc-800"
+              >
+                🔧 管理画面
+              </Link>
+            )}
+
             {/* 設定ボタン */}
             {isConfigured && (
               <Button
@@ -770,22 +802,48 @@ export default function SEOContentGenerator() {
             setScrapedPreview={(v) => setScrapedPreview(v ?? "")}
             handleSaveShopInfo={handleSaveShopInfo}
             handleSkipWithMinimal={handleSkipWithMinimal}
+            onGoToMain={() => setIsConfigured(true)}
             user={user}
           />
         ) : (
           /* ===== メイン生成UI ===== */
           <div className="space-y-12 animate-in fade-in duration-500">
 
-            {/* 未設定時バナー：設定を促す */}
-            {isConfigured && shopInfo.name === "未設定の店舗" && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-emerald-200">
-                  初期設定を完了すると、より良い文章が生成されます。
-                </p>
-                <Button variant="outline" size="sm" onClick={() => setShowSettingsOverlay(true)} className="gradient-accent hover:opacity-95 text-zinc-950 border-transparent min-h-[40px]">
-                  <Settings className="w-4 h-4 mr-1.5" />
-                  設定を完了する
-                </Button>
+            {/* 未設定時バナー：設定を促す＋初回ヒント */}
+            {shopInfo.name === "未設定の店舗" && (
+              <div className="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      💡 店舗情報を設定するとより精度が上がります
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      まずはこのまま投稿を生成してみてください。
+                      慣れてきたら設定を入力すると
+                      お店らしい投稿が生成されます。
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0 text-xs border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200"
+                    onClick={() => setShowSettingsOverlay(true)}
+                  >
+                    設定する
+                  </Button>
+                </div>
+                <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-2">
+                    👆 まずパターンAを試してみてください
+                  </p>
+                  <div className="flex gap-2 text-xs text-amber-600 dark:text-amber-400 flex-wrap">
+                    <span>① パターンAを選ぶ</span>
+                    <span>→</span>
+                    <span>② 施術タグをタップ</span>
+                    <span>→</span>
+                    <span>③ 生成ボタンを押す</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -822,15 +880,14 @@ export default function SEOContentGenerator() {
               </section>
             )}
 
-            {/* ===== STEP 1: パターン選択（2段階） ===== */}
+            {/* ===== ①目的を決める / ②投稿パターンの選択 ===== */}
             <section className="space-y-5">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">1</span>
-                <h2 className="font-display text-2xl font-bold text-white">投稿パターンの選択</h2>
-              </div>
-              {/* 1段階目：目的でカテゴリを選ぶ */}
+              {/* ①目的を決める */}
               <div>
-                <p className="text-sm text-zinc-400 mb-3">目的を選んでください</p>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">1</span>
+                  <h2 className="font-display text-2xl font-bold text-white">目的を決める</h2>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {PATTERN_CATEGORIES.map((cat) => {
                     const effectiveCategory = selectedPatternCategory ?? getPatternCategoryId(selectedPattern);
@@ -849,8 +906,8 @@ export default function SEOContentGenerator() {
                   })}
                 </div>
               </div>
-              {/* 2段階目：カテゴリ内のパターンを選ぶ（ふわっと表示） */}
-              <div>
+              {/* ②投稿パターンの選択 */}
+              <div className="mt-12">
                 {(() => {
                   const effectiveCategory = selectedPatternCategory ?? getPatternCategoryId(selectedPattern);
                   const category = PATTERN_CATEGORIES.find((c) => c.id === effectiveCategory);
@@ -858,7 +915,10 @@ export default function SEOContentGenerator() {
                   const patternsInCategory = PATTERNS.filter((p) => (category.patternIds as readonly string[]).includes(p.id));
                   return (
                     <div key={effectiveCategory} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                      <p className="text-sm text-zinc-400 mb-3">パターンを1つ選んでください</p>
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">2</span>
+                        <h2 className="font-display text-2xl font-bold text-white">投稿パターンの選択</h2>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {patternsInCategory.map((pattern, index) => (
                           <Card
@@ -902,10 +962,10 @@ export default function SEOContentGenerator() {
               </div>
             </section>
 
-            {/* ===== STEP 2: 入力フォーム ===== */}
+            {/* ===== ③投稿内容を決める ===== */}
             <section className="space-y-5">
               <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">2</span>
+                <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">3</span>
                 <h2 className="font-display text-2xl font-bold text-white">
                   {selectedPattern === "G" ? "返信する内容の入力" : selectedPattern === "I" ? "画像のアップロード" : "投稿内容を決める"}
                 </h2>

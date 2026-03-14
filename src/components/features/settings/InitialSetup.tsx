@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Globe, ChevronRight, FileText, Loader2, Check, Settings, Sparkles, ChevronLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,8 +23,9 @@ interface InitialSetupProps {
     handleExtractInfo: (text: string, save: boolean) => Promise<void>;
     scrapedPreview: string | null;
     setScrapedPreview: (preview: string | null) => void;
-    handleSaveShopInfo: (e: React.FormEvent) => Promise<void>;
+    handleSaveShopInfo: (e: React.FormEvent, options?: { fromStep3Complete?: boolean }) => Promise<boolean>;
     handleSkipWithMinimal?: () => Promise<void>;
+    onGoToMain?: () => void;
     user: User | null;
 }
 
@@ -45,9 +46,17 @@ export function InitialSetup({
     setScrapedPreview,
     handleSaveShopInfo,
     handleSkipWithMinimal,
+    onGoToMain,
     user,
 }: InitialSetupProps) {
+    const [isSetupComplete, setIsSetupComplete] = useState(false);
     const ot = shopInfo.outputTargets;
+
+    useEffect(() => {
+        if (!isSetupComplete || !onGoToMain) return;
+        const t = setTimeout(onGoToMain, 3000);
+        return () => clearTimeout(t);
+    }, [isSetupComplete, onGoToMain]);
     const outputTargetsWith = (key: keyof NonNullable<ShopInfo["outputTargets"]>, value: boolean) => ({
         instagram: ot?.instagram ?? true,
         gbp: ot?.gbp ?? true,
@@ -56,6 +65,46 @@ export function InitialSetup({
         short: ot?.short ?? false,
         [key]: value,
     });
+    if (isSetupComplete) {
+        return (
+            <div className="flex flex-col items-center justify-center space-y-6 py-12 text-center">
+                <div className="text-6xl">🎉</div>
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-white">
+                        設定完了！投稿を作ってみましょう
+                    </h2>
+                    <p className="text-sm text-zinc-400">
+                        まずはビフォーアフター投稿から試してみてください
+                    </p>
+                </div>
+                <div className="w-full max-w-sm space-y-3 text-left">
+                    {[
+                        { step: "1", title: "パターンAを選ぶ", desc: "「ビフォーアフター」が新規集客に最も効果的です" },
+                        { step: "2", title: "施術タグをタップする", desc: "今日行った施術を1つ選ぶだけでOK" },
+                        { step: "3", title: "生成ボタンを押す", desc: "Instagram・LINE等の投稿文が一括で生成されます" },
+                    ].map(({ step, title, desc }) => (
+                        <div key={step} className="flex items-start gap-3 bg-zinc-800/50 rounded-lg p-3">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 text-zinc-950 text-xs font-bold flex items-center justify-center">
+                                {step}
+                            </span>
+                            <div>
+                                <p className="text-sm font-medium text-white">{title}</p>
+                                <p className="text-xs text-zinc-400">{desc}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <Button
+                    size="lg"
+                    className="w-full max-w-sm gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
+                    onClick={() => onGoToMain?.()}
+                >
+                    さっそく投稿を作る →
+                </Button>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center space-y-2">
@@ -79,7 +128,17 @@ export function InitialSetup({
             </div>
             <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-sm card-elevated">
                 <CardContent className="pt-6">
-                    <form onSubmit={handleSaveShopInfo} className="space-y-6">
+                    <form
+                        onSubmit={async (e) => {
+                            if (setupStep === 3) {
+                                const ok = await handleSaveShopInfo(e, { fromStep3Complete: true });
+                                if (ok) setIsSetupComplete(true);
+                            } else {
+                                await handleSaveShopInfo(e);
+                            }
+                        }}
+                        className="space-y-6"
+                    >
                         {setupStep === 1 && (
                             <div className="space-y-6 animate-in fade-in duration-300">
                                 <div className="space-y-3">

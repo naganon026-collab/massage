@@ -178,9 +178,12 @@ export function useShopConfig(
         if (error) addToast("保存に失敗しました：" + error.message, "error");
     };
 
-    const handleSaveShopInfo = async (e: React.FormEvent) => {
+    const handleSaveShopInfo = async (
+        e: React.FormEvent,
+        options?: { fromStep3Complete?: boolean }
+    ): Promise<boolean> => {
         e.preventDefault();
-        if (!user) return;
+        if (!user) return false;
         const { error } = await supabase.from('shops').upsert({
             user_id: user.id,
             settings: shopInfo,
@@ -189,10 +192,13 @@ export function useShopConfig(
 
         if (error) {
             addToast("設定の保存に失敗しました：" + error.message, "error");
-        } else {
-            setIsConfigured(true);
-            addToast("クラウドに設定を保存しました！", "success");
+            return false;
         }
+        if (!options?.fromStep3Complete) {
+            setIsConfigured(true);
+        }
+        addToast("クラウドに設定を保存しました！", "success");
+        return true;
     };
 
     const getMinimalShopInfo = (): ShopInfo => ({

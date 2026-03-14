@@ -3,8 +3,11 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getSeasonalContext } from "@/lib/seasonalContext";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { SHORT_HOOK_OPTIONS } from "@/types";
+
+const GENERATE_MODEL = "gemini-2.5-flash";
 
 const WEEKDAY_JA = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"] as const;
 
@@ -122,9 +125,10 @@ export async function POST(req: Request) {
         );
     }
 
+    let parsed: ReturnType<typeof generateSchema.safeParse> = null as any;
     try {
         const body = await req.json();
-        const parsed = generateSchema.safeParse(body);
+        parsed = generateSchema.safeParse(body);
 
         if (!parsed.success) {
             return NextResponse.json({ error: "入力内容に誤りがあります。", details: parsed.error.format() }, { status: 400 });
@@ -756,11 +760,36 @@ ${q3 || "記載なし"}
 
         const generatedResults = JSON.parse(resultText);
 
-        return NextResponse.json(generatedResults);
+        const usage = (result.response as { usageMetadata?: { totalTokenCount?: number; promptTokenCount?: number; candidatesTokenCount?: number } })?.usageMetadata;
+        const tokens = usage?.totalTokenCount ?? (typeof usage?.promptTokenCount === "number" && typeof usage?.candidatesTokenCount === "number"
+            ? usage.promptTokenCount + usage.candidatesTokenCount
+            : 0);
+
+        return NextResponse.json({
+            ...generatedResults,
+            _meta: { model: GENERATE_MODEL, tokens },
+        });
     } catch (error: any) {
         console.error("Gemini API Error:", error);
+        if (user) {
+            try {
+                const supabase = await createClient();
+                await supabase.from("generation_history").insert({
+                    user_id: user.id,
+                    pattern_id: (parsed as { data?: { patternId?: string } })?.data?.patternId ?? "unknown",
+                    pattern_title: (parsed as { data?: { patternTitle?: string } })?.data?.patternTitle ?? "エラー",
+                    inputs: {},
+                    results: {},
+                    model: GENERATE_MODEL,
+                    tokens: 0,
+                    error: error?.message ?? "不明なエラー",
+                });
+            } catch (insertErr) {
+                console.error("generation_history error insert failed:", insertErr);
+            }
+        }
         return NextResponse.json(
-            { error: "テキストの生成中にエラーが発生しました。", details: error.message },
+            { error: "テキストの生成中にエラーが発生しました。", details: error?.message },
             { status: 500 }
         );
     }

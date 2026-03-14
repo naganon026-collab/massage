@@ -396,6 +396,7 @@ export function useContentGenerator(
                                                     : selectedPattern === 'H' && selectedSceneArg && selectedSceneMessageArg
                                                         ? { sceneTagId: selectedSceneArg, sceneMessageTagId: selectedSceneMessageArg, sceneMemo: sceneMemoArg ?? "" }
                                                         : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
+                const meta = (data as { _meta?: { model?: string; tokens?: number } })._meta;
                 supabase.from('generation_history').insert({
                     user_id: user.id,
                     pattern_id: selectedPattern,
@@ -411,6 +412,9 @@ export function useContentGenerator(
                         shortScript: data.shortScript,
                         llmo: data.llmo,
                     },
+                    model: meta?.model ?? null,
+                    tokens: meta?.tokens ?? null,
+                    error: null,
                 }).then(({ error }) => {
                     if (error) console.error('履歴保存エラー:', error);
                     else fetchHistory(user.id);
@@ -422,6 +426,21 @@ export function useContentGenerator(
 
         } catch (error) {
             console.error(error);
+            if (user && selectedPattern && currentPattern) {
+                const errMsg = error instanceof Error ? error.message : "不明なエラー";
+                supabase.from("generation_history").insert({
+                    user_id: user.id,
+                    pattern_id: selectedPattern,
+                    pattern_title: currentPattern.title,
+                    inputs: {},
+                    results: {},
+                    model: "gemini-2.5-flash",
+                    tokens: 0,
+                    error: errMsg,
+                }).then(({ error: insertErr }) => {
+                    if (insertErr) console.error("履歴エラー保存失敗:", insertErr);
+                });
+            }
             if (error instanceof Error) {
                 addToast(error.message || "テキストの生成中にエラーが発生しました。", "error");
             } else {
