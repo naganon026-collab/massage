@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import {
@@ -499,7 +499,7 @@ function LoadingScreen() {
 }
 
 // ========== メインアプリ ==========
-export default function SEOContentGenerator() {
+function SEOContentGenerator() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const { toasts, addToast, removeToast } = useToast();
@@ -2004,5 +2004,13 @@ export default function SEOContentGenerator() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <SEOContentGenerator />
+    </Suspense>
   );
 }
