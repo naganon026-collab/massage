@@ -24,6 +24,14 @@ export function useShopConfig(
     const [setupPath, setSetupPath] = useState<"url" | "manual" | null>(null);
     const [settingsScrapeUrl, setSettingsScrapeUrl] = useState("");
     const [isScrapingSettings, setIsScrapingSettings] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState<{
+        concept: { status: string; reason: string };
+        strengths: { status: string; reason: string };
+        target: { status: string; reason: string };
+        staff: { status: string; reason: string };
+        voice: { status: string; reason: string };
+    } | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     // debounce用タイマーを保持するref
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,6 +131,35 @@ export function useShopConfig(
             });
             setSettingsScrapeUrl("");
             addToast("URLから店舗情報を取得しました。", "success");
+
+            setIsAnalyzing(true);
+            try {
+                const analyzeRes = await fetch("/api/analyze-shop", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scrapedContent: data.text }),
+                });
+                const analysis = await analyzeRes.json();
+                const keys = ["concept", "strengths", "target", "staff", "voice"] as const;
+                const isValid = analyzeRes.ok && keys.every(
+                    (k) => analysis?.[k] && typeof analysis[k].status === "string" && typeof analysis[k].reason === "string"
+                );
+                if (isValid) {
+                    setAnalysisResult(analysis);
+                } else if (!analyzeRes.ok) {
+                    const msg = analysis?.error ?? "";
+                    if (typeof msg === "string" && msg.includes("GEMINI_API_KEY")) {
+                        addToast("AI分析を利用するには .env.local に GEMINI_API_KEY を設定してください。", "error");
+                    } else {
+                        addToast("AI分析に失敗しました。", "error");
+                    }
+                }
+            } catch (e) {
+                console.error("分析エラー:", e);
+                addToast("AI分析の通信に失敗しました。", "error");
+            } finally {
+                setIsAnalyzing(false);
+            }
         } catch (error) {
             if (error instanceof Error) addToast(error.message, "error");
             else addToast("予期せぬエラーが発生しました", "error");
@@ -320,9 +357,27 @@ export function useShopConfig(
 
     const handleQuickSaveSettings = async (onSuccess?: () => void) => {
         if (!user) return;
+        const supplements = shopInfo.manualSupplements;
+        const supplementText = supplements
+            ? Object.entries(supplements)
+                .filter(([, v]) => v && String(v).trim() !== "")
+                .map(([key, value]) => {
+                    const labels: Record<string, string> = {
+                        concept: "サロンのコンセプト",
+                        strengths: "強み・得意施術",
+                        target: "ターゲット顧客",
+                        staff: "スタッフ情報",
+                        voice: "お客様の声",
+                    };
+                    return `【${labels[key] ?? key}】\n${value}`;
+                })
+                .join("\n\n")
+            : "";
+        const mergedFeatures = [shopInfo.features, supplementText].filter(Boolean).join("\n\n");
+        const shopInfoToSave = { ...shopInfo, features: mergedFeatures };
         const { error } = await supabase.from('shops').upsert({
             user_id: user.id,
-            settings: shopInfo,
+            settings: shopInfoToSave,
             updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
         if (error) {
@@ -353,5 +408,8 @@ export function useShopConfig(
         handleExtractInfo,
         handleScrapeUrl,
         handleQuickSaveSettings,
+        analysisResult,
+        isAnalyzing,
+        setAnalysisResult,
     };
 }

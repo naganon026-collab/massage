@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, Send, Copy, Check } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DOMPurify from 'isomorphic-dompurify';
+import { SanitizedHtml } from "@/components/SanitizedHtml";
 
 interface DetailedArticleGeneratorProps {
     currentShop: {
@@ -35,7 +35,6 @@ export default function DetailedArticleGenerator({ currentShop }: DetailedArticl
         json_ld: string;
     } | null>(null);
     const [copiedTab, setCopiedTab] = useState<string | null>(null);
-    const [isPostingToWP, setIsPostingToWP] = useState(false);
 
     const handleInputChange = (field: keyof typeof formData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -79,43 +78,6 @@ export default function DetailedArticleGenerator({ currentShop }: DetailedArticl
             alert("エラーが発生しました: " + error.message);
         } finally {
             setIsGenerating(false);
-        }
-    };
-
-    const handlePostToWP = async (status: "draft" | "publish") => {
-        if (!generatedResults?.title || !generatedResults?.content_html) {
-            alert("記事が生成されていません");
-            return;
-        }
-
-        const actionText = status === "draft" ? "下書き保存" : "公開";
-        if (!confirm(`生成された記事をWordPressへ${actionText}しますか？`)) return;
-
-        setIsPostingToWP(true);
-        try {
-            // 既存のWP Post APIを再利用（必要に応じてwpCategoryId等も拡張可能）
-            // 今回はまずタイトルと本文を送る
-            const res = await fetch("/api/wppost", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title: generatedResults.title,
-                    content: generatedResults.content_html,
-                    status: status
-                }),
-            });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || data.details || "投稿に失敗しました");
-
-            alert(`WordPressへ${actionText}しました！\n投稿ID: ${data.postId}`);
-            if (data.link) {
-                window.open(data.link, '_blank');
-            }
-        } catch (error: any) {
-            alert("エラーが発生しました: " + error.message);
-        } finally {
-            setIsPostingToWP(false);
         }
     };
 
@@ -234,32 +196,16 @@ export default function DetailedArticleGenerator({ currentShop }: DetailedArticl
                                     <h3 className="text-xl font-bold text-white mb-2">{generatedResults.title}</h3>
                                     <p className="text-zinc-400 text-sm mb-6 pb-6 border-b border-zinc-800">{generatedResults.meta_description}</p>
 
-                                    <div
+                                    <SanitizedHtml
+                                        html={generatedResults.content_html}
                                         className="prose prose-invert prose-amber max-w-none 
                       prose-h2:text-amber-500 prose-h2:border-b prose-h2:border-zinc-800 prose-h2:pb-2
                       prose-blockquote:border-l-4 prose-blockquote:border-amber-500 prose-blockquote:bg-zinc-900 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg
                       prose-table:border prose-table:border-zinc-800 prose-th:bg-zinc-900 prose-td:border-zinc-800"
-                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(generatedResults.content_html) }}
                                     />
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row gap-4 p-6 bg-amber-500/5 rounded-xl border border-amber-500/20">
-                                    <div className="flex-1">
-                                        <h4 className="text-lg font-bold text-amber-500 mb-2">WordPressへ自動投稿</h4>
-                                        <p className="text-sm text-zinc-400">作成した記事をサイトへ直接入稿します。</p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-3">
-                                        <Button
-                                            variant="outline"
-                                            className="border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-zinc-950"
-                                            onClick={() => handlePostToWP("draft")}
-                                            disabled={isPostingToWP}
-                                        >
-                                            {isPostingToWP ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                            下書き保存
-                                        </Button>
-                                    </div>
-                                </div>
+                                {/* ここから先はWordPressへの自動投稿機能を削除し、プレビューとソース確認のみ提供 */}
                             </TabsContent>
 
                             <TabsContent value="html" className="space-y-6">

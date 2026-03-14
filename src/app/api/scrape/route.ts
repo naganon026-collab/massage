@@ -151,6 +151,25 @@ export async function POST(req: Request) {
             throw new Error(`サイトの取得に失敗しました: HTTP ${res.status}`);
         }
 
+        // リダイレクト後の最終URLについても再度バリデーション（SSRF対策の二重チェック）
+        const finalUrl = res.url || url;
+        const finalCheck = validateUrl(finalUrl);
+        if (!finalCheck.valid) {
+            throw new Error(finalCheck.reason || "安全でないURLにリダイレクトされたため中止しました。");
+        }
+
+        // Content-Type が text/html 系以外（画像・バイナリ等）の場合は拒否
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
+            throw new Error("HTMLコンテンツ以外は解析できません。別のURLを指定してください。");
+        }
+
+        // コンテンツ長が極端に大きい場合はダウンロード前に拒否（帯域・メモリ防御）
+        const contentLength = res.headers.get("content-length");
+        if (contentLength && Number(contentLength) > 2 * 1024 * 1024) { // 2MB超
+            throw new Error("コンテンツサイズが大きすぎるため解析を中止しました。");
+        }
+
         const html = await res.text();
 
         // ② HTMLからテキストを抽出

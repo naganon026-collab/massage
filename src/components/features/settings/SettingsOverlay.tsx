@@ -7,6 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS } from "@/types";
 import { User } from "@supabase/supabase-js";
 
+type AnalysisResult = {
+    concept: { status: string; reason: string };
+    strengths: { status: string; reason: string };
+    target: { status: string; reason: string };
+    staff: { status: string; reason: string };
+    voice: { status: string; reason: string };
+};
+
 interface SettingsOverlayProps {
     showSettingsOverlay: boolean;
     setShowSettingsOverlay: (show: boolean) => void;
@@ -18,6 +26,8 @@ interface SettingsOverlayProps {
     handleScrapeUrlForSettings: () => void;
     handleQuickSaveSettings: (onSuccess?: () => void) => void;
     user: User | null;
+    analysisResult: AnalysisResult | null;
+    isAnalyzing: boolean;
 }
 
 const sectionTitle = "text-lg font-bold text-white mt-8 first:mt-0 mb-3 pb-1 border-b border-zinc-800";
@@ -36,6 +46,8 @@ export function SettingsOverlay({
     handleScrapeUrlForSettings,
     handleQuickSaveSettings,
     user,
+    analysisResult,
+    isAnalyzing,
 }: SettingsOverlayProps) {
     const ot = shopInfo.outputTargets;
     const outputTargetsWith = (key: keyof NonNullable<ShopInfo["outputTargets"]>, value: boolean) => ({
@@ -110,6 +122,68 @@ export function SettingsOverlay({
                             />
                         </div>
                     </details>
+
+                    {isAnalyzing && (
+                        <div className="flex items-center gap-2 mt-3 text-sm text-zinc-400">
+                            <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                            AI が取得内容を分析中...
+                        </div>
+                    )}
+
+                    {analysisResult && !isAnalyzing && (() => {
+                        const keys = ["concept", "strengths", "target", "staff", "voice"] as const;
+                        const isValid = keys.every((k) => analysisResult[k]?.status != null && analysisResult[k]?.reason != null);
+                        if (!isValid) return null;
+                        return (
+                        <div className="space-y-4 mt-4">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-zinc-100">不足情報の補足</p>
+                                <span className="text-xs text-zinc-500">※ 入力するとより精度の高い投稿が生成されます</span>
+                            </div>
+                            {keys.every((k) => analysisResult[k].status === "sufficient") ? (
+                                <p className="text-xs text-emerald-500 flex items-center gap-1">
+                                    ✅ 必要な情報はすべてサイトから取得できました
+                                </p>
+                            ) : (
+                                [
+                                    { key: "concept" as const, label: "サロンのコンセプト・想い", placeholder: "例：地域に根ざした家族で通えるサロン。忙しい日常の中でほっとできる空間を提供" },
+                                    { key: "strengths" as const, label: "技術的な強み・得意施術・資格", placeholder: "例：縮毛矯正が得意。○○認定資格保有。ダメージレスブリーチに自信あり" },
+                                    { key: "target" as const, label: "ターゲット・来てほしいお客様", placeholder: "例：くせ毛に悩む30代女性。初めての方も歓迎。学生からシニアまで対応" },
+                                    { key: "staff" as const, label: "スタッフの人柄・こだわり", placeholder: "例：カウンセリングに時間をかけます。お客様の話をじっくり聞くことを大切に" },
+                                    { key: "voice" as const, label: "お客様の声・よくいただく感想", placeholder: "例：「毎回おまかせ」「子どもと一緒に来られて助かる」" },
+                                ]
+                                    .filter((item) => analysisResult[item.key]?.status === "insufficient")
+                                    .map(({ key, label, placeholder }) => (
+                                        <div key={key} className="space-y-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <Label className="text-sm text-zinc-200">{label}</Label>
+                                                <span className="text-xs text-amber-500">⚠️ {analysisResult[key]?.reason ?? ""}</span>
+                                            </div>
+                                            <Textarea
+                                                placeholder={placeholder}
+                                                value={shopInfo.manualSupplements?.[key] ?? ""}
+                                                onChange={(e) =>
+                                                    setShopInfo((prev) => ({
+                                                        ...prev,
+                                                        manualSupplements: {
+                                                            concept: "",
+                                                            strengths: "",
+                                                            target: "",
+                                                            staff: "",
+                                                            voice: "",
+                                                            ...prev.manualSupplements,
+                                                            [key]: e.target.value,
+                                                        },
+                                                    }))
+                                                }
+                                                className={`min-h-[80px] text-sm ${inputBase}`}
+                                            />
+                                        </div>
+                                    ))
+                            )}
+                        </div>
+                        );
+                    })()}
 
                     {/* 基本情報 */}
                     <h3 className={sectionTitle}>基本情報</h3>

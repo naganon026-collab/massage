@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pattern, HistoryEntry, NewsItem, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData } from "@/types";
+import { Pattern, HistoryEntry, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData, TREATMENT_TAGS, EDUCATION_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_OPTION_TAGS } from "@/types";
+import type { TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, NoticeTypeTagId, UrgencyTagId, VoiceOptionTagId } from "@/types";
 const REFINE_TAB_IDS = ["instagram", "gbp", "portal", "line", "short"] as const;
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -21,10 +22,6 @@ export function useContentGenerator(
     const [receivedComment, setReceivedComment] = useState("");
     const [replyNote, setReplyNote] = useState("");
 
-    const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-    const [selectedNewsIndex, setSelectedNewsIndex] = useState<number | null>(null);
-    const [isLoadingNews, setIsLoadingNews] = useState(false);
-
     const [uploadImageData, setUploadImageData] = useState<{ mimeType: string; data: string } | null>(null);
 
     const [isGenerating, setIsGenerating] = useState(false);
@@ -42,7 +39,6 @@ export function useContentGenerator(
 
     const [copiedTab, setCopiedTab] = useState<string | null>(null);
     const [editingTab, setEditingTab] = useState<string | null>(null);
-    const [isPostingToWP, setIsPostingToWP] = useState(false);
 
     const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
     const [showHistory, setShowHistory] = useState(false);
@@ -76,7 +72,8 @@ export function useContentGenerator(
     // useEffectでの自動呼び出しを廃止し、二重フェッチを防止
 
     const handleRestoreHistory = (entry: HistoryEntry) => {
-        const patternId = entry.pattern_id as Pattern;
+        const rawPatternId = entry.pattern_id as string;
+        const patternId = rawPatternId as Pattern;
         setSelectedPattern(patternId);
         setGeneratedResults(entry.results);
         if (patternId === 'G') {
@@ -120,69 +117,66 @@ export function useContentGenerator(
         setFormData({ q1: "", q2: "", q3: "" });
         setReceivedComment("");
         setReplyNote("");
-        setNewsItems([]);
-        setSelectedNewsIndex(null);
         setGeneratedResults(null);
     };
 
-    const handleFetchNews = async () => {
-        if (!shopInfo.industry) {
-            addToast("まず初期設定で業種を入力してください。", "error");
-            return;
-        }
-        setIsLoadingNews(true);
-        try {
-            const res = await fetch("/api/news", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    industry: shopInfo.industry,
-                    address: shopInfo.address || "",
-                }),
-            });
-            const data = await res.json();
-            if (!res.ok || data.error) {
-                throw new Error(data.error || "ニュースの取得に失敗しました。");
-            }
-            const articles: NewsItem[] = data.articles || [];
-            setNewsItems(articles);
-            setSelectedNewsIndex(articles.length > 0 ? 0 : null);
-            if (articles.length > 0) {
-                addToast(`ニュース候補を${articles.length}件取得しました。`, "success");
-            } else {
-                addToast("本日は該当するニュースはありませんでした。", "error");
-            }
-        } catch (error) {
-            if (error instanceof Error) {
-                addToast(error.message, "error");
-            } else {
-                addToast("ニュースの取得中にエラーが発生しました。", "error");
-            }
-        } finally {
-            setIsLoadingNews(false);
-        }
-    };
-
-    const handleGenerate = async () => {
-        if (selectedPattern === "H") {
-            if (selectedNewsIndex === null || !newsItems[selectedNewsIndex]) {
-                addToast("まずニュースを選択してください。", "error");
-                return;
-            }
-        }
+    const handleGenerate = async (
+        selectedTreatmentArg?: TreatmentTagId | null,
+        optionalMemosArg?: { reaction: string; beforeAfter: string },
+        selectedEducationArg?: EducationTagId | null,
+        educationMemoArg?: string,
+        selectedMessageArg?: StaffMessageTagId | null,
+        staffMemoArg?: string,
+        selectedSceneArg?: SalonSceneTagId | null,
+        selectedSceneMessageArg?: StaffMessageTagId | null,
+        sceneMemoArg?: string,
+        selectedNoticeTypeArg?: NoticeTypeTagId | null,
+        selectedUrgencyArg?: UrgencyTagId | null,
+        noticePeriodArg?: string,
+        noticeMemoArg?: string,
+        voiceMemoArg?: string,
+        selectedVoiceOptionArg?: VoiceOptionTagId | null
+    ) => {
         if (selectedPattern === "I") {
             if (!uploadImageData) {
                 addToast("画像をアップロードしてください。", "error");
                 return;
             }
         }
+        if (selectedPattern === "A" && !selectedTreatmentArg) {
+            addToast("施術タグを1つ選んでください。", "error");
+            return;
+        }
+        if (selectedPattern === "B" && !selectedEducationArg) {
+            addToast("教育テーマを1つ選んでください。", "error");
+            return;
+        }
+        if (selectedPattern === "C" && (!selectedNoticeTypeArg || !selectedUrgencyArg)) {
+            addToast("お知らせの種類と緊急度を選んでください。", "error");
+            return;
+        }
+        if (selectedPattern === "D" && !selectedVoiceOptionArg) {
+            addToast("カテゴリと内容を選んでください。", "error");
+            return;
+        }
+        if (selectedPattern === "E") {
+            if (!selectedMessageArg) {
+                addToast("伝えたいことを1つ選んでください。", "error");
+                return;
+            }
+            if (!staffMemoArg?.trim()) {
+                addToast("一言メモを入力してください。", "error");
+                return;
+            }
+        }
+        if (selectedPattern === "H" && (!selectedSceneArg || !selectedSceneMessageArg)) {
+            addToast("今日の場面と伝えたいことを選んでください。", "error");
+            return;
+        }
         setIsGenerating(true);
 
         try {
             const endpoint = selectedPattern === "G" ? "/api/generate-reply" : "/api/generate";
-            const selectedNews = selectedPattern === "H" && selectedNewsIndex !== null
-                ? newsItems[selectedNewsIndex]
-                : undefined;
 
             const activeShopInfo: ShopInfo = (() => {
                 if (selectedStoreId) {
@@ -191,6 +185,121 @@ export function useContentGenerator(
                 }
                 return shopInfo;
             })();
+
+            const useWeather = currentPattern.useWeather ?? false;
+            let normalBody = {
+                patternTitle: currentPattern.title,
+                useWeather,
+                q1: formData.q1,
+                q2: formData.q2,
+                q3: formData.q3,
+                shopInfo: activeShopInfo,
+                outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
+                generatedAt: new Date().toISOString(),
+            };
+            if (selectedPattern === "A" && selectedTreatmentArg) {
+                const tag = TREATMENT_TAGS.find((t) => t.id === selectedTreatmentArg)!;
+                normalBody = {
+                    ...normalBody,
+                    patternId: "A",
+                    q1: tag.concern,
+                    q2: `${tag.label}｜${tag.approach}`,
+                    q3: tag.result,
+                    additionalContext: JSON.stringify({
+                        treatment: tag.label,
+                        concern: tag.concern,
+                        approach: tag.approach,
+                        result: tag.result,
+                        reaction: optionalMemosArg?.reaction ?? "",
+                        beforeAfter: optionalMemosArg?.beforeAfter ?? "",
+                        targetUser: "20〜30代女性",
+                    }),
+                };
+            }
+            if (selectedPattern === "B" && selectedEducationArg) {
+                const tag = EDUCATION_TAGS.find((t) => t.id === selectedEducationArg)!;
+                normalBody = {
+                    ...normalBody,
+                    patternId: "B",
+                    q1: tag.theme,
+                    q2: tag.items,
+                    q3: tag.solution,
+                    additionalContext: JSON.stringify({
+                        theme: tag.theme,
+                        items: tag.items,
+                        solution: tag.solution,
+                        memo: educationMemoArg ?? "",
+                    }),
+                };
+            }
+            if (selectedPattern === "C" && selectedNoticeTypeArg && selectedUrgencyArg) {
+                const noticeTag = NOTICE_TYPE_TAGS.find((t) => t.id === selectedNoticeTypeArg)!;
+                const urgencyTag = URGENCY_TAGS.find((t) => t.id === selectedUrgencyArg)!;
+                normalBody = {
+                    ...normalBody,
+                    patternId: "C",
+                    q1: `${noticeTag.type}（${urgencyTag.urgency}）`,
+                    q2: urgencyTag.phrase,
+                    q3: noticeTag.detail,
+                    additionalContext: JSON.stringify({
+                        noticeType: noticeTag.type,
+                        noticeDetail: noticeTag.detail,
+                        urgency: urgencyTag.urgency,
+                        urgencyPhrase: urgencyTag.phrase,
+                        period: noticePeriodArg?.trim() ?? "",
+                        memo: noticeMemoArg ?? "",
+                    }),
+                };
+            }
+            if (selectedPattern === "D" && selectedVoiceOptionArg) {
+                const tag = VOICE_OPTION_TAGS.find((t) => t.id === selectedVoiceOptionArg)!;
+                normalBody = {
+                    ...normalBody,
+                    patternId: "D",
+                    q1: voiceMemoArg || `${tag.label}のお客様の喜びの声`,
+                    q2: `${tag.label}｜お悩み：${tag.concern}`,
+                    q3: tag.result,
+                    additionalContext: JSON.stringify({
+                        treatment: tag.label,
+                        concern: tag.concern,
+                        result: tag.result,
+                        voice: voiceMemoArg ?? "",
+                    }),
+                };
+            }
+            if (selectedPattern === "E" && selectedMessageArg) {
+                const msg = STAFF_MESSAGE_TAGS.find((t) => t.id === selectedMessageArg)!;
+                normalBody = {
+                    ...normalBody,
+                    patternId: "E",
+                    q1: msg.hook,
+                    q2: msg.message,
+                    q3: msg.target,
+                    additionalContext: JSON.stringify({
+                        hook: msg.hook,
+                        message: msg.message,
+                        target: msg.target,
+                        memo: staffMemoArg ?? "",
+                    }),
+                };
+            }
+            if (selectedPattern === "H" && selectedSceneArg && selectedSceneMessageArg) {
+                const scene = SALON_SCENE_TAGS.find((t) => t.id === selectedSceneArg)!;
+                const msg = STAFF_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessageArg)!;
+                normalBody = {
+                    ...normalBody,
+                    patternId: "H",
+                    q1: scene.scene,
+                    q2: msg.message,
+                    q3: msg.target,
+                    additionalContext: JSON.stringify({
+                        scene: scene.scene,
+                        message: msg.message,
+                        target: msg.target,
+                        memo: sceneMemoArg ?? "",
+                    }),
+                };
+            }
 
             const requestBody =
                 selectedPattern === "G"
@@ -201,20 +310,10 @@ export function useContentGenerator(
                         replyNote,
                         shopInfo: activeShopInfo,
                     }
-                    : selectedPattern === "H"
-                        ? {
-                            patternTitle: currentPattern.title,
-                            q1: "",
-                            q2: "",
-                            q3: "",
-                            shopInfo: activeShopInfo,
-                            outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
-                            news: selectedNews,
-                            generatedAt: new Date().toISOString(),
-                        }
-                        : selectedPattern === "I"
+                    : selectedPattern === "I"
                             ? {
                                 patternTitle: currentPattern.title,
+                                useWeather: currentPattern.useWeather ?? false,
                                 q1: "",
                                 q2: "",
                                 q3: "",
@@ -223,15 +322,19 @@ export function useContentGenerator(
                                 imageData: uploadImageData!,
                                 generatedAt: new Date().toISOString(),
                             }
-                            : {
+                            : selectedPattern === "F"
+                            ? {
                                 patternTitle: currentPattern.title,
-                                q1: formData.q1,
-                                q2: formData.q2,
-                                q3: formData.q3,
+                                patternId: "F",
+                                useWeather: currentPattern.useWeather ?? false,
+                                q1: "",
+                                q2: "",
+                                q3: "",
                                 shopInfo: activeShopInfo,
                                 outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
                                 generatedAt: new Date().toISOString(),
-                            };
+                            }
+                            : normalBody;
 
             const response = await fetch(endpoint, {
                 method: "POST",
@@ -267,11 +370,21 @@ export function useContentGenerator(
                 const inputs =
                     selectedPattern === 'G'
                         ? { platform: replyPlatform, receivedComment, replyNote }
-                        : selectedPattern === 'H'
-                            ? { newsTitle: selectedNews?.title, newsLink: selectedNews?.link }
-                            : selectedPattern === 'I'
+                        : selectedPattern === 'I'
                                 ? { imageUploaded: true }
-                                : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
+                                : selectedPattern === 'A' && selectedTreatmentArg
+                                    ? { treatmentTagId: selectedTreatmentArg, reaction: optionalMemosArg?.reaction ?? "", beforeAfter: optionalMemosArg?.beforeAfter ?? "" }
+                                    : selectedPattern === 'B' && selectedEducationArg
+                                        ? { educationTagId: selectedEducationArg, educationMemo: educationMemoArg ?? "" }
+                                        : selectedPattern === 'C' && selectedNoticeTypeArg && selectedUrgencyArg
+                                            ? { noticeTypeTagId: selectedNoticeTypeArg, urgencyTagId: selectedUrgencyArg, noticePeriod: noticePeriodArg ?? "", noticeMemo: noticeMemoArg ?? "" }
+                                            : selectedPattern === 'D' && selectedVoiceOptionArg
+                                                ? { voiceOptionTagId: selectedVoiceOptionArg, voiceMemo: voiceMemoArg ?? "" }
+                                                : selectedPattern === 'E' && selectedMessageArg
+                                                    ? { staffMessageTagId: selectedMessageArg, staffMemo: staffMemoArg ?? "" }
+                                                    : selectedPattern === 'H' && selectedSceneArg && selectedSceneMessageArg
+                                                        ? { sceneTagId: selectedSceneArg, sceneMessageTagId: selectedSceneMessageArg, sceneMemo: sceneMemoArg ?? "" }
+                                                        : { q1: formData.q1, q2: formData.q2, q3: formData.q3 };
                 supabase.from('generation_history').insert({
                     user_id: user.id,
                     pattern_id: selectedPattern,
@@ -305,53 +418,6 @@ export function useContentGenerator(
             }
         } finally {
             setIsGenerating(false);
-        }
-    };
-
-    const handlePostToWP = async (status: "draft" | "publish") => {
-        if (!generatedResults?.portalTitle || !generatedResults?.portal) {
-            addToast("ポータルサイト用のタイトルと本文が生成されていません。", "error");
-            return;
-        }
-
-        const actionText = status === "draft" ? "下書き保存" : "公開";
-        if (!confirm(`生成されたポータル用テキストをWordPressへ${actionText}しますか？`)) {
-            return;
-        }
-
-        setIsPostingToWP(true);
-        try {
-            const res = await fetch("/api/wppost", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title: generatedResults.portalTitle,
-                    content: generatedResults.portal,
-                    status: status,
-                    wpCategoryId: shopInfo.wpCategoryId,
-                    wpTagId: shopInfo.wpTagId,
-                    wpAuthorId: shopInfo.wpAuthorId,
-                    imageUrl: generatedResults.imageUrl
-                }),
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error || data.details || "投稿に失敗しました");
-            }
-
-            addToast(`WordPressへ${actionText}しました！（投稿ID: ${data.postId}）`, "success");
-            if (data.link) {
-                window.open(data.link, '_blank');
-            }
-        } catch (error) {
-            if (error instanceof Error) {
-                addToast("エラーが発生しました: " + error.message, "error");
-            } else {
-                addToast("予期せぬエラーが発生しました", "error");
-            }
-        } finally {
-            setIsPostingToWP(false);
         }
     };
 
@@ -469,15 +535,11 @@ export function useContentGenerator(
         replyPlatform, setReplyPlatform,
         receivedComment, setReceivedComment,
         replyNote, setReplyNote,
-        newsItems, setNewsItems,
-        selectedNewsIndex, setSelectedNewsIndex,
-        isLoadingNews, setIsLoadingNews,
         uploadImageData, setUploadImageData,
         isGenerating, setIsGenerating,
         generatedResults, setGeneratedResults,
         copiedTab, setCopiedTab,
         editingTab, setEditingTab,
-        isPostingToWP, setIsPostingToWP,
         generationHistory, setGenerationHistory,
         showHistory, setShowHistory,
         deletingHistoryId, setDeletingHistoryId,
@@ -487,9 +549,7 @@ export function useContentGenerator(
         handleDeleteHistory,
         handleInputChange,
         handlePatternChange,
-        handleFetchNews,
         handleGenerate,
-        handlePostToWP,
         handleCopy,
         refineInstruction,
         setRefineInstruction,

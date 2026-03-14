@@ -5,17 +5,20 @@ import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import {
   Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send,
-  LogOut, History, Clock, Pencil, Trash2, Newspaper, Store, X, ArrowDown, RefreshCw,
+  LogOut, History, Clock, Pencil, Trash2, Store, X, ArrowDown, RefreshCw,
   FileText, Image, MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ToastContainer, useToast } from "@/components/ui/toast";
 
-import { ADMIN_EMAIL, PATTERNS, REFINE_OPTIONS, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
+import { getSeasonalContext } from "@/lib/seasonalContext";
+import { ADMIN_EMAIL, PATTERNS, PATTERN_CATEGORIES, getPatternCategoryId, REFINE_OPTIONS, TREATMENT_TAGS, EDUCATION_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_CATEGORIES, VOICE_OPTION_TAGS, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
+import type { Pattern, TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, NoticeTypeTagId, UrgencyTagId, VoiceCategoryId, VoiceOptionTagId, PatternCategoryId } from "@/types";
 import { useStoreManager } from "@/hooks/useStoreManager";
 import { useShopConfig } from "@/hooks/useShopConfig";
 import { useContentGenerator } from "@/hooks/useContentGenerator";
@@ -26,100 +29,128 @@ import { InitialSetup } from "@/components/features/settings/InitialSetup";
 // デモ用テキスト（ランディング用）
 const LP_DEMOS: Record<string, Record<string, string>> = {
   beforeafter: {
-    instagram: `3月に入り、春の訪れを感じつつも、長野市はまだ曇りがちで肌寒い日が続いていますね🌸
+    instagram: `❄️ 冬の空気が、髪に静かに影響している。
 
-今日は、美容室fujisawaが大切にしている「ビフォーアフター」をご紹介させてください😊
+暖かい室内でふと触れた髪が、
+以前と少し違う気がする——
+そんな小さな変化、見逃したくないと思います。
 
-＼ こんなお悩み、ありませんか？ ／
-✦ カラーの退色が早くて悩んでいる
-✦ 髪のパサつきがひどくなってきた
-✦ ブリーチ後のケアが分からない
+先日ご来店のお客様は、
+白髪染めのたびにしみる感覚が気になって
+ずっと悩まれていました。
 
-スタイリスト藤澤は、JHCA日本ヘアカラー協会ダブルスターの資格を持ち、お客様の髪質に合わせた最適なカラー剤選びを日々研究しています💫
+頭皮の状態を丁寧に見ながら、
+ゼロタッチカラー×内部集中トリートメントで施術すると、
+仕上がりを手で触れた瞬間、
 
-グレイヘアを活かすノンブリーチカラーや、頭皮に優しいゼロタッチカラーなど、お客様の「なりたい」を叶える選択肢を豊富にご用意しています。
+「…これ、本当に自分の髪ですか？」
 
-📍 長野県上水内郡飯綱町
-📞 026-253-2747
-⏰ 平日土曜 9:00〜18:30`,
-    google: `【春のヘアケア相談、受付中】
+冬だから、と諦めないでください。
+頭皮に寄り添いながら、
+ツヤとやわらかさを、もう一度。
 
-カラーの退色が早い・パサつきが気になるというお声をよくいただきます。
+📍 Hair Studio Lumière
+ご予約はプロフィールリンクから。
 
-美容室fujisawaでは、お客様の髪質・ライフスタイルに合わせた施術プランをご提案。JHCA認定スタイリストが在籍し、ノンブリーチカラーやゼロタッチカラーなど、髪に優しい選択肢をご用意しています。
+#ヘアケア #冬の髪 #白髪染め #ゼロタッチカラー
+#頭皮ケア #艶髪 #サロンケア #HairStudioLumiere`,
+    google: `【冬の「白髪染め疲れ」、感じていませんか？】
 
-まずはお気軽にご相談ください。
-📞 026-253-2747（平日・土曜 9:00〜18:30）`,
-    line: `こんにちは！美容室fujisawaです🌿
+冬の乾燥した空気は、髪だけでなく頭皮にも負担がかかりやすく、
+「白髪染めのたびにピリピリする」「染めたあとのパサつきが気になる」というご相談を多くいただきます。
 
-「カラーがすぐ褪せる」「パサつきが気になる」というお悩み、実はケア方法を少し変えるだけで改善できることが多いんです。
+Hair Studio Lumière では、頭皮に直接薬剤をつけないゼロタッチカラーや、
+髪へのダメージを抑えながら白髪を自然にぼかすノンブリーチシニアカラーなど、
+「これからも安心して続けられる白髪染め」を重視したメニューをご提案しています。
 
-ご来店の際に遠慮なくご相談ください😊
-お客様の髪質に合った方法をご提案します！
+仕上げには、ケア専用トリートメントで内部からうるおいを補給。
+「白髪は気になるけれど、これ以上傷ませたくない」という方に好評です。
 
-▶ ご予約はこちら
-026-253-2747`,
+まずはお気軽にご相談ください。`,
+    line: `こんにちは、Hair Studio Lumière です☕️
+
+「最近、白髪染めのあとに頭皮がヒリヒリする」「髪がパサつきやすくなってきた」
+そんなお声をここ数ヶ月でますます多くいただいています。
+
+当店では、頭皮に直接薬剤をつけないゼロタッチカラーや、
+白髪を生かしながらやわらかく見せるノンブリーチシニアカラーなど、
+「これから先も安心して続けられるカラー」を一緒に考えていきます。
+
+冬の乾燥で敏感になっている頭皮に、少しだけやさしい選択をしてみませんか？
+
+ご相談だけでも大歓迎です。
+
+▶ ご予約・お問い合わせは公式サイトまたはLINEからどうぞ。`,
   },
   kodawari: {
-    instagram: `✦ スタイリスト藤澤の「こだわり」、少しだけお話しさせてください。
+    instagram: `✦ スタイリスト藤澤の「こだわり」を、少しだけご紹介させてください。
 
 カラーリング一つとっても、私たちは薬剤の選び方・塗布の方法・放置時間まで、お客様一人ひとりの髪質や頭皮の状態に合わせて変えています。
 
 「なんとなく色が入ればいい」ではなく、3ヶ月後も綺麗な色が続くかを常に考えながら施術しています💡
 
-JHCA日本ヘアカラー協会ダブルスターとして、最新のカラー技術を学び続けているのも、そのためです。
+オーナースタイリストはヘアカラー協会認定資格・ヘアケアマイスターとして、
+白髪世代の方の髪と頭皮に寄り添うカラーを研究し続けてきました。
+ゼロタッチカラーやノンブリーチカラーなど、年齢やライフスタイルに合わせた提案が得意です。
 
-「ずっとここに来てよかった」と言っていただけることが、私たちの一番の励みです✨
-
-📍 長野県上水内郡飯綱町倉井2697-4
-⏰ 平日土曜 9:00〜18:30`,
+「ずっとここに来てよかった」と言っていただけることが、私たちの一番の励みです✨`,
     google: `【スタイリストのこだわりについて】
 
-美容室fujisawaでは、施術の品質にとことんこだわっています。
+Hair Studio Lumière では、施術の品質にとことんこだわっています。
 
-カラーリングでは、薬剤選び・塗布方法・放置時間をお客様の髪質に合わせて細かく調整。JHCA日本ヘアカラー協会認定のスタイリストが、色もちの良い仕上がりを追求しています。
+カラーリングでは、薬剤選び・塗布方法・放置時間をお客様の髪質に合わせて細かく調整。
+JHCA日本ヘアカラー協会認定のスタイリストが、色もちの良い仕上がりを追求しています。
 
-「また来たい」と思っていただけるサロンを目指しています。
-ご予約・お問い合わせ：026-253-2747`,
+お客様の「こうなりたい」というイメージと、髪や頭皮の状態を丁寧にヒアリングし、
+無理のない範囲で長く続けられるデザインをご提案いたします。
+
+詳しいメニューや料金は公式サイトをご覧ください。`,
     line: `こんにちは！fujisawaです🌿
 
-突然ですが、カラーの色もちって気になりませんか？
+「カラーしたては良いけれど、すぐに色が抜けてしまう」「ダメージが気になって挑戦しづらい」
+そんなお悩みをよく伺います。
 
-実は薬剤の選び方一つで、3ヶ月後の色の状態がかなり変わるんです。
+実は、薬剤の選び方や塗り方を少し工夫するだけで、「色もち」と「髪のやわらかさ」はかなり変わります。
 
-ご来店の際は、前回のカラーからの変化も一緒に確認させてください😊
-何かお悩みがあればお気軽にLINEでご連絡を！`,
+ご来店の際は、普段のお手入れ方法や、これまで気になっていたことを遠慮なくお話しください😊
+あなたの髪に合ったベストな方法を一緒に考えましょう。`,
   },
   season: {
-    instagram: `🌸 3月、春のヘアチェンジを考えていませんか？
+    instagram: `🌸 3月、春のヘアチェンジを考える方が少しずつ増えてきました。
 
-長野はまだ肌寒い日が続いていますが、春の花粉シーズンに向けて髪の毛のコンディション、整えておきましょう！
+まだ肌寒い日も多いですが、マフラーを外す季節に向けて、
+「首まわりがすっきり見えるスタイルにしたい」「髪色で気分を変えたい」というご相談をよくいただきます。
 
-この時期に特におすすめなのが「頭皮ケア」。
-冬の乾燥でダメージを受けた頭皮を整えることで、春からの新しいスタイルが映えます💐
+冬の乾燥でダメージを受けた髪や頭皮をそのままにしておくと、
+せっかくの春カラーもパサついて見えてしまうことも…。
 
-✦ 春カラーのご相談
-✦ 頭皮・髪質チェック
-✦ ノンブリーチで叶えるトレンドカラー
+この時期は、
+✦ 根元の伸びを自然にぼかす春カラー
+✦ 頭皮と髪を整えるクレンジングスパ
+✦ マフラーを外しても決まる首元すっきりカット
+の組み合わせがおすすめです💐
 
-ご予約はお電話またはLINEから🌿
-📞 026-253-2747
-⏰ 平日土曜 9:00〜18:30`,
-    google: `【春のヘアスタイル、ご相談ください】
+「何から変えたらいいか分からない」という方も、まずはお気軽にご相談ください。`,
+    google: `【春に向けたヘアスタイルの準備、できていますか？】
 
-3月は春のイメージチェンジをご検討のお客様が多い季節です。
+3月は卒業・入学・異動など、写真に残る機会が増える季節です。
 
-美容室fujisawaでは、春トレンドのカラーや、冬ダメージのリペアメニューをご用意しています。頭皮の状態チェックも無料で行っていますので、お気軽にご来店ください。
+Hair Studio Lumière では、
+・春らしい透明感カラー
+・冬の乾燥ダメージをケアするトリートメント
+・ライフスタイルに合わせた再現性の高いカット
+を組み合わせた「春支度プラン」のご相談を承っています。
 
-ご予約：026-253-2747（平日・土曜 9:00〜18:30）`,
+「派手すぎないけれど、少し印象を変えたい」というご要望にもお応えします。`,
     line: `こんにちは！fujisawaです🌸
 
-もうすぐ春！そろそろイメチェンしたくなってきましたか？
+少しずつ日が長くなってきましたね。
+「春に向けて、そろそろ髪を整えておきたいな」という方も増えてきました。
 
-春カラーのご相談、大歓迎です😊
-「どんなスタイルが似合うか分からない」という方も、お気軽にご連絡ください！
+春カラーのご相談はもちろん、
+「まずはダメージをリセットしたい」「スタイリングをラクにしたい」といったご相談も大歓迎です😊
 
-一緒に考えましょう✨`,
+あなたのライフスタイルに合った春ヘア、一緒に考えましょう✨`,
   },
 };
 
@@ -169,7 +200,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         <button
           type="button"
           onClick={onLogin}
-          className="gradient-accent text-zinc-950 font-bold px-5 py-2.5 rounded-lg text-sm hover:opacity-95 active:scale-[0.98] transition-all flex items-center gap-2"
+          className="bg-gradient-to-r from-cyan-400 via-emerald-400 to-lime-300 text-zinc-950 font-bold px-5 py-2.5 rounded-lg text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center gap-2 shadow-[0_0_25px_rgba(45,212,191,0.45)]"
         >
           <GoogleIcon className="w-4 h-4" />
           Googleで無料ではじめる
@@ -197,7 +228,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             <button
               type="button"
               onClick={onLogin}
-              className="inline-flex items-center gap-2.5 gradient-accent text-zinc-950 font-extrabold py-4 px-9 rounded-xl text-base shadow-[0_0_40px_rgba(52,211,153,0.2)] hover:opacity-95 hover:shadow-[0_0_60px_rgba(52,211,153,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+              className="inline-flex items-center gap-2.5 bg-gradient-to-r from-cyan-400 via-emerald-400 to-lime-300 text-zinc-950 font-extrabold py-4 px-9 rounded-xl text-base shadow-[0_0_45px_rgba(45,212,191,0.6)] hover:brightness-110 hover:shadow-[0_0_70px_rgba(190,242,100,0.75)] hover:-translate-y-0.5 active:scale-[0.98] transition-all"
             >
               <GoogleIcon className="w-5 h-5" />
               Googleで無料ではじめる
@@ -425,7 +456,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <button
             type="button"
             onClick={onLogin}
-            className="inline-flex items-center gap-2.5 gradient-accent text-zinc-950 font-extrabold py-4 px-9 rounded-xl text-base shadow-[0_0_40px_rgba(52,211,153,0.2)] hover:opacity-95 active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2.5 bg-gradient-to-r from-cyan-400 via-emerald-400 to-lime-300 text-zinc-950 font-extrabold py-4 px-9 rounded-xl text-base shadow-[0_0_45px_rgba(45,212,191,0.6)] hover:brightness-110 hover:shadow-[0_0_70px_rgba(190,242,100,0.75)] hover:-translate-y-0.5 active:scale-[0.98] transition-all"
           >
             <GoogleIcon className="w-5 h-5" />
             Googleで今すぐはじめる
@@ -473,6 +504,23 @@ export default function SEOContentGenerator() {
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all");
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [selectedTreatment, setSelectedTreatment] = useState<TreatmentTagId | null>(null);
+  const [optionalMemos, setOptionalMemos] = useState({ reaction: "", beforeAfter: "" });
+  const [selectedEducation, setSelectedEducation] = useState<EducationTagId | null>(null);
+  const [educationMemo, setEducationMemo] = useState("");
+  const [selectedMessage, setSelectedMessage] = useState<StaffMessageTagId | null>(null);
+  const [staffMemo, setStaffMemo] = useState("");
+  const [selectedScene, setSelectedScene] = useState<SalonSceneTagId | null>(null);
+  const [selectedSceneMessage, setSelectedSceneMessage] = useState<StaffMessageTagId | null>(null);
+  const [sceneMemo, setSceneMemo] = useState("");
+  const [selectedNoticeType, setSelectedNoticeType] = useState<NoticeTypeTagId | null>(null);
+  const [selectedUrgency, setSelectedUrgency] = useState<UrgencyTagId | null>(null);
+  const [noticePeriod, setNoticePeriod] = useState("");
+  const [noticeMemo, setNoticeMemo] = useState("");
+  const [voiceMemo, setVoiceMemo] = useState("");
+  const [selectedVoiceCategory, setSelectedVoiceCategory] = useState<VoiceCategoryId | null>(null);
+  const [selectedVoiceOption, setSelectedVoiceOption] = useState<VoiceOptionTagId | null>(null);
+  const [selectedPatternCategory, setSelectedPatternCategory] = useState<PatternCategoryId | null>(null);
 
   // ===== カスタムフック =====
   const shopConfig = useShopConfig(user, addToast, async (userId, isAdmin) => {
@@ -563,6 +611,7 @@ export default function SEOContentGenerator() {
     handleScrapeUrl, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
     settingsScrapeUrl, setSettingsScrapeUrl, isScrapingSettings,
     handleScrapeUrlForSettings, handleQuickSaveSettings,
+    analysisResult, isAnalyzing,
   } = shopConfig;
 
   const { stores, selectedStoreId, setSelectedStoreId, showStoreManager, setShowStoreManager,
@@ -575,11 +624,10 @@ export default function SEOContentGenerator() {
   const { selectedPattern, handlePatternChange, currentPattern,
     formData, setFormData, replyPlatform, setReplyPlatform,
     receivedComment, setReceivedComment, replyNote, setReplyNote,
-    newsItems, selectedNewsIndex, setSelectedNewsIndex, isLoadingNews,
     uploadImageData, setUploadImageData,
     isGenerating, generatedResults, setGeneratedResults, copiedTab, editingTab, setEditingTab,
-    isPostingToWP, generationHistory, showHistory, setShowHistory,
-    deletingHistoryId, handleFetchNews, handleGenerate, handlePostToWP,
+    generationHistory, showHistory, setShowHistory,
+    deletingHistoryId, handleGenerate,
     handleCopy, handleRestoreHistory, handleDeleteHistory,
     refineInstruction, setRefineInstruction, isRefining, handleRefine,
     isLlmoGenerating, handleGenerateLlmo,
@@ -589,6 +637,20 @@ export default function SEOContentGenerator() {
   const activeShopInfo = selectedStoreId
     ? (stores.find(s => s.id === selectedStoreId)?.settings ?? shopInfo)
     : shopInfo;
+
+  const canGenerate =
+    selectedPattern === "G" ? receivedComment.trim().length > 0
+      : currentPattern.isAuto === true
+        ? true
+        : currentPattern.isTagSelect === true
+          ? (currentPattern.id === "A" ? selectedTreatment !== null
+            : currentPattern.id === "B" ? selectedEducation !== null
+            : currentPattern.id === "C" ? selectedNoticeType !== null && selectedUrgency !== null
+            : currentPattern.id === "D" ? selectedVoiceOption !== null
+            : currentPattern.id === "E" ? selectedMessage !== null && staffMemo.trim() !== ""
+            : currentPattern.id === "H" ? selectedScene !== null && selectedSceneMessage !== null
+            : false)
+          : (formData.q1.trim() || formData.q2.trim() || formData.q3.trim());
 
   return (
     <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-emerald-500/30 pb-20 selection:text-zinc-950">
@@ -628,6 +690,8 @@ export default function SEOContentGenerator() {
         handleScrapeUrlForSettings={handleScrapeUrlForSettings}
         handleQuickSaveSettings={handleQuickSaveSettings}
         user={user}
+        analysisResult={analysisResult}
+        isAnalyzing={isAnalyzing}
       />
 
       {/* ===== ヘッダー ===== */}
@@ -758,33 +822,83 @@ export default function SEOContentGenerator() {
               </section>
             )}
 
-            {/* ===== STEP 1: パターン選択 ===== */}
+            {/* ===== STEP 1: パターン選択（2段階） ===== */}
             <section className="space-y-5">
               <div className="flex items-center gap-3">
                 <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">1</span>
                 <h2 className="font-display text-2xl font-bold text-white">投稿パターンの選択</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {PATTERNS.map((pattern) => (
-                  <Card
-                    key={pattern.id}
-                    className={`cursor-pointer transition-smooth border-zinc-700 bg-zinc-900 card-elevated hover:border-emerald-500/60 hover:bg-zinc-800/80 ${selectedPattern === pattern.id ? "ring-2 ring-emerald-500 border-emerald-500 bg-zinc-800 glow-accent" : ""
-                      }`}
-                    onClick={() => handlePatternChange(pattern.id)}
-                  >
-                    <CardHeader className="p-5 pb-2">
-                      <CardTitle className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 mb-2 uppercase tracking-wider">
-                        {selectedPattern === pattern.id
-                          ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                          : <span className="w-3.5 h-3.5 shrink-0" />
-                        }
-                        パターン {pattern.id}
-                      </CardTitle>
-                      <p className="text-base font-bold text-white leading-snug">{pattern.title}</p>
-                    </CardHeader>
-                    <CardContent className="px-5 pb-5 pt-2 text-sm text-zinc-400 leading-relaxed">{pattern.description}</CardContent>
-                  </Card>
-                ))}
+              {/* 1段階目：目的でカテゴリを選ぶ */}
+              <div>
+                <p className="text-sm text-zinc-400 mb-3">目的を選んでください</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {PATTERN_CATEGORIES.map((cat) => {
+                    const effectiveCategory = selectedPatternCategory ?? getPatternCategoryId(selectedPattern);
+                    const isActive = effectiveCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedPatternCategory(cat.id)}
+                        className={`text-left p-4 rounded-xl border-2 transition-smooth bg-zinc-900 hover:border-emerald-500/60 hover:bg-zinc-800/80 ${isActive ? "ring-2 ring-emerald-500 border-emerald-500 bg-zinc-800" : "border-zinc-700"}`}
+                      >
+                        <p className="text-base font-bold text-white leading-snug">{cat.label}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{cat.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* 2段階目：カテゴリ内のパターンを選ぶ（ふわっと表示） */}
+              <div>
+                {(() => {
+                  const effectiveCategory = selectedPatternCategory ?? getPatternCategoryId(selectedPattern);
+                  const category = PATTERN_CATEGORIES.find((c) => c.id === effectiveCategory);
+                  if (!category) return null;
+                  const patternsInCategory = PATTERNS.filter((p) => (category.patternIds as readonly string[]).includes(p.id));
+                  return (
+                    <div key={effectiveCategory} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <p className="text-sm text-zinc-400 mb-3">パターンを1つ選んでください</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {patternsInCategory.map((pattern, index) => (
+                          <Card
+                            key={pattern.id}
+                            style={{ animationDelay: `${index * 80}ms` }}
+                            className={`cursor-pointer transition-smooth border-zinc-700 bg-zinc-900 card-elevated hover:border-emerald-500/60 hover:bg-zinc-800/80 animate-in fade-in slide-in-from-bottom-2 duration-400 ${selectedPattern === pattern.id ? "ring-2 ring-emerald-500 border-emerald-500 bg-zinc-800 glow-accent" : ""}`}
+                            onClick={() => {
+                              setSelectedTreatment(null);
+                              setOptionalMemos({ reaction: "", beforeAfter: "" });
+                              setSelectedEducation(null);
+                              setEducationMemo("");
+                              setSelectedMessage(null);
+                              setStaffMemo("");
+                              setSelectedScene(null);
+                              setSelectedSceneMessage(null);
+                              setSceneMemo("");
+                              setSelectedNoticeType(null);
+                              setSelectedUrgency(null);
+                              setNoticePeriod("");
+                              setNoticeMemo("");
+                              setVoiceMemo("");
+                              setSelectedVoiceCategory(null);
+                              setSelectedVoiceOption(null);
+                              handlePatternChange(pattern.id as Pattern);
+                            }}
+                          >
+                            <CardHeader className="p-5 pb-2">
+                              <CardTitle className="text-xs font-medium text-zinc-500 flex items-center gap-1.5 mb-2 uppercase tracking-wider">
+                                {selectedPattern === pattern.id ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <span className="w-3.5 h-3.5 shrink-0" />}
+                                パターン {pattern.id}
+                              </CardTitle>
+                              <p className="text-base font-bold text-white leading-snug">{pattern.title}</p>
+                            </CardHeader>
+                            <CardContent className="px-5 pb-5 pt-2 text-sm text-zinc-400 leading-relaxed">{pattern.description}</CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </section>
 
@@ -793,7 +907,7 @@ export default function SEOContentGenerator() {
               <div className="flex items-center gap-3">
                 <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">2</span>
                 <h2 className="font-display text-2xl font-bold text-white">
-                  {selectedPattern === "G" ? "返信する内容の入力" : selectedPattern === "H" ? "ニュースの選択" : selectedPattern === "I" ? "画像のアップロード" : "事実（ファクト）の入力"}
+                  {selectedPattern === "G" ? "返信する内容の入力" : selectedPattern === "I" ? "画像のアップロード" : "投稿内容を決める"}
                 </h2>
               </div>
 
@@ -921,53 +1035,354 @@ export default function SEOContentGenerator() {
                     </div>
                   </CardContent>
                 </Card>
-              ) : selectedPattern === "H" ? (
-                /* パターンH：ニュース連動フォーム */
+              ) : currentPattern.isTagSelect ? (
+                currentPattern.id === "A" ? (
+                /* パターンA：施術タグ選択＋任意2問 */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                  <CardContent className="p-7 space-y-7">
-                    <div className="space-y-2">
-                      <Label className="text-base font-semibold text-zinc-100 flex items-center gap-2">
-                        <Newspaper className="w-4 h-4 text-emerald-500" />
-                        業種に関連するニュースを選んでください
-                      </Label>
-                      <p className="text-sm text-zinc-400">
-                        Googleニュースから、あなたの業種（{shopInfo.industry || "未設定"}）に関連する最新トピックを取得します。
-                      </p>
-                      <Button
-                        type="button"
-                        onClick={handleFetchNews}
-                        disabled={isLoadingNews || !shopInfo.industry}
-                        className="mt-1 inline-flex items-center gap-2 gradient-accent hover:opacity-95 text-zinc-950 font-semibold disabled:opacity-60"
-                      >
-                        {isLoadingNews ? <><Loader2 className="w-4 h-4 animate-spin" />ニュースを読み込み中...</> : <><Newspaper className="w-4 h-4" />ニュース候補を取得する</>}
-                      </Button>
-                      {!shopInfo.industry && <p className="text-xs text-red-400 mt-1">※ 先に初期設定で「業種」を入力してください。</p>}
+                  <CardContent className="p-7 space-y-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base font-semibold text-zinc-100">今日の施術</Label>
+                        <span className="text-xs text-red-500 font-medium">必須</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {TREATMENT_TAGS.map((tag) => (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedTreatment(
+                                selectedTreatment === tag.id ? null : tag.id
+                              )
+                            }
+                            className={`
+                              px-4 py-2 rounded-full text-sm font-medium
+                              border-2 transition-all duration-150 select-none
+                              active:scale-95
+                              ${selectedTreatment === tag.id
+                                ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                              }
+                            `}
+                          >
+                            {tag.emoji} {tag.label}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedTreatment && (
+                        <p className="text-xs text-zinc-400 pl-1">
+                          ✅ {TREATMENT_TAGS.find((t) => t.id === selectedTreatment)?.label}
+                          を選択中
+                        </p>
+                      )}
                     </div>
-                    {newsItems.length > 0 && (
-                      <div className="space-y-3 pt-2 border-t border-zinc-800">
-                        <p className="text-sm text-zinc-300">下の中から、投稿の題材にしたいニュースを1つ選んでください。</p>
-                        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                          {newsItems.map((news, index) => (
-                            <label
-                              key={news.link || news.title + index}
-                              className={`flex gap-3 p-3 rounded-lg border text-sm cursor-pointer transition-colors ${selectedNewsIndex === index ? "border-emerald-500 bg-emerald-500/5" : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"
-                                }`}
+                    <details className="group">
+                      <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
+                        <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">
+                          ＋ より具体的な投稿にする（任意）
+                        </span>
+                      </summary>
+                      <div className="space-y-4 mt-4">
+                        {[
+                          {
+                            key: "reaction" as const,
+                            label: "😊 お客様の反応・喜びの声",
+                            placeholder: "例：仕上がりを見て「こんなにサラサラになるの！？」と驚いてくれた",
+                          },
+                          {
+                            key: "beforeAfter" as const,
+                            label: "✨ ビフォーアフターの変化",
+                            placeholder: "例：ごわごわだった髪が、手触りシルクみたいになった",
+                          },
+                        ].map(({ key, label, placeholder }) => (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm text-zinc-200">{label}</Label>
+                            <Textarea
+                              placeholder={placeholder}
+                              value={optionalMemos[key]}
+                              onChange={(e) =>
+                                setOptionalMemos((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </CardContent>
+                </Card>
+                ) : currentPattern.id === "B" ? (
+                  /* パターンB：教育テーマタグ選択＋一言メモ */
+                  <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
+                    <CardContent className="p-7 space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">教育テーマを選んでください</Label>
+                          <span className="text-xs text-red-500 font-medium">必須</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {EDUCATION_TAGS.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedEducation(
+                                  selectedEducation === tag.id ? null : tag.id
+                                )
+                              }
+                              className={`
+                                px-4 py-2 rounded-full text-sm font-medium
+                                border-2 transition-all duration-150 select-none
+                                active:scale-95
+                                ${selectedEducation === tag.id
+                                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                  : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                }
+                              `}
                             >
-                              <input type="radio" className="mt-1 accent-emerald-500" checked={selectedNewsIndex === index} onChange={() => setSelectedNewsIndex(index)} />
-                              <div className="space-y-1 flex-1">
-                                <p className="font-semibold text-zinc-100 text-sm">{news.title}</p>
-                                {news.snippet && <p className="text-xs text-zinc-400 line-clamp-3">{news.snippet}</p>}
-                                {news.link && <a href={news.link} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:underline">記事を開く ↗</a>}
-                              </div>
-                            </label>
+                              {tag.emoji} {tag.label}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedEducation && (
+                          <p className="text-xs text-zinc-400 pl-1">
+                            ✅ {EDUCATION_TAGS.find((t) => t.id === selectedEducation)?.label}
+                            を選択中
+                          </p>
+                        )}
+                      </div>
+                      <details className="group">
+                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
+                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">
+                            ＋ 一言メモを追加（任意）
+                          </span>
+                        </summary>
+                        <div className="mt-4">
+                          <Textarea
+                            placeholder="例：最近お客様から多い質問　/　梅雨前に伝えたい　/　特にくせ毛の方向け"
+                            value={educationMemo}
+                            onChange={(e) => setEducationMemo(e.target.value)}
+                            className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
+                          />
+                        </div>
+                      </details>
+                    </CardContent>
+                  </Card>
+                ) : currentPattern.id === "C" ? (
+                  /* パターンC：お知らせ種類＋緊急度＋一言メモ */
+                  <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
+                    <CardContent className="p-7 space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">お知らせの種類</Label>
+                          <span className="text-xs text-red-500 font-medium">必須①</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {NOTICE_TYPE_TAGS.map((tag) => (
+                            <button key={tag.id} type="button" onClick={() => setSelectedNoticeType(selectedNoticeType === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedNoticeType === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                              {tag.emoji} {tag.label}
+                            </button>
                           ))}
                         </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      {selectedNoticeType && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">いつまでですか？</Label>
+                            <span className="text-xs text-red-500 font-medium">必須②</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {URGENCY_TAGS.map((tag) => (
+                              <button key={tag.id} type="button" onClick={() => setSelectedUrgency(selectedUrgency === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedUrgency === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNoticeType && selectedUrgency && (
+                        <div className="space-y-1">
+                          <Label className="text-sm text-zinc-300">いつから・いつまで（任意）</Label>
+                          <Input
+                            type="text"
+                            placeholder="例：3月10日〜3月20日／本日〜今週末"
+                            value={noticePeriod}
+                            onChange={(e) => setNoticePeriod(e.target.value)}
+                            className="bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 text-sm"
+                          />
+                        </div>
+                      )}
+                      <details className="group">
+                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
+                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">＋ 詳細を追加（任意）</span>
+                        </summary>
+                        <div className="mt-4">
+                          <Textarea placeholder="例：14時〜15時に1枠空きあり／髪質改善コースが20%OFF／新しいトリートメントの名前" value={noticeMemo} onChange={(e) => setNoticeMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
+                        </div>
+                      </details>
+                    </CardContent>
+                  </Card>
+                ) : currentPattern.id === "D" ? (
+                  /* パターンD：2段階選択（厳選10個）＋お客様の声 */
+                  <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
+                    <CardContent className="p-7 space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">カテゴリを選んでください</Label>
+                          <span className="text-xs text-red-500 font-medium">必須①</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {VOICE_CATEGORIES.map((cat) => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedVoiceCategory(selectedVoiceCategory === cat.id ? null : cat.id);
+                                setSelectedVoiceOption(null);
+                              }}
+                              className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedVoiceCategory === cat.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
+                            >
+                              {cat.emoji} {cat.label}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedVoiceCategory && <p className="text-xs text-zinc-400 pl-1">✅ {VOICE_CATEGORIES.find((c) => c.id === selectedVoiceCategory)?.label} を選択中</p>}
+                      </div>
+                      {selectedVoiceCategory && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">内容を1つ選んでください</Label>
+                            <span className="text-xs text-red-500 font-medium">必須②</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {VOICE_OPTION_TAGS.filter((t) => t.categoryId === selectedVoiceCategory).map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => setSelectedVoiceOption(selectedVoiceOption === tag.id ? null : tag.id)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedVoiceOption === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
+                              >
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                          {selectedVoiceOption && <p className="text-xs text-zinc-400 pl-1">✅ {VOICE_OPTION_TAGS.find((t) => t.id === selectedVoiceOption)?.label} を選択中</p>}
+                        </div>
+                      )}
+                      <details className="group">
+                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
+                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">＋ お客様の声を追加（任意）</span>
+                        </summary>
+                        <div className="mt-4">
+                          <Textarea placeholder="例：「こんなにサラサラになるの！？」と驚いてくれた／毎朝のスタイリングが楽になったと喜んでくれた" value={voiceMemo} onChange={(e) => setVoiceMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
+                        </div>
+                      </details>
+                    </CardContent>
+                  </Card>
+                ) : currentPattern.id === "E" ? (
+                  /* パターンE：伝えたいことタグ＋一言メモ（必須） */
+                  <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
+                    <CardContent className="p-7 space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">今日伝えたいことを選んでください</Label>
+                          <span className="text-xs text-red-500 font-medium">必須①</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {STAFF_MESSAGE_TAGS.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => setSelectedMessage(selectedMessage === tag.id ? null : tag.id)}
+                              className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
+                            >
+                              {tag.emoji} {tag.label}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedMessage && (
+                          <p className="text-xs text-zinc-400 pl-1">✅ {STAFF_MESSAGE_TAGS.find((t) => t.id === selectedMessage)?.label} を選択中</p>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">一言メモ</Label>
+                          <span className="text-xs text-red-500 font-medium">必須②</span>
+                        </div>
+                        <Textarea placeholder="例：担当スタッフ名：田中　/　最近印象に残ったエピソード　/　指名してほしいお客様像" value={staffMemo} onChange={(e) => setStaffMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : currentPattern.id === "H" ? (
+                  /* パターンH：場面タグ＋伝えたいことタグ＋一言メモ */
+                  <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
+                    <CardContent className="p-7 space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">今日の場面を選んでください</Label>
+                          <span className="text-xs text-red-500 font-medium">必須①</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {SALON_SCENE_TAGS.map((tag) => (
+                            <button key={tag.id} type="button" onClick={() => setSelectedScene(selectedScene === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedScene === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                              {tag.emoji} {tag.label}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedScene && <p className="text-xs text-zinc-400 pl-1">✅ {SALON_SCENE_TAGS.find((t) => t.id === selectedScene)?.label} を選択中</p>}
+                      </div>
+                      {selectedScene && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">その場面から何を伝えますか？</Label>
+                            <span className="text-xs text-red-500 font-medium">必須②</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {STAFF_MESSAGE_TAGS.map((tag) => (
+                              <button key={tag.id} type="button" onClick={() => setSelectedSceneMessage(selectedSceneMessage === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedSceneMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                          {selectedSceneMessage && <p className="text-xs text-zinc-400 pl-1">✅ {STAFF_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessage)?.label} を選択中</p>}
+                        </div>
+                      )}
+                      <details className="group">
+                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
+                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">＋ 一言メモを追加（任意）</span>
+                        </summary>
+                        <div className="mt-4">
+                          <Textarea placeholder="例：新しいケラチントリートメントが届いた　/　今週の空きも伝えたい" value={sceneMemo} onChange={(e) => setSceneMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
+                        </div>
+                      </details>
+                    </CardContent>
+                  </Card>
+                ) : null
+              ) : currentPattern.isAuto ? (
+                /* パターンFのとき：入力フォームの代わりに季節情報カードを表示 */
+                (() => {
+                  const seasonal = getSeasonalContext();
+                  return (
+                    <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth p-6 space-y-4">
+                      <div className="text-center space-y-2">
+                        <div className="text-5xl">{seasonal.emoji}</div>
+                        <p className="text-sm font-medium text-zinc-100">
+                          入力不要です。そのまま生成ボタンを押してください。
+                        </p>
+                      </div>
+                      <div className="bg-zinc-950/50 rounded-lg p-4 space-y-2 text-xs text-zinc-400">
+                        {getSeasonalContext().text.split("\n").map((line, i) => (
+                          <p key={i}>{line}</p>
+                        ))}
+                      </div>
+                    </Card>
+                  );
+                })()
               ) : (
-                /* 通常パターン（A〜F）フォーム */
+                /* パターンC〜D：3問フォーム */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
                   <CardContent className="p-7 space-y-7">
                     {(["q1", "q2", "q3"] as const).map((qKey) => (
@@ -988,22 +1403,16 @@ export default function SEOContentGenerator() {
             </section>
 
             {/* 入力完了ヒント */}
-            {(() => {
-              const canGenerate =
-                selectedPattern === "G" ? receivedComment.trim().length > 0
-                  : selectedPattern === "H" ? newsItems.length > 0 && selectedNewsIndex !== null
-                    : (formData.q1.trim() || formData.q2.trim() || formData.q3.trim());
-              return canGenerate ? (
+            {canGenerate ? (
                 <p className="text-center text-base text-emerald-400 flex items-center justify-center gap-2 font-medium">
                   <Check className="w-5 h-5" />
                   入力完了 — 生成できます
                 </p>
               ) : (
                 <p className="text-center text-base text-zinc-400">
-                  {selectedPattern === "G" ? "コメントを入力すると生成できます" : selectedPattern === "H" ? "ニュースを取得して1つ選ぶと生成できます" : "3つの質問に答えると生成できます"}
+                  {selectedPattern === "G" ? "コメントを入力すると生成できます" : currentPattern.isTagSelect ? (currentPattern.id === "A" ? "施術タグを1つ選ぶと生成できます" : currentPattern.id === "B" ? "教育テーマを1つ選ぶと生成できます" : currentPattern.id === "C" ? "お知らせの種類と緊急度を選ぶと生成できます" : currentPattern.id === "D" ? "施術タグを1つ選ぶと生成できます" : currentPattern.id === "E" ? "伝えたいことと一言メモを入力すると生成できます" : currentPattern.id === "H" ? "場面と伝えたいことを選ぶと生成できます" : "タグを選ぶと生成できます") : "3つの質問に答えると生成できます"}
                 </p>
-              );
-            })()}
+              )}
 
             {/* 出力先の説明（設定で変更可能であることを明示） */}
             <div className="flex flex-wrap items-center justify-center gap-2 py-2 text-sm text-zinc-400">
@@ -1027,8 +1436,8 @@ export default function SEOContentGenerator() {
             {/* ===== 生成ボタン ===== */}
             <div className="flex flex-col items-center gap-3 pt-2">
               <Button
-                onClick={handleGenerate}
-                disabled={isGenerating}
+                onClick={() => handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption)}
+                disabled={isGenerating || !canGenerate}
                 className="gradient-accent hover:opacity-95 text-zinc-950 font-bold text-lg h-14 px-12 min-w-[300px] rounded-full glow-accent transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[56px]"
               >
                 {isGenerating ? (
@@ -1128,31 +1537,9 @@ export default function SEOContentGenerator() {
                               {tab.id === "instagram" ? "Instagram用テキスト" : tab.id === "gbp" ? "Google最新情報用テキスト" : tab.id === "portal" ? "ブログ用テキスト" : tab.id === "line" ? "LINE用テキスト" : "ショート動画台本"}
                             </span>
                             <div className="flex items-center gap-2 flex-wrap">
-                              {/* ブログ（旧ポータル）向けWordPress投稿ボタン＋LLMOボタン */}
+                              {/* ブログ（旧ポータル）向けLLMOボタンのみ */}
                               {tab.id === "portal" && generatedResults.portalTitle && (
                                 <>
-                                  {user?.email === ADMIN_EMAIL && (
-                                    <>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 h-9"
-                                        onClick={() => handlePostToWP("draft")}
-                                        disabled={isPostingToWP}
-                                      >
-                                        {isPostingToWP ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 送信中</> : <>📝 下書き保存</>}
-                                      </Button>
-                                      <Button
-                                        variant="default"
-                                        size="sm"
-                                        className="gradient-accent hover:opacity-95 text-zinc-950 font-medium h-9 glow-accent"
-                                        onClick={() => handlePostToWP("publish")}
-                                        disabled={isPostingToWP}
-                                      >
-                                        {isPostingToWP ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 送信中</> : <><Send className="w-4 h-4 mr-2" /> すぐに公開</>}
-                                      </Button>
-                                    </>
-                                  )}
                                   <Button
                                     variant="secondary"
                                     size="sm"
