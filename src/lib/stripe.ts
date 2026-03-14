@@ -1,9 +1,15 @@
 import Stripe from "stripe";
 
-// パッケージの型が 2026-02-25.clover 固定のため、acacia を使う場合は次の行のコメントを外して apiVersion を指定
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2026-02-25.clover",
-});
+// ビルド時に env が未設定だと Stripe がエラーになるため、実行時のみ初期化する
+let _stripe: Stripe | null = null;
+export function getStripe(): Stripe {
+    if (!_stripe) {
+        const key = process.env.STRIPE_SECRET_KEY;
+        if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+        _stripe = new Stripe(key, { apiVersion: "2026-02-25.clover" });
+    }
+    return _stripe;
+}
 
 export const PLANS = {
     free: {

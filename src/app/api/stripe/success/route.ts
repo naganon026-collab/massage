@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(req: NextRequest) {
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(
+    const session = await getStripe().checkout.sessions.retrieve(
       sessionId,
       { expand: ["subscription"] }
     );
@@ -40,12 +40,12 @@ export async function GET(req: NextRequest) {
 
       let sub: { id: string; current_period_end?: number; start_date?: number; billing_cycle_anchor?: number } =
         typeof session.subscription === "string"
-          ? await stripe.subscriptions.retrieve(session.subscription)
+          ? await getStripe().subscriptions.retrieve(session.subscription)
           : (session.subscription as { id: string; current_period_end?: number; start_date?: number; billing_cycle_anchor?: number });
 
       // expand で返るオブジェクトに current_period_end が含まれない場合があるため取得し直す
       if (sub.current_period_end == null) {
-        const full = await stripe.subscriptions.retrieve(sub.id);
+        const full = await getStripe().subscriptions.retrieve(sub.id);
         sub = full as typeof sub;
       }
 

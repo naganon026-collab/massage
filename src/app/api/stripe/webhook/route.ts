@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     let event: { type: string; data: { object: Record<string, unknown> } };
     try {
-        event = stripe.webhooks.constructEvent(
+        event = getStripe().webhooks.constructEvent(
             body,
             signature,
             process.env.STRIPE_WEBHOOK_SECRET!
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
                 current_period_end: number;
             };
             const customerId = sub.customer;
-            const customer = (await stripe.customers.retrieve(customerId)) as { metadata?: { userId?: string } };
+            const customer = (await getStripe().customers.retrieve(customerId)) as { metadata?: { userId?: string } };
             const userId = customer.metadata?.userId;
 
             if (userId) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         case "customer.subscription.deleted": {
             const sub = event.data.object as { customer: string };
             const customerId = sub.customer;
-            const customer = (await stripe.customers.retrieve(customerId)) as { metadata?: { userId?: string } };
+            const customer = (await getStripe().customers.retrieve(customerId)) as { metadata?: { userId?: string } };
             const userId = customer.metadata?.userId;
 
             if (userId) {
