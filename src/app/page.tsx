@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -504,6 +504,12 @@ export default function SEOContentGenerator() {
   const [user, setUser] = useState<User | null>(null);
   const { toasts, addToast, removeToast } = useToast();
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{
+    used: number;
+    limit: number | null;
+    remaining: number | null;
+    plan: string;
+  } | null>(null);
   const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all");
   const resultsRef = useRef<HTMLDivElement>(null);
   const [selectedTreatment, setSelectedTreatment] = useState<TreatmentTagId | null>(null);
@@ -538,6 +544,7 @@ export default function SEOContentGenerator() {
   });
   const { fetchHistory } = contentGen;
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // ===== 認証 =====
   useEffect(() => {
@@ -599,6 +606,15 @@ export default function SEOContentGenerator() {
     if (user?.email === ADMIN_EMAIL) router.replace("/admin");
   }, [user?.email, router]);
 
+  // 初回ロード時にプラン・生成回数情報を取得（Cookie で認証）
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/user/plan", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then(setGenerationStatus)
+      .catch(() => setGenerationStatus(null));
+  }, [user]);
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -608,6 +624,12 @@ export default function SEOContentGenerator() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleUpgrade = async () => {
+    const res = await fetch("/api/stripe/checkout", { method: "POST" });
+    const data = await res.json();
+    if (data?.url) window.location.href = data.url;
   };
 
   // ===== ローディング・未ログイン =====
@@ -755,6 +777,35 @@ export default function SEOContentGenerator() {
               </Link>
             )}
 
+            {/* プラン表示（設定の左）：アンリミテッド or 無料の残り回数 */}
+            {generationStatus?.plan === "standard" && (
+              <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                ✨ アンリミテッド
+              </span>
+            )}
+            {generationStatus?.plan === "free" && (
+              <span className="flex items-center gap-1.5">
+                <span
+                  className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
+                    (generationStatus.remaining ?? 0) === 0
+                      ? "bg-destructive/20 text-destructive border-destructive/40"
+                      : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  📊 残り{generationStatus.remaining ?? 0}回 / 5回
+                </span>
+                {(generationStatus.remaining ?? 0) === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUpgrade}
+                    className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
+                  >
+                    アップグレード
+                  </button>
+                )}
+              </span>
+            )}
+
             {/* 設定ボタン */}
             {isConfigured && (
               <Button
@@ -808,6 +859,13 @@ export default function SEOContentGenerator() {
         ) : (
           /* ===== メイン生成UI ===== */
           <div className="space-y-12 animate-in fade-in duration-500">
+
+            {searchParams.get("upgraded") === "true" && (
+              <div className="mx-4 mb-3 rounded-lg p-3 bg-green-500/10 border border-green-500/30 text-sm text-green-700 dark:text-green-400">
+                🎉 アンリミテッドプランへのアップグレードが完了しました！
+                これから無制限で生成できます。
+              </div>
+            )}
 
             {/* 未設定時バナー：設定を促す＋初回ヒント */}
             {shopInfo.name === "未設定の店舗" && (

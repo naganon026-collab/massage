@@ -356,7 +356,11 @@ export function useContentGenerator(
             const responseData = await response.json();
 
             if (!response.ok) {
-                throw new Error(responseData.error || "APIリクエストに失敗しました。");
+                const msg =
+                    response.status === 403 && responseData.message
+                        ? responseData.message
+                        : responseData.error || "APIリクエストに失敗しました。";
+                throw new Error(msg);
             }
 
             const data = responseData;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { requireAuth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { canGenerate } from "@/lib/subscription";
 import { getSeasonalContext } from "@/lib/seasonalContext";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
@@ -113,6 +114,21 @@ export async function POST(req: Request) {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
     const { user } = authResult;
+
+    // プラン別生成回数制限
+    const generateCheck = await canGenerate(user!.id);
+    if (!generateCheck.allowed) {
+        return NextResponse.json(
+            {
+                error: "LIMIT_EXCEEDED",
+                message:
+                    "今月の生成回数上限（5回）に達しました。アンリミテッドプランにアップグレードすると無制限で利用できます。",
+                used: generateCheck.used,
+                limit: generateCheck.limit,
+            },
+            { status: 403 }
+        );
+    }
 
     // レート制限（1分間に5回まで: AI生成は重いため）
     const rateLimitResponse = checkRateLimit(user?.id || "anonymous", 5);
