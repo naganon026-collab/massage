@@ -17,7 +17,7 @@ const itemSchema = {
         reason: { type: SchemaType.STRING },
     },
     required: ["status", "reason"],
-} as const;
+};
 
 export async function POST(req: NextRequest) {
     const authResult = await requireAuth();
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
             generationConfig: {
                 temperature: 0.1,
                 responseMimeType: "application/json",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Gemini SDK の Schema 型が厳格なため
                 responseSchema: {
                     type: SchemaType.OBJECT,
                     properties: {
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
                         voice: itemSchema,
                     },
                     required: ["concept", "strengths", "target", "staff", "voice"],
-                },
+                } as any,
             },
         });
 

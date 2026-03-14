@@ -187,7 +187,18 @@ export function useContentGenerator(
             })();
 
             const useWeather = currentPattern.useWeather ?? false;
-            let normalBody = {
+            let normalBody: {
+                patternTitle: string;
+                useWeather: boolean;
+                q1: string;
+                q2: string;
+                q3: string;
+                shopInfo: ShopInfo;
+                outputTargets: { instagram: boolean; gbp: boolean; portal: boolean; line: boolean; short?: boolean };
+                generatedAt: string;
+                patternId?: string;
+                additionalContext?: string;
+            } = {
                 patternTitle: currentPattern.title,
                 useWeather,
                 q1: formData.q1,
