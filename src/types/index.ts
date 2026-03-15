@@ -43,7 +43,23 @@ export interface ShopInfo {
         staff: string;
         voice: string;
     };
+    /** 投稿の締め文（CTA）の種類 */
+    ctaType?: CtaType;
+    /** CTAに付随するURL・電話番号・その他の文言（種類に応じて使用） */
+    ctaValue?: string;
+    /** @deprecated 選択式移行前の自由文。未設定時は ctaType + ctaValue を使用 */
+    ctaText?: string;
 }
+
+/** CTAの選択肢（電話 / 予約ページ / LINE / その他） */
+export type CtaType = "phone" | "reservation" | "line" | "other";
+
+export const CTA_TYPE_OPTIONS: { value: CtaType; label: string; valueLabel: string; valuePlaceholder: string }[] = [
+    { value: "phone", label: "電話", valueLabel: "電話番号", valuePlaceholder: "例：03-1234-5678" },
+    { value: "reservation", label: "予約ページ", valueLabel: "予約ページのURL", valuePlaceholder: "https://..." },
+    { value: "line", label: "LINE", valueLabel: "LINEのURL", valuePlaceholder: "https://line.me/..." },
+    { value: "other", label: "その他", valueLabel: "CTAの文言", valuePlaceholder: "例：ご予約はDMからお気軽にどうぞ" },
+];
 
 /** バズりやすいショート動画のフック選択肢（リサーチベース） */
 export const SHORT_HOOK_OPTIONS: { id: string; label: string; promptNote: string }[] = [
@@ -330,6 +346,20 @@ export const TREATMENT_TAGS = [
     },
 ] as const;
 
+/** パターンA：今日のお客様のお悩みタグ */
+export const CONCERN_TAGS = [
+    { id: "heavy", label: "なんとなく重い", emoji: "😔" },
+    { id: "frizz", label: "広がり・うねりが気になる", emoji: "🌀" },
+    { id: "styling", label: "朝のスタイリングが大変", emoji: "⏰" },
+    { id: "damage", label: "パサつき・ダメージ", emoji: "💔" },
+    { id: "flat", label: "ボリュームが出ない", emoji: "😞" },
+    { id: "gray", label: "白髪が気になる", emoji: "🌿" },
+    { id: "face", label: "顔まわりをすっきりしたい", emoji: "✨" },
+    { id: "image", label: "イメチェンしたい", emoji: "🌟" },
+    { id: "color", label: "色がパッとしない", emoji: "🎨" },
+    { id: "scalp", label: "頭皮が気になる", emoji: "🧴" },
+] as const;
+
 export type TreatmentTagId = (typeof TREATMENT_TAGS)[number]["id"];
 
 export const EDUCATION_TAGS = [
@@ -417,6 +447,16 @@ export const EDUCATION_TAGS = [
 
 export type EducationTagId = (typeof EDUCATION_TAGS)[number]["id"];
 
+/** パターンB：今日このテーマを投稿する理由タグ */
+export const EDUCATION_REASON_TAGS = [
+    { id: "season", label: "季節の変わり目だから", emoji: "🌸" },
+    { id: "question", label: "最近よく聞かれるから", emoji: "❓" },
+    { id: "mistake", label: "やりがちな失敗を見たから", emoji: "😥" },
+    { id: "new_info", label: "新しい知識を伝えたいから", emoji: "📚" },
+    { id: "trending", label: "今トレンドだから", emoji: "🔥" },
+    { id: "care", label: "お客様に知ってほしいから", emoji: "💝" },
+] as const;
+
 /** パターンE・H共通で使う「伝えたいこと」タグ */
 export const STAFF_MESSAGE_TAGS = [
     { id: "commitment", label: "こだわり", emoji: "🔥", message: "お客様一人ひとりの髪質・ライフスタイルに合わせた施術にこだわっています", hook: "美容師として一番大切にしていること、少し話させてください", target: "丁寧な施術を求めている方・じっくり相談したい方" },
@@ -442,6 +482,36 @@ export const SALON_SCENE_TAGS = [
 ] as const;
 
 export type SalonSceneTagId = (typeof SALON_SCENE_TAGS)[number]["id"];
+
+/** パターンH専用：場面から伝えるメッセージタグ（STAFF_MESSAGE_TAGSとは別物） */
+export const SCENE_MESSAGE_TAGS = [
+    { id: "care_quality", label: "丁寧さ・こだわり", emoji: "🔥", message: "細部までこだわった丁寧な施術・準備をしていることが伝わる一言", target: "丁寧な施術を求めている方・長く通えるサロンを探している方" },
+    { id: "team_work", label: "チームワーク", emoji: "👥", message: "スタッフ同士の連携・信頼関係がお客様への安心感につながることを伝える", target: "初めての方・アットホームな雰囲気を求めている方" },
+    { id: "learning", label: "技術・知識への姿勢", emoji: "📚", message: "常に学び続けているプロとしての姿勢・向上心を伝える", target: "技術の高さを重視している方・最新メニューを試したい方" },
+    { id: "customer_joy", label: "お客様への想い", emoji: "💝", message: "お客様に喜んでもらうことが一番の原動力だという気持ちを伝える", target: "居心地のよいサロンを探している方・初めての方" },
+    { id: "attention_detail", label: "準備・環境へのこだわり", emoji: "✨", message: "道具・空間・環境を丁寧に整えていることへのこだわりを伝える", target: "清潔感・居心地を大切にしている方" },
+    { id: "seasonal_update", label: "季節・旬の情報", emoji: "🌸", message: "今の季節に合わせた新しいメニューや情報をさりげなく伝える", target: "トレンドに敏感な方・季節に合わせてイメチェンしたい方" },
+] as const;
+
+export type SceneMessageTagId = (typeof SCENE_MESSAGE_TAGS)[number]["id"];
+
+/** パターンH：伝え方のトーンタグ */
+export const MESSAGE_TONE_TAGS = [
+    { id: "story", label: "ストーリーで伝える", emoji: "📖", note: "エピソードを小さなドラマとして語る" },
+    { id: "honest", label: "正直に・本音で", emoji: "💬", note: "スタッフの本音・気持ちをそのまま伝える" },
+    { id: "gentle", label: "やさしく・静かに", emoji: "🌿", note: "押しつけず、ゆっくり語りかける温度感" },
+    { id: "daily", label: "日常の一コマとして", emoji: "☕", note: "特別感を出さず、日記のような自然な書き方" },
+] as const;
+
+/** パターンF：今日の切り口タグ */
+export const TODAYS_FOCUS_TAGS = [
+    { id: "weather", label: "今日の天気・気候", emoji: "🌤️", note: "天気や気温の変化を切り口にする" },
+    { id: "customer", label: "今日のお客様の反応", emoji: "😊", note: "今日担当したお客様の嬉しい反応を切り口にする" },
+    { id: "trend", label: "今気になるトレンド", emoji: "🔥", note: "今の美容トレンドを切り口にする" },
+    { id: "season", label: "この時期ならではの悩み", emoji: "🌸", note: "季節特有の髪の悩みを切り口にする" },
+    { id: "event", label: "もうすぐ行事・イベント", emoji: "🎉", note: "卒業・入学・GWなど近づいているイベントを切り口にする" },
+    { id: "morning", label: "朝のスタイリング", emoji: "⏰", note: "朝の支度・スタイリングの悩みを切り口にする" },
+] as const;
 
 /** パターンC：お知らせの種類 */
 export const NOTICE_TYPE_TAGS = [

@@ -14,6 +14,9 @@ const refineSchema = z.object({
         industry: z.string().optional(),
         lineUrl: z.string().optional(),
         sampleTexts: z.string().optional(),
+        ctaType: z.enum(["phone", "reservation", "line", "other"]).optional(),
+        ctaValue: z.string().optional(),
+        ctaText: z.string().optional(),
     }).optional(),
     patternTitle: z.string().optional(),
     portalTitle: z.string().optional(),
@@ -119,6 +122,32 @@ ${isShort ? "\n必ず有効なJSON文字列1つで返すこと。hook, scenes, c
         }
 
         const generated = JSON.parse(resultText);
+
+        // 締め文（CTA）を文末に付与（instagram / gbp / line のみ）
+        const si = parsed.data.shopInfo;
+        const lineUrl = si?.lineUrl ?? "";
+        const ct = si?.ctaType;
+        const cv = (si?.ctaValue ?? "").trim();
+        const leg = (si?.ctaText ?? "").trim();
+        let ctaToAppend = leg;
+        if (!ctaToAppend && ct === "phone" && cv) ctaToAppend = `ご予約・お問い合わせはお電話で：${cv}`;
+        if (!ctaToAppend && ct === "reservation" && cv) ctaToAppend = `ご予約はこちらから：${cv}`;
+        if (!ctaToAppend && (ct === "line" || cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me")))) ctaToAppend = `ご予約・お問い合わせはプロフィールのLINEからお待ちしております（${cv || lineUrl}）`;
+        if (!ctaToAppend && ct === "other" && cv) ctaToAppend = cv;
+        if (!ctaToAppend && cv) ctaToAppend = cv;
+        if (!ctaToAppend && lineUrl) ctaToAppend = `ご予約・お問い合わせはプロフィールのLINEからお待ちしております（${lineUrl}）`;
+        if (ctaToAppend && (target === "instagram" || target === "gbp" || target === "line")) {
+            const cta = ctaToAppend.trim();
+            const ensureCta = (text: string | undefined): string => {
+                if (text == null || typeof text !== "string") return text ?? "";
+                const t = text.trim();
+                if (!t || t.endsWith(cta)) return text;
+                return t + "\n\n" + cta;
+            };
+            const key = target;
+            if (generated[key] != null) generated[key] = ensureCta(generated[key]);
+        }
+
         return NextResponse.json(generated);
     } catch (error: unknown) {
         console.error("generate-refine error:", error);

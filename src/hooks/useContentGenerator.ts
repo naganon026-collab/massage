@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Pattern, HistoryEntry, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData, TREATMENT_TAGS, EDUCATION_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_OPTION_TAGS } from "@/types";
-import type { TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, NoticeTypeTagId, UrgencyTagId, VoiceOptionTagId } from "@/types";
+import { useState, useRef } from "react";
+import { Pattern, HistoryEntry, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData, TREATMENT_TAGS, CONCERN_TAGS, EDUCATION_TAGS, EDUCATION_REASON_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, SCENE_MESSAGE_TAGS, MESSAGE_TONE_TAGS, TODAYS_FOCUS_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_OPTION_TAGS } from "@/types";
+import type { TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, SceneMessageTagId, NoticeTypeTagId, UrgencyTagId, VoiceOptionTagId } from "@/types";
 const REFINE_TAB_IDS = ["instagram", "gbp", "portal", "line", "short"] as const;
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -25,6 +25,8 @@ export function useContentGenerator(
     const [uploadImageData, setUploadImageData] = useState<{ mimeType: string; data: string } | null>(null);
 
     const [isGenerating, setIsGenerating] = useState(false);
+    const [generationProgress, setGenerationProgress] = useState(0);
+    const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [generatedResults, setGeneratedResults] = useState<{
         instagram?: string;
         gbp?: string;
@@ -128,14 +130,18 @@ export function useContentGenerator(
         selectedMessageArg?: StaffMessageTagId | null,
         staffMemoArg?: string,
         selectedSceneArg?: SalonSceneTagId | null,
-        selectedSceneMessageArg?: StaffMessageTagId | null,
+        selectedSceneMessageArg?: SceneMessageTagId | null,
         sceneMemoArg?: string,
         selectedNoticeTypeArg?: NoticeTypeTagId | null,
         selectedUrgencyArg?: UrgencyTagId | null,
         noticePeriodArg?: string,
         noticeMemoArg?: string,
         voiceMemoArg?: string,
-        selectedVoiceOptionArg?: VoiceOptionTagId | null
+        selectedVoiceOptionArg?: VoiceOptionTagId | null,
+        selectedConcernArg?: string | null,
+        selectedEducationReasonArg?: string | null,
+        selectedFocusArg?: string | null,
+        selectedMessageToneArg?: string | null
     ) => {
         if (selectedPattern === "I") {
             if (!uploadImageData) {
@@ -143,21 +149,39 @@ export function useContentGenerator(
                 return;
             }
         }
-        if (selectedPattern === "A" && !selectedTreatmentArg) {
-            addToast("施術タグを1つ選んでください。", "error");
-            return;
+        if (selectedPattern === "A") {
+            if (!selectedTreatmentArg) {
+                addToast("施術タグを1つ選んでください。", "error");
+                return;
+            }
+            if (!selectedConcernArg) {
+                addToast("今日のお客様のお悩みを1つ選んでください。", "error");
+                return;
+            }
         }
-        if (selectedPattern === "B" && !selectedEducationArg) {
-            addToast("教育テーマを1つ選んでください。", "error");
-            return;
+        if (selectedPattern === "B") {
+            if (!selectedEducationArg) {
+                addToast("教育テーマを1つ選んでください。", "error");
+                return;
+            }
+            if (!selectedEducationReasonArg) {
+                addToast("今日これを投稿する理由を1つ選んでください。", "error");
+                return;
+            }
         }
         if (selectedPattern === "C" && (!selectedNoticeTypeArg || !selectedUrgencyArg)) {
             addToast("お知らせの種類と緊急度を選んでください。", "error");
             return;
         }
-        if (selectedPattern === "D" && !selectedVoiceOptionArg) {
-            addToast("カテゴリと内容を選んでください。", "error");
-            return;
+        if (selectedPattern === "D") {
+            if (!selectedVoiceOptionArg) {
+                addToast("カテゴリと内容を選んでください。", "error");
+                return;
+            }
+            if (!voiceMemoArg?.trim()) {
+                addToast("お客様の一言を入力してください。", "error");
+                return;
+            }
         }
         if (selectedPattern === "E") {
             if (!selectedMessageArg) {
@@ -174,6 +198,13 @@ export function useContentGenerator(
             return;
         }
         setIsGenerating(true);
+        setGenerationProgress(0);
+        progressIntervalRef.current = setInterval(() => {
+            setGenerationProgress((p) => {
+                if (p >= 90) return 90;
+                return p + 2;
+            });
+        }, 220);
 
         try {
             const endpoint = selectedPattern === "G" ? "/api/generate-reply" : "/api/generate";
@@ -208,17 +239,18 @@ export function useContentGenerator(
                 outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
                 generatedAt: new Date().toISOString(),
             };
-            if (selectedPattern === "A" && selectedTreatmentArg) {
+            if (selectedPattern === "A" && selectedTreatmentArg && selectedConcernArg) {
                 const tag = TREATMENT_TAGS.find((t) => t.id === selectedTreatmentArg)!;
+                const concernLabel = CONCERN_TAGS.find((t) => t.id === selectedConcernArg)?.label ?? tag.concern;
                 normalBody = {
                     ...normalBody,
                     patternId: "A",
-                    q1: tag.concern,
+                    q1: concernLabel,
                     q2: `${tag.label}｜${tag.approach}`,
                     q3: tag.result,
                     additionalContext: JSON.stringify({
                         treatment: tag.label,
-                        concern: tag.concern,
+                        concern: concernLabel,
                         approach: tag.approach,
                         result: tag.result,
                         reaction: optionalMemosArg?.reaction ?? "",
@@ -227,7 +259,7 @@ export function useContentGenerator(
                     }),
                 };
             }
-            if (selectedPattern === "B" && selectedEducationArg) {
+            if (selectedPattern === "B" && selectedEducationArg && selectedEducationReasonArg) {
                 const tag = EDUCATION_TAGS.find((t) => t.id === selectedEducationArg)!;
                 normalBody = {
                     ...normalBody,
@@ -240,6 +272,7 @@ export function useContentGenerator(
                         items: tag.items,
                         solution: tag.solution,
                         memo: educationMemoArg ?? "",
+                        reason: EDUCATION_REASON_TAGS.find((t) => t.id === selectedEducationReasonArg)?.label ?? "",
                     }),
                 };
             }
@@ -296,7 +329,8 @@ export function useContentGenerator(
             }
             if (selectedPattern === "H" && selectedSceneArg && selectedSceneMessageArg) {
                 const scene = SALON_SCENE_TAGS.find((t) => t.id === selectedSceneArg)!;
-                const msg = STAFF_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessageArg)!;
+                const msg = SCENE_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessageArg)!;
+                const messageTone = selectedMessageToneArg ? MESSAGE_TONE_TAGS.find((t) => t.id === selectedMessageToneArg)?.note ?? "" : "";
                 normalBody = {
                     ...normalBody,
                     patternId: "H",
@@ -308,6 +342,7 @@ export function useContentGenerator(
                         message: msg.message,
                         target: msg.target,
                         memo: sceneMemoArg ?? "",
+                        messageTone,
                     }),
                 };
             }
@@ -344,6 +379,7 @@ export function useContentGenerator(
                                 shopInfo: activeShopInfo,
                                 outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
                                 generatedAt: new Date().toISOString(),
+                                todaysFocus: selectedFocusArg ? TODAYS_FOCUS_TAGS.find((t) => t.id === selectedFocusArg)?.note ?? "" : "",
                             }
                             : normalBody;
 
@@ -451,6 +487,12 @@ export function useContentGenerator(
                 addToast("テキストの生成中にエラーが発生しました。", "error");
             }
         } finally {
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+                progressIntervalRef.current = null;
+            }
+            setGenerationProgress(100);
+            setTimeout(() => setGenerationProgress(0), 350);
             setIsGenerating(false);
         }
     };
@@ -486,6 +528,9 @@ export function useContentGenerator(
                     industry: activeShopInfo.industry,
                     lineUrl: activeShopInfo.lineUrl,
                     sampleTexts: activeShopInfo.sampleTexts,
+                    ctaType: activeShopInfo.ctaType,
+                    ctaValue: activeShopInfo.ctaValue,
+                    ctaText: activeShopInfo.ctaText,
                 },
                 patternTitle: currentPattern.title,
             };
@@ -571,6 +616,7 @@ export function useContentGenerator(
         replyNote, setReplyNote,
         uploadImageData, setUploadImageData,
         isGenerating, setIsGenerating,
+        generationProgress,
         generatedResults, setGeneratedResults,
         copiedTab, setCopiedTab,
         editingTab, setEditingTab,

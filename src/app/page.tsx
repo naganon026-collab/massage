@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -19,14 +20,40 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToastContainer, useToast } from "@/components/ui/toast";
 
 import { getSeasonalContext } from "@/lib/seasonalContext";
-import { ADMIN_EMAIL, PATTERNS, PATTERN_CATEGORIES, getPatternCategoryId, REFINE_OPTIONS, TREATMENT_TAGS, EDUCATION_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_CATEGORIES, VOICE_OPTION_TAGS, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
-import type { Pattern, TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, NoticeTypeTagId, UrgencyTagId, VoiceCategoryId, VoiceOptionTagId, PatternCategoryId } from "@/types";
+import { ADMIN_EMAIL, PATTERNS, PATTERN_CATEGORIES, getPatternCategoryId, REFINE_OPTIONS, TREATMENT_TAGS, CONCERN_TAGS, EDUCATION_TAGS, EDUCATION_REASON_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, SCENE_MESSAGE_TAGS, MESSAGE_TONE_TAGS, TODAYS_FOCUS_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_CATEGORIES, VOICE_OPTION_TAGS, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
+import type { Pattern, TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, SceneMessageTagId, NoticeTypeTagId, UrgencyTagId, VoiceCategoryId, VoiceOptionTagId, PatternCategoryId } from "@/types";
 import { useStoreManager } from "@/hooks/useStoreManager";
 import { useShopConfig } from "@/hooks/useShopConfig";
 import { useContentGenerator } from "@/hooks/useContentGenerator";
 import { SettingsOverlay } from "@/components/features/settings/SettingsOverlay";
 import { StoreManagerOverlay } from "@/components/features/store-manager/StoreManagerOverlay";
 import { InitialSetup } from "@/components/features/settings/InitialSetup";
+
+/** テキスト内の電話番号を tel: リンク、URL をクリック可能なリンクに変換する */
+function linkifyText(text: string): React.ReactNode {
+  if (!text || typeof text !== "string") return text;
+  const parts: React.ReactNode[] = [];
+  const re = /(https?:\/\/[^\s)]+)|(0\d{1,4}[-\s]?\d{1,4}[-\s]?\d{3,4})/g;
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<React.Fragment key={key++}>{text.slice(lastIndex, match.index)}</React.Fragment>);
+    }
+    if (match[1]) {
+      parts.push(<a key={key++} href={match[1]} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline break-all">{match[1]}</a>);
+    } else if (match[2]) {
+      const digits = match[2].replace(/\D/g, "");
+      parts.push(<a key={key++} href={`tel:${digits}`} className="text-emerald-400 hover:underline">{match[2]}</a>);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(<React.Fragment key={key++}>{text.slice(lastIndex)}</React.Fragment>);
+  }
+  return parts.length ? <>{parts}</> : text;
+}
 
 // デモ用テキスト（ランディング用）
 const LP_DEMOS: Record<string, Record<string, string>> = {
@@ -343,7 +370,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                     }`}
                   >
                     {key === "instagram" && "📸 Instagram"}
-                    {key === "google" && "🗺 Google情報"}
+                    {key === "google" && "🗺️ GoogleMap投稿"}
                     {key === "line" && "💬 LINE"}
                   </button>
                 ))}
@@ -519,7 +546,7 @@ function SEOContentGenerator() {
   const [selectedMessage, setSelectedMessage] = useState<StaffMessageTagId | null>(null);
   const [staffMemo, setStaffMemo] = useState("");
   const [selectedScene, setSelectedScene] = useState<SalonSceneTagId | null>(null);
-  const [selectedSceneMessage, setSelectedSceneMessage] = useState<StaffMessageTagId | null>(null);
+  const [selectedSceneMessage, setSelectedSceneMessage] = useState<SceneMessageTagId | null>(null);
   const [sceneMemo, setSceneMemo] = useState("");
   const [selectedNoticeType, setSelectedNoticeType] = useState<NoticeTypeTagId | null>(null);
   const [selectedUrgency, setSelectedUrgency] = useState<UrgencyTagId | null>(null);
@@ -528,6 +555,10 @@ function SEOContentGenerator() {
   const [voiceMemo, setVoiceMemo] = useState("");
   const [selectedVoiceCategory, setSelectedVoiceCategory] = useState<VoiceCategoryId | null>(null);
   const [selectedVoiceOption, setSelectedVoiceOption] = useState<VoiceOptionTagId | null>(null);
+  const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
+  const [selectedEducationReason, setSelectedEducationReason] = useState<string | null>(null);
+  const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
+  const [selectedMessageTone, setSelectedMessageTone] = useState<string | null>(null);
   const [selectedPatternCategory, setSelectedPatternCategory] = useState<PatternCategoryId | null>(null);
 
   // ===== カスタムフック =====
@@ -540,7 +571,7 @@ function SEOContentGenerator() {
   const { fetchStores } = storeManager;
 
   const contentGen = useContentGenerator(user, shopConfig.shopInfo, storeManager.stores, storeManager.selectedStoreId, addToast, () => {
-    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    // 自動スクロールは行わない（生成完了時の上下の動きを防ぐ）。必要なら「結果へジャンプ」でスクロール可能。
   });
   const { fetchHistory } = contentGen;
   const router = useRouter();
@@ -658,7 +689,7 @@ function SEOContentGenerator() {
     formData, setFormData, replyPlatform, setReplyPlatform,
     receivedComment, setReceivedComment, replyNote, setReplyNote,
     uploadImageData, setUploadImageData,
-    isGenerating, generatedResults, setGeneratedResults, copiedTab, editingTab, setEditingTab,
+    isGenerating, generationProgress, generatedResults, setGeneratedResults, copiedTab, editingTab, setEditingTab,
     generationHistory, showHistory, setShowHistory,
     deletingHistoryId, handleGenerate,
     handleCopy, handleRestoreHistory, handleDeleteHistory,
@@ -676,10 +707,10 @@ function SEOContentGenerator() {
       : currentPattern.isAuto === true
         ? true
         : currentPattern.isTagSelect === true
-          ? (currentPattern.id === "A" ? selectedTreatment !== null
-            : currentPattern.id === "B" ? selectedEducation !== null
+          ? (currentPattern.id === "A" ? selectedTreatment !== null && selectedConcern !== null
+            : currentPattern.id === "B" ? selectedEducation !== null && selectedEducationReason !== null
             : currentPattern.id === "C" ? selectedNoticeType !== null && selectedUrgency !== null
-            : currentPattern.id === "D" ? selectedVoiceOption !== null
+            : currentPattern.id === "D" ? selectedVoiceOption !== null && voiceMemo.trim() !== ""
             : currentPattern.id === "E" ? selectedMessage !== null && staffMemo.trim() !== ""
             : currentPattern.id === "H" ? selectedScene !== null && selectedSceneMessage !== null
             : false)
@@ -736,6 +767,7 @@ function SEOContentGenerator() {
         user={user}
         analysisResult={analysisResult}
         isAnalyzing={isAnalyzing}
+        addToast={addToast}
       />
 
       {/* ===== ヘッダー ===== */}
@@ -1000,6 +1032,10 @@ function SEOContentGenerator() {
                               setVoiceMemo("");
                               setSelectedVoiceCategory(null);
                               setSelectedVoiceOption(null);
+                              setSelectedConcern(null);
+                              setSelectedEducationReason(null);
+                              setSelectedFocus(null);
+                              setSelectedMessageTone(null);
                               handlePatternChange(pattern.id as Pattern);
                             }}
                           >
@@ -1194,6 +1230,40 @@ function SEOContentGenerator() {
                         </p>
                       )}
                     </div>
+                    {selectedTreatment && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold text-zinc-100">今日のお客様のお悩み</Label>
+                          <span className="text-xs text-red-500 font-medium">必須</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {CONCERN_TAGS.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedConcern(selectedConcern === tag.id ? null : tag.id)
+                              }
+                              className={`
+                                px-4 py-2 rounded-full text-sm font-medium
+                                border-2 transition-all duration-150 select-none active:scale-95
+                                ${selectedConcern === tag.id
+                                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                  : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                }
+                              `}
+                            >
+                              {tag.emoji} {tag.label}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedConcern && (
+                          <p className="text-xs text-zinc-400 pl-1">
+                            ✅ {CONCERN_TAGS.find((t) => t.id === selectedConcern)?.label} を選択中
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <details className="group">
                       <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
                         <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">
@@ -1272,6 +1342,40 @@ function SEOContentGenerator() {
                           </p>
                         )}
                       </div>
+                      {selectedEducation && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">今日これを投稿する理由</Label>
+                            <span className="text-xs text-red-500 font-medium">必須</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {EDUCATION_REASON_TAGS.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedEducationReason(selectedEducationReason === tag.id ? null : tag.id)
+                                }
+                                className={`
+                                  px-4 py-2 rounded-full text-sm font-medium
+                                  border-2 transition-all duration-150 select-none active:scale-95
+                                  ${selectedEducationReason === tag.id
+                                    ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                    : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                  }
+                                `}
+                              >
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                          {selectedEducationReason && (
+                            <p className="text-xs text-zinc-400 pl-1">
+                              ✅ {EDUCATION_REASON_TAGS.find((t) => t.id === selectedEducationReason)?.label} を選択中
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <details className="group">
                         <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
                           <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">
@@ -1390,14 +1494,21 @@ function SEOContentGenerator() {
                           {selectedVoiceOption && <p className="text-xs text-zinc-400 pl-1">✅ {VOICE_OPTION_TAGS.find((t) => t.id === selectedVoiceOption)?.label} を選択中</p>}
                         </div>
                       )}
-                      <details className="group">
-                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
-                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">＋ お客様の声を追加（任意）</span>
-                        </summary>
-                        <div className="mt-4">
-                          <Textarea placeholder="例：「こんなにサラサラになるの！？」と驚いてくれた／毎朝のスタイリングが楽になったと喜んでくれた" value={voiceMemo} onChange={(e) => setVoiceMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
+                      {selectedVoiceOption && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">お客様の一言（短くてOK）</Label>
+                            <span className="text-xs text-red-500 font-medium">必須</span>
+                          </div>
+                          <Textarea
+                            placeholder="例：「こんなにサラサラになるの！？」　/　「朝が楽になった」　/　「また来ます！」"
+                            value={voiceMemo}
+                            onChange={(e) => setVoiceMemo(e.target.value)}
+                            className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
+                          />
+                          <p className="text-xs text-zinc-500 pl-1">※ 短い一言でも大丈夫です。そのままの言葉が一番伝わります。</p>
                         </div>
-                      </details>
+                      )}
                     </CardContent>
                   </Card>
                 ) : currentPattern.id === "E" ? (
@@ -1459,13 +1570,47 @@ function SEOContentGenerator() {
                             <span className="text-xs text-red-500 font-medium">必須②</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {STAFF_MESSAGE_TAGS.map((tag) => (
+                            {SCENE_MESSAGE_TAGS.map((tag) => (
                               <button key={tag.id} type="button" onClick={() => setSelectedSceneMessage(selectedSceneMessage === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedSceneMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
                                 {tag.emoji} {tag.label}
                               </button>
                             ))}
                           </div>
-                          {selectedSceneMessage && <p className="text-xs text-zinc-400 pl-1">✅ {STAFF_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessage)?.label} を選択中</p>}
+                          {selectedSceneMessage && <p className="text-xs text-zinc-400 pl-1">✅ {SCENE_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessage)?.label} を選択中</p>}
+                        </div>
+                      )}
+                      {selectedSceneMessage && (
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium text-zinc-300">
+                            伝え方のトーン
+                            <span className="ml-2 text-xs text-zinc-500 font-normal">（任意・選ぶだけでOK）</span>
+                          </Label>
+                          <div className="flex flex-wrap gap-2">
+                            {MESSAGE_TONE_TAGS.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedMessageTone(selectedMessageTone === tag.id ? null : tag.id)
+                                }
+                                className={`
+                                  px-4 py-2 rounded-full text-sm font-medium
+                                  border-2 transition-all duration-150 select-none active:scale-95
+                                  ${selectedMessageTone === tag.id
+                                    ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                    : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                  }
+                                `}
+                              >
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                          {selectedMessageTone && (
+                            <p className="text-xs text-zinc-400 pl-1">
+                              ✅ {MESSAGE_TONE_TAGS.find((t) => t.id === selectedMessageTone)?.label} を選択中
+                            </p>
+                          )}
                         </div>
                       )}
                       <details className="group">
@@ -1484,19 +1629,53 @@ function SEOContentGenerator() {
                 (() => {
                   const seasonal = getSeasonalContext();
                   return (
-                    <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth p-6 space-y-4">
-                      <div className="text-center space-y-2">
-                        <div className="text-5xl">{seasonal.emoji}</div>
-                        <p className="text-sm font-medium text-zinc-100">
-                          入力不要です。そのまま生成ボタンを押してください。
-                        </p>
+                    <>
+                      <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth p-6 space-y-4">
+                        <div className="text-center space-y-2">
+                          <div className="text-5xl">{seasonal.emoji}</div>
+                          <p className="text-sm font-medium text-zinc-100">
+                            入力不要です。そのまま生成ボタンを押してください。
+                          </p>
+                        </div>
+                        <div className="bg-zinc-950/50 rounded-lg p-4 space-y-2 text-xs text-zinc-400">
+                          {getSeasonalContext().text.split("\n").map((line, i) => (
+                            <p key={i}>{line}</p>
+                          ))}
+                        </div>
+                      </Card>
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium text-zinc-300">
+                          今日の切り口を選ぶ
+                          <span className="ml-2 text-xs text-zinc-500 font-normal">（任意・選ぶだけでOK）</span>
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
+                          {TODAYS_FOCUS_TAGS.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedFocus(selectedFocus === tag.id ? null : tag.id)
+                              }
+                              className={`
+                                px-4 py-2 rounded-full text-sm font-medium
+                                border-2 transition-all duration-150 select-none active:scale-95
+                                ${selectedFocus === tag.id
+                                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                  : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                }
+                              `}
+                            >
+                              {tag.emoji} {tag.label}
+                            </button>
+                          ))}
+                        </div>
+                        {selectedFocus && (
+                          <p className="text-xs text-zinc-400 pl-1">
+                            ✅ {TODAYS_FOCUS_TAGS.find((t) => t.id === selectedFocus)?.label} を選択中
+                          </p>
+                        )}
                       </div>
-                      <div className="bg-zinc-950/50 rounded-lg p-4 space-y-2 text-xs text-zinc-400">
-                        {getSeasonalContext().text.split("\n").map((line, i) => (
-                          <p key={i}>{line}</p>
-                        ))}
-                      </div>
-                    </Card>
+                    </>
                   );
                 })()
               ) : (
@@ -1528,7 +1707,7 @@ function SEOContentGenerator() {
                 </p>
               ) : (
                 <p className="text-center text-base text-zinc-400">
-                  {selectedPattern === "G" ? "コメントを入力すると生成できます" : currentPattern.isTagSelect ? (currentPattern.id === "A" ? "施術タグを1つ選ぶと生成できます" : currentPattern.id === "B" ? "教育テーマを1つ選ぶと生成できます" : currentPattern.id === "C" ? "お知らせの種類と緊急度を選ぶと生成できます" : currentPattern.id === "D" ? "施術タグを1つ選ぶと生成できます" : currentPattern.id === "E" ? "伝えたいことと一言メモを入力すると生成できます" : currentPattern.id === "H" ? "場面と伝えたいことを選ぶと生成できます" : "タグを選ぶと生成できます") : "3つの質問に答えると生成できます"}
+                  {selectedPattern === "G" ? "コメントを入力すると生成できます" : currentPattern.isTagSelect ? (currentPattern.id === "A" ? "施術タグとお悩みを選ぶと生成できます" : currentPattern.id === "B" ? "教育テーマと理由を選ぶと生成できます" : currentPattern.id === "C" ? "お知らせの種類と緊急度を選ぶと生成できます" : currentPattern.id === "D" ? "内容とお客様の一言を入力すると生成できます" : currentPattern.id === "E" ? "伝えたいことと一言メモを入力すると生成できます" : currentPattern.id === "H" ? "場面と伝えたいことを選ぶと生成できます" : "タグを選ぶと生成できます") : "3つの質問に答えると生成できます"}
                 </p>
               )}
 
@@ -1537,7 +1716,7 @@ function SEOContentGenerator() {
               <span>出力先:</span>
               {[
                 activeShopInfo.outputTargets?.instagram !== false && "Instagram",
-                activeShopInfo.outputTargets?.gbp !== false && "GBP",
+                activeShopInfo.outputTargets?.gbp !== false && "GoogleMap投稿",
                 activeShopInfo.outputTargets?.portal !== false && "ブログ",
                 activeShopInfo.outputTargets?.line !== false && "LINE",
                 activeShopInfo.outputTargets?.short && "ショート動画",
@@ -1551,10 +1730,25 @@ function SEOContentGenerator() {
               </button>
             </div>
 
+            {/* ===== 生成進捗バー（高さをトランジションで詰めてレイアウトの上下ブレを防ぐ） ===== */}
+            <div
+              className={`w-full max-w-md mx-auto overflow-hidden transition-all duration-300 ease-out ${
+                generationProgress > 0 || isGenerating ? "max-h-16 opacity-100 pt-1" : "max-h-0 opacity-0 pt-0"
+              }`}
+            >
+              <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
+                  style={{ width: `${generationProgress}%` }}
+                />
+              </div>
+              <p className="text-center text-xs text-zinc-500 mt-1.5">生成中… {generationProgress}%</p>
+            </div>
+
             {/* ===== 生成ボタン ===== */}
             <div className="flex flex-col items-center gap-3 pt-2">
               <Button
-                onClick={() => handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption)}
+                onClick={() => handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone)}
                 disabled={isGenerating || !canGenerate}
                 className="gradient-accent hover:opacity-95 text-zinc-950 font-bold text-lg h-14 px-12 min-w-[300px] rounded-full glow-accent transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[56px]"
               >
@@ -1578,7 +1772,7 @@ function SEOContentGenerator() {
 
             {/* ===== STEP 3: 生成結果 ===== */}
             {generatedResults && (
-              <section ref={resultsRef} className="space-y-4 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-500 scroll-mt-6">
+              <section ref={resultsRef} className="space-y-4 pt-8 animate-in fade-in duration-300 scroll-mt-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">3</span>
                   <h2 className="font-display text-2xl font-bold gradient-accent-text">生成完了</h2>
@@ -1603,12 +1797,12 @@ function SEOContentGenerator() {
                   <TabsList className="flex w-full bg-zinc-900/80 border border-zinc-800 p-1.5 overflow-x-auto scrollbar-none rounded-xl transition-smooth gap-1">
                     {selectedPattern === "G" ? (
                       <TabsTrigger value="reply" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">
-                        {replyPlatform === "gbp" ? "🗺️ GBP返信" : "📱 SNS返信"}
+                        {replyPlatform === "gbp" ? "🗺️ GoogleMap返信" : "📱 SNS返信"}
                       </TabsTrigger>
                     ) : (
                       <>
                         {activeShopInfo.outputTargets?.instagram !== false && <TabsTrigger value="instagram" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">📸 Instagram</span><span className="sm:hidden">📸 IG</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.gbp !== false && <TabsTrigger value="gbp" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">🗺️ Google情報</span><span className="sm:hidden">🗺️ GBP</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.gbp !== false && <TabsTrigger value="gbp" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">🗺️ GoogleMap投稿</span><span className="sm:hidden">🗺️ Map</span></TabsTrigger>}
                         {activeShopInfo.outputTargets?.portal !== false && <TabsTrigger value="portal" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">📝 ブログ</span><span className="sm:hidden">📝 ブログ</span></TabsTrigger>}
                         {activeShopInfo.outputTargets?.line !== false && <TabsTrigger value="line" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">💬 LINE</TabsTrigger>}
                         {activeShopInfo.outputTargets?.short && <TabsTrigger value="short" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">🎬 ショート</TabsTrigger>}
@@ -1652,7 +1846,7 @@ function SEOContentGenerator() {
                           {/* カードヘッダー：ボタンバー */}
                           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 flex-wrap gap-2">
                             <span className="text-sm font-medium text-zinc-400">
-                              {tab.id === "instagram" ? "Instagram用テキスト" : tab.id === "gbp" ? "Google最新情報用テキスト" : tab.id === "portal" ? "ブログ用テキスト" : tab.id === "line" ? "LINE用テキスト" : "ショート動画台本"}
+                              {tab.id === "instagram" ? "Instagram用テキスト" : tab.id === "gbp" ? "GoogleMap投稿用テキスト" : tab.id === "portal" ? "ブログ用テキスト" : tab.id === "line" ? "LINE用テキスト" : "ショート動画台本"}
                             </span>
                             <div className="flex items-center gap-2 flex-wrap">
                               {/* ブログ（旧ポータル）向けLLMOボタンのみ */}
@@ -1848,7 +2042,7 @@ function SEOContentGenerator() {
                               />
                             ) : (
                               <div className="whitespace-pre-wrap text-zinc-100 font-medium leading-loose text-base">
-                                {typeof tab.data === "string" ? tab.data : (tab.data != null ? JSON.stringify(tab.data) : "")}
+                                {typeof tab.data === "string" ? linkifyText(tab.data) : (tab.data != null ? JSON.stringify(tab.data) : "")}
                               </div>
                             )}
                           </CardContent>

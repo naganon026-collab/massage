@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS } from "@/types";
+import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS, CTA_TYPE_OPTIONS, type CtaType } from "@/types";
 import { User } from "@supabase/supabase-js";
 
 type AnalysisResult = {
@@ -28,11 +28,12 @@ interface SettingsOverlayProps {
     user: User | null;
     analysisResult: AnalysisResult | null;
     isAnalyzing: boolean;
+    addToast: (msg: string, type: "success" | "error") => void;
 }
 
-const sectionTitle = "text-lg font-bold text-white mt-8 first:mt-0 mb-3 pb-1 border-b border-zinc-800";
-const fieldLabel = "text-sm font-semibold text-zinc-100 mb-1.5 block";
-const fieldHint = "text-sm text-zinc-400 mt-1";
+const sectionTitle = "text-xl font-bold text-emerald-400 mt-10 first:mt-0 mb-4 pb-2 border-b border-emerald-500/30";
+const fieldLabel = "text-sm font-semibold text-zinc-100 mb-2 block";
+const fieldHint = "text-sm text-zinc-400 mt-1.5 leading-relaxed";
 const inputBase = "w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/40 transition-colors";
 
 export function SettingsOverlay({
@@ -48,6 +49,7 @@ export function SettingsOverlay({
     user,
     analysisResult,
     isAnalyzing,
+    addToast,
 }: SettingsOverlayProps) {
     const ot = shopInfo.outputTargets;
     const outputTargetsWith = (key: keyof NonNullable<ShopInfo["outputTargets"]>, value: boolean) => ({
@@ -62,7 +64,7 @@ export function SettingsOverlay({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm px-4 pt-20 pb-8"
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm px-4 sm:px-6 pt-20 pb-8"
             onClick={(e) => {
                 if (e.target === e.currentTarget) {
                     setShowSettingsOverlay(false);
@@ -70,24 +72,24 @@ export function SettingsOverlay({
                 }
             }}
         >
-            <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl card-elevated max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 shrink-0">
+            <div className="w-full max-w-3xl rounded-2xl border-2 border-zinc-700 bg-zinc-950 shadow-2xl card-elevated max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between px-8 py-5 border-b border-zinc-800 shrink-0">
                     <div className="flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-emerald-500" />
-                        <h2 className="font-display text-lg font-semibold text-white">店舗設定の編集</h2>
+                        <Settings className="w-6 h-6 text-emerald-500" />
+                        <h2 className="font-display text-xl font-semibold text-emerald-400">店舗設定の編集</h2>
                     </div>
                     <button
                         type="button"
                         onClick={() => { setShowSettingsOverlay(false); setSettingsScrapeUrl(""); }}
-                        className="text-zinc-500 hover:text-zinc-200 text-sm p-1"
+                        className="text-zinc-500 hover:text-zinc-200 text-sm p-2 rounded-lg hover:bg-zinc-800 transition-colors"
                     >
                         閉じる ✕
                     </button>
                 </div>
-                <div className="px-6 py-5 space-y-1 overflow-y-auto flex-1">
+                <div className="px-8 py-6 space-y-2 overflow-y-auto flex-1 scrollbar-none">
                     {/* URLから取得 */}
                     <h3 className={sectionTitle}>① お店のURLを入力して基本情報を自動入力</h3>
-                    <p className={fieldHint}>店舗のWEBサイトURLを入力すると、業種・店舗名・住所などを自動で取得し、投稿生成時の参照情報として保存します。</p>
+                    <p className={fieldHint}>店舗のWEBサイトURLを入力すると、業種・店舗名・住所などを自動で取得。</p>
                     <div className="flex gap-2 mt-3">
                         <Input
                             type="url"
@@ -108,21 +110,6 @@ export function SettingsOverlay({
                             {isScrapingSettings ? "取得中…" : "URLから取得"}
                         </Button>
                     </div>
-                    <details open className="mt-3 group/details rounded-lg border border-zinc-800 overflow-hidden bg-zinc-900/30">
-                        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-zinc-800/50 transition-colors text-sm text-zinc-200">
-                            <span>URLから取得した情報</span>
-                            <span className="text-zinc-500 text-xs transition-transform group-open/details:rotate-180">▼</span>
-                        </summary>
-                        <div className="px-4 pb-4 pt-0">
-                            <Textarea
-                                value={shopInfo.scrapedContent || ""}
-                                onChange={(e) => setShopInfo({ ...shopInfo, scrapedContent: e.target.value })}
-                                placeholder="「当店について」「アクセス」「営業時間」などのテキストをここに貼り付けてください。"
-                                className={`h-[180px] mt-2 ${inputBase} resize-y overflow-y-auto`}
-                            />
-                        </div>
-                    </details>
-
                     {isAnalyzing && (
                         <div className="flex items-center gap-2 mt-3 text-sm text-zinc-400">
                             <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -280,17 +267,6 @@ export function SettingsOverlay({
                         />
                     </div>
                     <div>
-                        <Label htmlFor="quickSnsUrl" className={fieldLabel}>SNS URL（任意）</Label>
-                        <Input
-                            id="quickSnsUrl"
-                            type="url"
-                            value={shopInfo.snsUrl || ""}
-                            onChange={(e) => setShopInfo({ ...shopInfo, snsUrl: e.target.value })}
-                            placeholder="例：https://instagram.com/〇〇"
-                            className={`mt-2 ${inputBase}`}
-                        />
-                    </div>
-                    <div>
                         <Label htmlFor="quickFeatures" className={fieldLabel}>その他特記事項（任意）</Label>
                         <Textarea
                             id="quickFeatures"
@@ -365,11 +341,66 @@ export function SettingsOverlay({
                         ))}
                     </div>
 
+                    {/* 投稿の締め文（CTA） */}
+                    <h3 className={sectionTitle}>投稿の締め文（CTA） <span className="text-amber-400 font-normal text-sm">（必須）</span></h3>
+                    <p className={fieldHint}>種類を選び、URLまたは電話番号を入力すると生成投稿の最後に反映されます。</p>
+                    <div className="space-y-4 mt-3">
+                        <div>
+                            <Label className={fieldLabel}>CTAの種類</Label>
+                            <select
+                                id="cta-type"
+                                value={shopInfo.ctaType ?? "line"}
+                                onChange={(e) => {
+                                    const next: CtaType = e.target.value as CtaType;
+                                    setShopInfo({
+                                        ...shopInfo,
+                                        ctaType: next,
+                                        ctaValue: next === "line" && !(shopInfo.ctaValue ?? "").trim() ? (shopInfo.lineUrl ?? "") : (shopInfo.ctaValue ?? ""),
+                                        ctaText: "", // 選択式を使うため旧 ctaText はクリア（API は ctaType+ctaValue を優先）
+                                    });
+                                }}
+                                className={`mt-2 ${inputBase}`}
+                                aria-label="CTAの種類"
+                            >
+                                {CTA_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <Label className={fieldLabel}>
+                                {CTA_TYPE_OPTIONS.find((o) => o.value === (shopInfo.ctaType ?? "line"))?.valueLabel ?? "URL・電話番号"}
+                            </Label>
+                            {shopInfo.ctaType === "other" ? (
+                                <Textarea
+                                    value={shopInfo.ctaValue ?? ""}
+                                    onChange={(e) => setShopInfo({ ...shopInfo, ctaValue: e.target.value })}
+                                    placeholder={CTA_TYPE_OPTIONS.find((o) => o.value === "other")?.valuePlaceholder}
+                                    className={`min-h-[80px] mt-2 ${inputBase} resize-y`}
+                                    aria-label="CTAの文言"
+                                />
+                            ) : (
+                                <Input
+                                    type={shopInfo.ctaType === "phone" ? "tel" : "url"}
+                                    value={shopInfo.ctaValue ?? ""}
+                                    onChange={(e) => setShopInfo({ ...shopInfo, ctaValue: e.target.value })}
+                                    placeholder={
+                                        shopInfo.ctaType === "line"
+                                            ? (shopInfo.lineUrl || CTA_TYPE_OPTIONS.find((o) => o.value === "line")?.valuePlaceholder)
+                                            : CTA_TYPE_OPTIONS.find((o) => o.value === (shopInfo.ctaType ?? "line"))?.valuePlaceholder
+                                    }
+                                    className={`mt-2 ${inputBase}`}
+                                    aria-label="CTAのURL・電話番号"
+                                />
+                            )}
+                        </div>
+                    </div>
+
                     {/* ショート動画の設定 */}
                     {(shopInfo.outputTargets?.short) && (
                         <>
                             <h3 className={sectionTitle}>ショート動画の設定</h3>
-                            <div className="space-y-5 p-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                            <div className="space-y-5 p-6 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
                                 <div>
                                     <label htmlFor="short-hook-type" className={`${fieldLabel} text-emerald-400/90`}>
                                         フックのタイプ（冒頭で視聴者を止めるパターン）
@@ -417,30 +448,11 @@ export function SettingsOverlay({
                                         </select>
                                     </div>
                                 </div>
-                                <div>
-                                    <Label className={fieldLabel}>ショート用サンプル台本</Label>
-                                    <p className={fieldHint}>話し言葉のサンプルを貼り付けるとトーンが揃います</p>
-                                    <Textarea
-                                        value={shopInfo.shortSampleScript ?? ""}
-                                        onChange={(e) => setShopInfo({ ...shopInfo, shortSampleScript: e.target.value })}
-                                        placeholder="過去に使った台本や、話し言葉のサンプルを貼り付け"
-                                        className={`min-h-[90px] mt-2 ${inputBase} resize-y`}
-                                    />
-                                </div>
-                                <div>
-                                    <Label className={fieldLabel}>ショート用メモ</Label>
-                                    <Input
-                                        value={shopInfo.shortMemo ?? ""}
-                                        onChange={(e) => setShopInfo({ ...shopInfo, shortMemo: e.target.value })}
-                                        placeholder="例：CTAはLINE誘導のみ"
-                                        className={`mt-2 ${inputBase}`}
-                                    />
-                                </div>
                             </div>
                         </>
                     )}
                 </div>
-                <div className="px-6 py-5 border-t border-zinc-800 flex justify-end gap-3 bg-zinc-950/95 shrink-0">
+                <div className="px-8 py-6 border-t border-zinc-800 flex justify-end gap-3 bg-zinc-950/95 shrink-0">
                     <Button
                         type="button"
                         variant="outline"
@@ -452,10 +464,28 @@ export function SettingsOverlay({
                     <Button
                         type="button"
                         className="gradient-accent hover:opacity-95 text-zinc-950 font-semibold px-6 py-2.5"
-                        onClick={() => handleQuickSaveSettings(() => {
-                            setShowSettingsOverlay(false);
-                            setSettingsScrapeUrl("");
-                        })}
+                        onClick={() => {
+                            const ctaType = shopInfo.ctaType ?? "line";
+                            const ctaValue = (shopInfo.ctaValue ?? "").trim();
+                            if (ctaType === "other") {
+                                if (!ctaValue) {
+                                    addToast("CTAの文言を入力してください。", "error");
+                                    return;
+                                }
+                            } else if (ctaType === "line") {
+                                if (!ctaValue && !(shopInfo.lineUrl ?? "").trim()) {
+                                    addToast("LINEのURLを入力するか、上の「LINE URL」欄に入力してください。", "error");
+                                    return;
+                                }
+                            } else if (!ctaValue) {
+                                addToast("CTAのURLまたは電話番号を入力してください。", "error");
+                                return;
+                            }
+                            handleQuickSaveSettings(() => {
+                                setShowSettingsOverlay(false);
+                                setSettingsScrapeUrl("");
+                            });
+                        }}
                     >
                         設定を保存する
                     </Button>
