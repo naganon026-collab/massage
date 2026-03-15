@@ -202,16 +202,21 @@ export async function POST(req: Request) {
     if (authResult instanceof NextResponse) return authResult;
     const { user } = authResult;
 
-    // プラン別生成回数制限
+    // プラン別生成回数制限（月次＋1日5回）
     const generateCheck = await canGenerate(user!.id);
     if (!generateCheck.allowed) {
+        const isDailyLimit = generateCheck.dailyRemaining <= 0;
+        const message = isDailyLimit
+            ? "本日の生成上限（5回）に達しました。明日またお試しください。"
+            : "今月の生成回数上限に達しました。アンリミテッドプランにアップグレードすると月間無制限（1日5回まで）で利用できます。";
         return NextResponse.json(
             {
                 error: "LIMIT_EXCEEDED",
-                message:
-                    "今月の生成回数上限（5回）に達しました。アンリミテッドプランにアップグレードすると無制限で利用できます。",
+                message,
                 used: generateCheck.used,
                 limit: generateCheck.limit,
+                dailyUsed: generateCheck.dailyUsed,
+                dailyLimit: generateCheck.dailyLimit,
             },
             { status: 403 }
         );

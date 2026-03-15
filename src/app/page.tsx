@@ -532,10 +532,14 @@ function SEOContentGenerator() {
   const { toasts, addToast, removeToast } = useToast();
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{
+    allowed: boolean;
     used: number;
     limit: number | null;
     remaining: number | null;
     plan: string;
+    dailyUsed?: number;
+    dailyLimit?: number;
+    dailyRemaining?: number;
   } | null>(null);
   const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all");
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -571,7 +575,11 @@ function SEOContentGenerator() {
   const { fetchStores } = storeManager;
 
   const contentGen = useContentGenerator(user, shopConfig.shopInfo, storeManager.stores, storeManager.selectedStoreId, addToast, () => {
-    // 自動スクロールは行わない（生成完了時の上下の動きを防ぐ）。必要なら「結果へジャンプ」でスクロール可能。
+    // 生成成功後にプラン情報を再取得（本日 X/5 回を更新）
+    fetch("/api/user/plan", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then(setGenerationStatus)
+      .catch(() => {});
   });
   const { fetchHistory } = contentGen;
   const router = useRouter();
@@ -809,32 +817,45 @@ function SEOContentGenerator() {
               </Link>
             )}
 
-            {/* プラン表示（設定の左）：アンリミテッド or 無料の残り回数 */}
-            {generationStatus?.plan === "standard" && (
-              <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                ✨ アンリミテッド
-              </span>
-            )}
-            {generationStatus?.plan === "free" && (
-              <span className="flex items-center gap-1.5">
+            {/* プラン表示（設定の左）：アンリミテッド or 無料の残り回数 ＋ 本日 X/5 回 */}
+            {generationStatus && (
+              <span className="flex items-center gap-1.5 flex-wrap">
+                {generationStatus.plan === "standard" && (
+                  <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                    ✨ アンリミテッド
+                  </span>
+                )}
+                {generationStatus.plan === "free" && (
+                  <>
+                    <span
+                      className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
+                        (generationStatus.remaining ?? 0) === 0
+                          ? "bg-destructive/20 text-destructive border-destructive/40"
+                          : "bg-muted text-muted-foreground border-border"
+                      }`}
+                    >
+                      📊 今月 残り{generationStatus.remaining ?? 0}回 / 5回
+                    </span>
+                    {(generationStatus.remaining ?? 0) === 0 && (
+                      <button
+                        type="button"
+                        onClick={handleUpgrade}
+                        className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
+                      >
+                        アップグレード
+                      </button>
+                    )}
+                  </>
+                )}
                 <span
                   className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                    (generationStatus.remaining ?? 0) === 0
-                      ? "bg-destructive/20 text-destructive border-destructive/40"
+                    (generationStatus.dailyRemaining ?? 5) === 0
+                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
                       : "bg-muted text-muted-foreground border-border"
                   }`}
                 >
-                  📊 残り{generationStatus.remaining ?? 0}回 / 5回
+                  本日 {generationStatus.dailyUsed ?? 0} / {generationStatus.dailyLimit ?? 5} 回
                 </span>
-                {(generationStatus.remaining ?? 0) === 0 && (
-                  <button
-                    type="button"
-                    onClick={handleUpgrade}
-                    className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
-                  >
-                    アップグレード
-                  </button>
-                )}
               </span>
             )}
 
@@ -1749,7 +1770,7 @@ function SEOContentGenerator() {
             <div className="flex flex-col items-center gap-3 pt-2">
               <Button
                 onClick={() => handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone)}
-                disabled={isGenerating || !canGenerate}
+                disabled={isGenerating || !canGenerate || generationStatus?.allowed === false}
                 className="gradient-accent hover:opacity-95 text-zinc-950 font-bold text-lg h-14 px-12 min-w-[300px] rounded-full glow-accent transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[56px]"
               >
                 {isGenerating ? (
