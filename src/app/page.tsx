@@ -9,7 +9,7 @@ import { User } from "@supabase/supabase-js";
 import {
   Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send,
   LogOut, History, Clock, Pencil, Trash2, Store, X, ArrowDown, RefreshCw,
-  FileText, Image, MessageCircle, Plug
+  FileText, Image, MessageCircle, Plug, Crown, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -878,8 +878,8 @@ function SEOContentGenerator() {
             </div>
             <div className="flex flex-col min-w-0">
               <h1 className="font-display text-xl font-bold tracking-tight leading-tight gradient-accent-text">Logic Post</h1>
-              {shopInfo.name && (
-                <span className="text-sm font-normal text-zinc-400 truncate leading-tight">{shopInfo.name}</span>
+              {user?.email && (
+                <span className="text-sm font-normal text-zinc-400 truncate leading-tight">{user.email}</span>
               )}
             </div>
           </div>
@@ -921,54 +921,22 @@ function SEOContentGenerator() {
                   </span>
                 )}
                 {(generationStatus?.plan ?? "free") === "light" && (
-                  <>
-                    <span
-                      className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                        (generationStatus?.remaining ?? 0) === 0
-                          ? "bg-destructive/20 text-destructive border-destructive/40"
-                          : "bg-muted text-muted-foreground border-border"
-                      }`}
-                    >
-                      📊 ライト 残り{generationStatus?.remaining ?? 0}回/30回
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleUpgrade}
-                      className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
-                    >
-                      アップグレード
-                    </button>
-                  </>
+                  <span
+                    className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
+                      (generationStatus?.remaining ?? 0) === 0
+                        ? "bg-destructive/20 text-destructive border-destructive/40"
+                        : "bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    📊 ライト 残り{generationStatus?.remaining ?? 0}回/30回
+                  </span>
                 )}
                 {(generationStatus?.plan ?? "free") === "free" && (
-                  <>
-                    <span
-                      className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                        (generationStatus?.remaining ?? 0) === 0
-                          ? "bg-destructive/20 text-destructive border-destructive/40"
-                          : "bg-muted text-muted-foreground border-border"
-                      }`}
-                    >
-                      📊 今月 残り{generationStatus?.remaining ?? 0}回 / 5回
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleUpgrade}
-                      className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
-                    >
-                      アップグレード
-                    </button>
-                  </>
+                  <span className="flex items-center gap-1.5 text-[10px] sm:text-xs font-medium text-zinc-400">
+                    <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                    今月 残り{generationStatus?.remaining ?? 0}回 / 5回
+                  </span>
                 )}
-                <span
-                  className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                    (generationStatus?.dailyRemaining ?? 5) === 0
-                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
-                >
-                  本日 {generationStatus?.dailyUsed ?? 0} / {generationStatus?.dailyLimit ?? 5} 回
-                </span>
               </span>
 
             {/* アプリ接続ボタン */}
@@ -994,6 +962,18 @@ function SEOContentGenerator() {
               >
                 <Settings className="w-4 h-4" />
                 <span className="hidden sm:inline text-xs">設定</span>
+              </Button>
+            )}
+
+            {/* アップグレードボタン（free / light / standard のみ表示） */}
+            {((generationStatus?.plan ?? "free") === "free" || (generationStatus?.plan ?? "free") === "light" || (generationStatus?.plan ?? "free") === "standard") && (
+              <Button
+                size="sm"
+                onClick={handleUpgrade}
+                className="gap-1.5 rounded-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold px-4 py-1.5 border-0 shadow-lg shadow-emerald-500/20 transition-smooth"
+              >
+                <Crown className="w-4 h-4" />
+                <span className="text-xs">アップグレード</span>
               </Button>
             )}
 
