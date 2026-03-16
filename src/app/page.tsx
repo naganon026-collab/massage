@@ -9,7 +9,7 @@ import { User } from "@supabase/supabase-js";
 import {
   Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send,
   LogOut, History, Clock, Pencil, Trash2, Store, X, ArrowDown, RefreshCw,
-  FileText, Image, MessageCircle
+  FileText, Image, MessageCircle, Plug
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +26,12 @@ import { useStoreManager } from "@/hooks/useStoreManager";
 import { useShopConfig } from "@/hooks/useShopConfig";
 import { useContentGenerator } from "@/hooks/useContentGenerator";
 import { SettingsOverlay } from "@/components/features/settings/SettingsOverlay";
+import { AppConnectionsOverlay } from "@/components/features/settings/AppConnectionsOverlay";
 import { StoreManagerOverlay } from "@/components/features/store-manager/StoreManagerOverlay";
+import { UpgradeOverlay } from "@/components/UpgradeOverlay";
 import { InitialSetup } from "@/components/features/settings/InitialSetup";
+import { PostToLineButton } from "@/components/PostToLineButton";
+import { PostToLateButton } from "@/components/PostToLateButton";
 
 /** テキスト内の電話番号を tel: リンク、URL をクリック可能なリンクに変換する */
 function linkifyText(text: string): React.ReactNode {
@@ -244,7 +248,9 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 py-1.5 px-4 rounded-full text-[13px] font-medium mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <span className="text-[10px]">✦</span> 美容室・サロン・カフェ・整体院に対応
           </div>
-          <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black leading-tight tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75">
+          <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75">
+            美容室・サロン専用
+            <br />
             SNS投稿を<em className="not-italic gradient-accent-text">1分で</em>
           </h1>
           <p className="text-[15px] sm:text-lg text-zinc-400 max-w-[520px] mx-auto mb-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
@@ -531,6 +537,9 @@ function SEOContentGenerator() {
   const [user, setUser] = useState<User | null>(null);
   const { toasts, addToast, removeToast } = useToast();
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
+  const [showAppConnectionsOverlay, setShowAppConnectionsOverlay] = useState(false);
+  const [showUpgradeOverlay, setShowUpgradeOverlay] = useState(false);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{
     allowed: boolean;
     used: number;
@@ -564,6 +573,7 @@ function SEOContentGenerator() {
   const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
   const [selectedMessageTone, setSelectedMessageTone] = useState<string | null>(null);
   const [selectedPatternCategory, setSelectedPatternCategory] = useState<PatternCategoryId | null>(null);
+  const [instagramPostImage, setInstagramPostImage] = useState<{ mimeType: string; data: string } | null>(null);
 
   // ===== カスタムフック =====
   const shopConfig = useShopConfig(user, addToast, async (userId, isAdmin) => {
@@ -584,6 +594,46 @@ function SEOContentGenerator() {
   const { fetchHistory } = contentGen;
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // ===== Late OAuth コールバック後のトースト =====
+  const lateHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    const late = searchParams.get("late");
+    if (!late) {
+      lateHandledRef.current = null;
+      return;
+    }
+    if (lateHandledRef.current === late) return;
+    lateHandledRef.current = late;
+    if (late === "connected") {
+      addToast("Instagram・GBPの接続が完了しました", "success");
+      router.replace("/", { scroll: false });
+    } else if (late === "error") {
+      const reason = searchParams.get("reason");
+      if (reason === "no_session") {
+        addToast("ログインセッションが切れています。再度ログインしてから接続してください。", "error");
+        router.replace("/", { scroll: false });
+        return;
+      }
+      fetch("/api/integrations/late/refresh", { method: "POST" })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && (data.instagram || data.googlebusiness)) {
+            addToast("接続を確認しました。投稿できるようになりました。", "success");
+          } else if (reason === "no_account" || reason === "no_profile") {
+            addToast("Lateで認証を完了しましたか？もう一度「Instagramを接続」または「GBPを接続」からお試しください。", "error");
+          } else if (reason === "db") {
+            addToast("データの保存に失敗しました。設定から再度お試しください。", "error");
+          } else {
+            addToast("接続に失敗しました。アプリ接続から再度接続をお試しください。", "error");
+          }
+        })
+        .catch(() => {
+          addToast("接続の確認に失敗しました。アプリ接続から再度接続をお試しください。", "error");
+        })
+        .finally(() => router.replace("/", { scroll: false }));
+    }
+  }, [searchParams, router, addToast]);
 
   // ===== 認証 =====
   useEffect(() => {
@@ -654,6 +704,13 @@ function SEOContentGenerator() {
       .catch(() => setGenerationStatus(null));
   }, [user]);
 
+  // 初期設定完了→メイン画面への切り替え時にスクロールを先頭に戻す（早期 return の前に必ず呼ぶ）
+  useEffect(() => {
+    if (shopConfig.isConfigured) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [shopConfig.isConfigured]);
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -665,10 +722,29 @@ function SEOContentGenerator() {
     await supabase.auth.signOut();
   };
 
-  const handleUpgrade = async () => {
-    const res = await fetch("/api/stripe/checkout", { method: "POST" });
-    const data = await res.json();
-    if (data?.url) window.location.href = data.url;
+  const handleUpgrade = () => {
+    setShowUpgradeOverlay(true);
+  };
+
+  const handleSelectPlan = async (plan: "light" | "standard" | "pro") => {
+    setIsCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (data?.url) {
+        window.location.href = data.url;
+      } else if (data?.error) {
+        addToast(data.error, "error");
+      }
+    } catch {
+      addToast("チェックアウトの開始に失敗しました", "error");
+    } finally {
+      setIsCheckoutLoading(false);
+    }
   };
 
   // ===== ローディング・未ログイン =====
@@ -680,9 +756,9 @@ function SEOContentGenerator() {
 
   const { shopInfo, setShopInfo, isConfigured, setIsConfigured, setupStep, setSetupStep, setupPath, setSetupPath,
     scrapeUrl, setScrapeUrl, isScraping, isExtractingInfo, scrapedPreview, setScrapedPreview,
-    handleScrapeUrl, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
+    handleScrapeUrl, handleScrapeUrls, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
     settingsScrapeUrl, setSettingsScrapeUrl, isScrapingSettings,
-    handleScrapeUrlForSettings, handleQuickSaveSettings,
+    handleScrapeUrlForSettings, handleScrapeUrlsForSettings, handleQuickSaveSettings,
     analysisResult, isAnalyzing,
   } = shopConfig;
 
@@ -701,6 +777,7 @@ function SEOContentGenerator() {
     generationHistory, showHistory, setShowHistory,
     deletingHistoryId, handleGenerate,
     handleCopy, handleRestoreHistory, handleDeleteHistory,
+    lineIncludeSeasonalGreeting, setLineIncludeSeasonalGreeting,
     refineInstruction, setRefineInstruction, isRefining, handleRefine,
     isLlmoGenerating, handleGenerateLlmo,
   } = contentGen;
@@ -741,6 +818,13 @@ function SEOContentGenerator() {
       )}
 
       {/* ===== オーバーレイ群 ===== */}
+      <UpgradeOverlay
+        show={showUpgradeOverlay}
+        onClose={() => setShowUpgradeOverlay(false)}
+        currentPlan={generationStatus?.plan ?? "free"}
+        onSelectPlan={handleSelectPlan}
+        isLoading={isCheckoutLoading}
+      />
       <StoreManagerOverlay
         showStoreManager={showStoreManager}
         setShowStoreManager={setShowStoreManager}
@@ -771,10 +855,17 @@ function SEOContentGenerator() {
         setSettingsScrapeUrl={setSettingsScrapeUrl}
         isScrapingSettings={isScrapingSettings}
         handleScrapeUrlForSettings={handleScrapeUrlForSettings}
+        handleScrapeUrlsForSettings={handleScrapeUrlsForSettings}
         handleQuickSaveSettings={handleQuickSaveSettings}
         user={user}
         analysisResult={analysisResult}
         isAnalyzing={isAnalyzing}
+        addToast={addToast}
+      />
+
+      <AppConnectionsOverlay
+        show={showAppConnectionsOverlay}
+        onClose={() => setShowAppConnectionsOverlay(false)}
         addToast={addToast}
       />
 
@@ -817,46 +908,80 @@ function SEOContentGenerator() {
               </Link>
             )}
 
-            {/* プラン表示（設定の左）：アンリミテッド or 無料の残り回数 ＋ 本日 X/5 回 */}
-            {generationStatus && (
-              <span className="flex items-center gap-1.5 flex-wrap">
-                {generationStatus.plan === "standard" && (
+            {/* プラン表示（設定の左）：プラン別表示 ＋ 本日 X/5 回 */}
+            <span className="flex items-center gap-1.5 flex-wrap">
+                {(generationStatus?.plan ?? "free") === "pro" && (
                   <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                    ✨ アンリミテッド
+                    ✨ プロ（無制限）
                   </span>
                 )}
-                {generationStatus.plan === "free" && (
+                {(generationStatus?.plan ?? "free") === "standard" && (
+                  <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                    ✨ スタンダード 残り{generationStatus?.remaining ?? 0}回
+                  </span>
+                )}
+                {(generationStatus?.plan ?? "free") === "light" && (
                   <>
                     <span
                       className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                        (generationStatus.remaining ?? 0) === 0
+                        (generationStatus?.remaining ?? 0) === 0
                           ? "bg-destructive/20 text-destructive border-destructive/40"
                           : "bg-muted text-muted-foreground border-border"
                       }`}
                     >
-                      📊 今月 残り{generationStatus.remaining ?? 0}回 / 5回
+                      📊 ライト 残り{generationStatus?.remaining ?? 0}回/30回
                     </span>
-                    {(generationStatus.remaining ?? 0) === 0 && (
-                      <button
-                        type="button"
-                        onClick={handleUpgrade}
-                        className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
-                      >
-                        アップグレード
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleUpgrade}
+                      className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
+                    >
+                      アップグレード
+                    </button>
+                  </>
+                )}
+                {(generationStatus?.plan ?? "free") === "free" && (
+                  <>
+                    <span
+                      className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
+                        (generationStatus?.remaining ?? 0) === 0
+                          ? "bg-destructive/20 text-destructive border-destructive/40"
+                          : "bg-muted text-muted-foreground border-border"
+                      }`}
+                    >
+                      📊 今月 残り{generationStatus?.remaining ?? 0}回 / 5回
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleUpgrade}
+                      className="text-[10px] sm:text-xs font-medium text-primary hover:underline whitespace-nowrap"
+                    >
+                      アップグレード
+                    </button>
                   </>
                 )}
                 <span
                   className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                    (generationStatus.dailyRemaining ?? 5) === 0
+                    (generationStatus?.dailyRemaining ?? 5) === 0
                       ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
                       : "bg-muted text-muted-foreground border-border"
                   }`}
                 >
-                  本日 {generationStatus.dailyUsed ?? 0} / {generationStatus.dailyLimit ?? 5} 回
+                  本日 {generationStatus?.dailyUsed ?? 0} / {generationStatus?.dailyLimit ?? 5} 回
                 </span>
               </span>
+
+            {/* アプリ接続ボタン */}
+            {isConfigured && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAppConnectionsOverlay(true)}
+                className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5"
+              >
+                <Plug className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs">アプリ接続</span>
+              </Button>
             )}
 
             {/* 設定ボタン */}
@@ -901,6 +1026,7 @@ function SEOContentGenerator() {
             isScraping={isScraping}
             isExtractingInfo={isExtractingInfo}
             handleScrapeUrl={handleScrapeUrl}
+            handleScrapeUrls={handleScrapeUrls}
             handleExtractInfo={handleExtractInfo}
             scrapedPreview={scrapedPreview}
             setScrapedPreview={(v) => setScrapedPreview(v ?? "")}
@@ -915,8 +1041,7 @@ function SEOContentGenerator() {
 
             {searchParams.get("upgraded") === "true" && (
               <div className="mx-4 mb-3 rounded-lg p-3 bg-green-500/10 border border-green-500/30 text-sm text-green-700 dark:text-green-400">
-                🎉 アンリミテッドプランへのアップグレードが完了しました！
-                これから無制限で生成できます。
+                🎉 プランへのアップグレードが完了しました！
               </div>
             )}
 
@@ -1287,8 +1412,8 @@ function SEOContentGenerator() {
                     )}
                     <details className="group">
                       <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
-                        <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">
-                          ＋ より具体的な投稿にする（任意）
+                        <span className="border border-emerald-500/40 rounded-full px-4 py-2 text-sm font-medium text-emerald-400 group-open:bg-emerald-500/10 transition-colors">
+                          ＋ より具体的な投稿にする（推奨）
                         </span>
                       </summary>
                       <div className="space-y-4 mt-4">
@@ -1766,10 +1891,28 @@ function SEOContentGenerator() {
               <p className="text-center text-xs text-zinc-500 mt-1.5">生成中… {generationProgress}%</p>
             </div>
 
+            {/* LINE用：季節の挨拶オプション（LINE出力時のみ表示） */}
+            {activeShopInfo.outputTargets?.line !== false && (
+              <label className="flex items-center justify-center gap-2 py-2 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={lineIncludeSeasonalGreeting}
+                  onChange={(e) => setLineIncludeSeasonalGreeting(e.target.checked)}
+                  className="w-4 h-4 rounded accent-emerald-500"
+                />
+                <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">
+                  季節の挨拶を含める（例：3月も半ば、いかがお過ごしですか？）
+                </span>
+              </label>
+            )}
+
             {/* ===== 生成ボタン ===== */}
             <div className="flex flex-col items-center gap-3 pt-2">
               <Button
-                onClick={() => handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone)}
+                onClick={() => {
+                  setInstagramPostImage(null);
+                  handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone);
+                }}
                 disabled={isGenerating || !canGenerate || generationStatus?.allowed === false}
                 className="gradient-accent hover:opacity-95 text-zinc-950 font-bold text-lg h-14 px-12 min-w-[300px] rounded-full glow-accent transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[56px]"
               >
@@ -1906,6 +2049,114 @@ function SEOContentGenerator() {
                                   <Button variant="secondary" size="sm" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9" onClick={() => handleCopy(tab.data as string, tab.id)}>
                                     {copiedTab === tab.id ? <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</> : <><Copy className="w-4 h-4 mr-2" /> コピー</>}
                                   </Button>
+                                  {tab.id === "line" && typeof tab.data === "string" && (
+                                    <PostToLineButton message={tab.data} addToast={addToast} />
+                                  )}
+                                  {tab.id === "instagram" && typeof tab.data === "string" && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {!(uploadImageData || instagramPostImage) && (
+                                        <label className="cursor-pointer">
+                                          <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (!file) return;
+                                              const mime = file.type as "image/jpeg" | "image/png" | "image/webp";
+                                              if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
+                                                addToast("JPEG / PNG / WebP 形式を選んでください。", "error");
+                                                return;
+                                              }
+                                              const reader = new FileReader();
+                                              reader.onload = () => {
+                                                const b = reader.result as string;
+                                                const base64 = b.includes(",") ? b.split(",")[1]! : b;
+                                                if (base64.length > 4 * 1024 * 1024) {
+                                                  addToast("画像は4MB以下にしてください。", "error");
+                                                  return;
+                                                }
+                                                setInstagramPostImage({ mimeType: mime, data: base64 });
+                                              };
+                                              reader.readAsDataURL(file);
+                                            }}
+                                          />
+                                          <span className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 h-9">
+                                            画像を選択
+                                          </span>
+                                        </label>
+                                      )}
+                                      {instagramPostImage && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-zinc-400 hover:text-zinc-200 h-9 px-2"
+                                          onClick={() => setInstagramPostImage(null)}
+                                        >
+                                          画像を解除
+                                        </Button>
+                                      )}
+                                      <PostToLateButton
+                                        platform="instagram"
+                                        content={tab.data}
+                                        imageData={uploadImageData || instagramPostImage}
+                                        addToast={addToast}
+                                      />
+                                    </div>
+                                  )}
+                                  {tab.id === "gbp" && typeof tab.data === "string" && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {!(uploadImageData || instagramPostImage) && (
+                                        <label className="cursor-pointer">
+                                          <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (!file) return;
+                                              const mime = file.type as "image/jpeg" | "image/png" | "image/webp";
+                                              if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
+                                                addToast("JPEG / PNG / WebP 形式を選んでください。", "error");
+                                                return;
+                                              }
+                                              const reader = new FileReader();
+                                              reader.onload = () => {
+                                                const b = reader.result as string;
+                                                const base64 = b.includes(",") ? b.split(",")[1]! : b;
+                                                if (base64.length > 4 * 1024 * 1024) {
+                                                  addToast("画像は4MB以下にしてください。", "error");
+                                                  return;
+                                                }
+                                                setInstagramPostImage({ mimeType: mime, data: base64 });
+                                              };
+                                              reader.readAsDataURL(file);
+                                            }}
+                                          />
+                                          <span className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 h-9">
+                                            画像を選択
+                                          </span>
+                                        </label>
+                                      )}
+                                      {instagramPostImage && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-zinc-400 hover:text-zinc-200 h-9 px-2"
+                                          onClick={() => setInstagramPostImage(null)}
+                                        >
+                                          画像を解除
+                                        </Button>
+                                      )}
+                                      <PostToLateButton
+                                        platform="gbp"
+                                        content={tab.data}
+                                        title={generatedResults.portalTitle}
+                                        imageData={uploadImageData || instagramPostImage}
+                                        addToast={addToast}
+                                      />
+                                    </div>
+                                  )}
                                 </>
                               )}
                               {tab.id === "short" && (() => {

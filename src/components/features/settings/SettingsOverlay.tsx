@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Settings, Loader2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ interface SettingsOverlayProps {
     setSettingsScrapeUrl: (url: string) => void;
     isScrapingSettings: boolean;
     handleScrapeUrlForSettings: () => void;
+    handleScrapeUrlsForSettings: (urls: string[]) => Promise<void>;
     handleQuickSaveSettings: (onSuccess?: () => void) => void;
     user: User | null;
     analysisResult: AnalysisResult | null;
@@ -45,12 +46,14 @@ export function SettingsOverlay({
     setSettingsScrapeUrl,
     isScrapingSettings,
     handleScrapeUrlForSettings,
+    handleScrapeUrlsForSettings,
     handleQuickSaveSettings,
     user,
     analysisResult,
     isAnalyzing,
     addToast,
 }: SettingsOverlayProps) {
+    const [settingsScrapeUrls, setSettingsScrapeUrls] = useState<string[]>(["", "", ""]);
     const ot = shopInfo.outputTargets;
     const outputTargetsWith = (key: keyof NonNullable<ShopInfo["outputTargets"]>, value: boolean) => ({
         instagram: ot?.instagram ?? true,
@@ -87,28 +90,44 @@ export function SettingsOverlay({
                     </button>
                 </div>
                 <div className="px-8 py-6 space-y-2 overflow-y-auto flex-1 scrollbar-none">
-                    {/* URLから取得 */}
-                    <h3 className={sectionTitle}>① お店のURLを入力して基本情報を自動入力</h3>
-                    <p className={fieldHint}>店舗のWEBサイトURLを入力すると、業種・店舗名・住所などを自動で取得。</p>
-                    <div className="flex gap-2 mt-3">
-                        <Input
-                            type="url"
-                            value={settingsScrapeUrl}
-                            onChange={(e) => setSettingsScrapeUrl(e.target.value)}
-                            placeholder="https://example.com"
-                            className={`flex-1 ${inputBase}`}
-                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleScrapeUrlForSettings())}
-                        />
+                    {/* URLから取得（3件＋蓄積枠） */}
+                    <h3 className={sectionTitle}>① お店のURLを入力して基本情報を自動入力（最大3件）</h3>
+                    <p className={fieldHint}>トップページ・メニュー表・ブログなど、複数URLを入れると情報がまとまって読み取られます。</p>
+                    <div className="space-y-2 mt-3">
+                        {[0, 1, 2].map((i) => (
+                            <Input
+                                key={i}
+                                type="url"
+                                value={settingsScrapeUrls[i] ?? ""}
+                                onChange={(e) => setSettingsScrapeUrls((prev) => {
+                                    const next = [...prev];
+                                    next[i] = e.target.value;
+                                    return next;
+                                })}
+                                placeholder={`URL ${i + 1}（例: https://...）`}
+                                className={inputBase}
+                            />
+                        ))}
                         <Button
                             type="button"
                             variant="secondary"
-                            onClick={handleScrapeUrlForSettings}
-                            disabled={isScrapingSettings || !settingsScrapeUrl.trim().startsWith("http")}
-                            className="shrink-0 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border-emerald-500/40 h-[46px] px-5"
+                            onClick={() => handleScrapeUrlsForSettings(settingsScrapeUrls)}
+                            disabled={isScrapingSettings || !settingsScrapeUrls.some((u) => u?.trim().startsWith("http"))}
+                            className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border-emerald-500/40"
                         >
                             {isScrapingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-                            {isScrapingSettings ? "取得中…" : "URLから取得"}
+                            {isScrapingSettings ? "読み取り中…" : "まとめて読み取る"}
                         </Button>
+                    </div>
+                    <div className="space-y-2 mt-4 pt-4 border-t border-zinc-800">
+                        <p className="text-xs text-emerald-500 font-medium">読み取り結果 — この情報をもとに、基本情報や投稿が生成されます。</p>
+                        <p className="text-xs text-zinc-400">ここにURLやコピーしたテキストをどんどん追加してください。メニュー表・ブログ・口コミなど、貼り足すほど生成の精度が上がります。</p>
+                        <textarea
+                            value={shopInfo.scrapedContent ?? ""}
+                            onChange={(e) => setShopInfo((prev) => ({ ...prev, scrapedContent: e.target.value }))}
+                            placeholder="上で「まとめて読み取る」を押すとここに結果が追記されます。ほかのページをコピーしたテキストも貼り付けてOKです。"
+                            className={`flex min-h-[280px] max-h-[420px] w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-xs text-zinc-300 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-y overflow-y-auto ${inputBase}`}
+                        />
                     </div>
                     {isAnalyzing && (
                         <div className="flex items-center gap-2 mt-3 text-sm text-zinc-400">
@@ -175,16 +194,6 @@ export function SettingsOverlay({
                     {/* 基本情報 */}
                     <h3 className={sectionTitle}>基本情報</h3>
                     <div className="space-y-5">
-                        <div>
-                            <Label htmlFor="quickIndustry" className={fieldLabel}>業種 <span className="text-red-400">*</span></Label>
-                            <Input
-                                id="quickIndustry"
-                                value={shopInfo.industry || ""}
-                                onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })}
-                                placeholder="例：整体院、美容室、カフェ"
-                                className={inputBase}
-                            />
-                        </div>
                         <div>
                             <Label htmlFor="quickName" className={fieldLabel}>店舗名 <span className="text-red-400">*</span></Label>
                             <Input
@@ -472,12 +481,7 @@ export function SettingsOverlay({
                                     addToast("CTAの文言を入力してください。", "error");
                                     return;
                                 }
-                            } else if (ctaType === "line") {
-                                if (!ctaValue && !(shopInfo.lineUrl ?? "").trim()) {
-                                    addToast("LINEのURLを入力するか、上の「LINE URL」欄に入力してください。", "error");
-                                    return;
-                                }
-                            } else if (!ctaValue) {
+                            } else if (ctaType !== "line" && !ctaValue) {
                                 addToast("CTAのURLまたは電話番号を入力してください。", "error");
                                 return;
                             }

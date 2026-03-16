@@ -16,17 +16,46 @@ export const PLANS = {
         id: "free",
         name: "無料プラン",
         price: 0,
-        limit: 5, // 月5回まで
+        limit: 5,
+        canPost: false, // 投稿は standard / pro のみ
         description: "月5回まで投稿生成可能",
+    },
+    light: {
+        id: "light",
+        name: "ライトプラン",
+        price: 980,
+        limit: 30,
+        canPost: false,
+        description: "月30回まで生成、投稿不可",
+        stripePriceId: process.env.STRIPE_PRICE_ID_LIGHT!,
     },
     standard: {
         id: "standard",
-        name: "アンリミテッドプラン",
-        price: 2980,
-        limit: null, // 無制限
-        description: "月間生成回数無制限・全パターン利用可能",
-        stripePriceId: process.env.STRIPE_PRICE_ID!,
+        name: "スタンダードプラン",
+        price: 2480,
+        limit: 100,
+        canPost: true,
+        description: "月100回まで生成、投稿可",
+        stripePriceId: process.env.STRIPE_PRICE_ID_STANDARD || process.env.STRIPE_PRICE_ID!,
+    },
+    pro: {
+        id: "pro",
+        name: "プロプラン",
+        price: 3980,
+        limit: null,
+        canPost: true,
+        description: "生成無制限、投稿可",
+        stripePriceId: process.env.STRIPE_PRICE_ID_PRO!,
     },
 } as const;
 
 export type PlanId = keyof typeof PLANS;
+
+/** Price ID からプランを判定（Webhook用） */
+export function getPlanFromPriceId(priceId: string | undefined): PlanId {
+    if (!priceId) return "standard";
+    if (priceId === process.env.STRIPE_PRICE_ID_LIGHT) return "light";
+    if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "pro";
+    if (priceId === process.env.STRIPE_PRICE_ID_STANDARD || priceId === process.env.STRIPE_PRICE_ID) return "standard";
+    return "standard";
+}

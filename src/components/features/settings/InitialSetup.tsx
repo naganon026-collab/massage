@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS } from "@/types";
+import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS, CTA_TYPE_OPTIONS, type CtaType } from "@/types";
 import { User } from "@supabase/supabase-js";
 
 interface InitialSetupProps {
@@ -20,6 +20,7 @@ interface InitialSetupProps {
     isScraping: boolean;
     isExtractingInfo: boolean;
     handleScrapeUrl: () => Promise<void>;
+    handleScrapeUrls: (urls: string[]) => Promise<void>;
     handleExtractInfo: (text: string, save: boolean) => Promise<void>;
     scrapedPreview: string | null;
     setScrapedPreview: (preview: string | null) => void;
@@ -41,6 +42,7 @@ export function InitialSetup({
     isScraping,
     isExtractingInfo,
     handleScrapeUrl,
+    handleScrapeUrls,
     handleExtractInfo,
     scrapedPreview,
     setScrapedPreview,
@@ -50,6 +52,7 @@ export function InitialSetup({
     user,
 }: InitialSetupProps) {
     const [isSetupComplete, setIsSetupComplete] = useState(false);
+    const [scrapeUrls, setScrapeUrls] = useState<string[]>(["", "", ""]);
     const ot = shopInfo.outputTargets;
 
     useEffect(() => {
@@ -132,7 +135,7 @@ export function InitialSetup({
                         onSubmit={async (e) => {
                             if (setupStep === 3) {
                                 const ok = await handleSaveShopInfo(e, { fromStep3Complete: true });
-                                if (ok) setIsSetupComplete(true);
+                                if (ok) onGoToMain?.();
                             } else {
                                 await handleSaveShopInfo(e);
                             }
@@ -144,47 +147,54 @@ export function InitialSetup({
                                 <div className="space-y-3">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                         <Globe className="w-5 h-5 text-emerald-500" />
-                                        お店のホームページのアドレスを入力してください
+                                        お店のホームページのアドレスを入力してください（最大3件）
                                     </h3>
-                                    <p className="text-sm text-zinc-300">お店のトップページやメニュー表のアドレス（URL）を入れると、住所や電話番号などを自動で読み取ります。</p>
+                                    <p className="text-sm text-zinc-300">トップページ・メニュー表・ブログなど、複数URLを入れると情報がまとまって読み取られます。</p>
                                 </div>
-                                <div className="flex gap-2 items-center">
-                                    <Input
-                                        value={scrapeUrl}
-                                        onChange={(e) => setScrapeUrl(e.target.value)}
-                                        className="bg-zinc-950 border-zinc-700 text-white flex-1"
-                                        placeholder="https://..."
+                                <div className="space-y-2">
+                                    {[0, 1, 2].map((i) => (
+                                        <Input
+                                            key={i}
+                                            value={scrapeUrls[i] ?? ""}
+                                            onChange={(e) => setScrapeUrls((prev) => {
+                                                const next = [...prev];
+                                                next[i] = e.target.value;
+                                                return next;
+                                            })}
+                                            className="bg-zinc-950 border-zinc-700 text-white"
+                                            placeholder={`URL ${i + 1}（例: https://...）`}
+                                        />
+                                    ))}
+                                    <Button
+                                        type="button"
+                                        onClick={() => { setSetupPath("url"); handleScrapeUrls(scrapeUrls); }}
+                                        disabled={isScraping || !scrapeUrls.some((u) => u?.trim().startsWith("http"))}
+                                        className="w-full gradient-accent hover:opacity-95 text-zinc-950 border-none font-semibold"
+                                    >
+                                        {isScraping ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : "まとめて読み取る"}
+                                    </Button>
+                                </div>
+                                <div className="space-y-3 pt-4 border-t border-zinc-800">
+                                    <p className="text-xs text-emerald-500 font-medium">読み取り結果 — この情報をもとに、基本情報や投稿が生成されます。</p>
+                                    <p className="text-xs text-zinc-400">ここにURLやコピーしたテキストをどんどん追加してください。メニュー表・ブログ・口コミなど、貼り足すほど生成の精度が上がります。</p>
+                                    <textarea
+                                        value={scrapedPreview}
+                                        onChange={(e) => setScrapedPreview(e.target.value)}
+                                        className="flex min-h-[280px] max-h-[420px] w-full rounded-md border border-emerald-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y overflow-y-auto"
+                                        placeholder="上で「まとめて読み取る」を押すとここに結果が追記されます。ほかのページをコピーしたテキストも貼り付けてOKです。"
                                     />
                                     <Button
                                         type="button"
-                                        onClick={() => { setSetupPath("url"); handleScrapeUrl(); }}
-                                        disabled={isScraping || !scrapeUrl.trim().startsWith("http")}
-                                        className="gradient-accent hover:opacity-95 text-zinc-950 border-none shrink-0 font-semibold"
+                                        onClick={async () => {
+                                            await handleExtractInfo(scrapedPreview + "\n" + shopInfo.features + "\n" + (shopInfo.sampleTexts || ""), true);
+                                            setSetupStep(2);
+                                        }}
+                                        disabled={isExtractingInfo || !scrapedPreview?.trim()}
+                                        className="w-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
                                     >
-                                        {isScraping ? <><Loader2 className="w-4 h-4 animate-spin" /> 抽出中...</> : "抽出して次へ"}
+                                        {isExtractingInfo ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : <><Check className="w-4 h-4" /> この内容で基本情報を入力して次へ</>}
                                     </Button>
                                 </div>
-                                {scrapedPreview && setupPath === "url" && (
-                                    <div className="space-y-3 pt-4 border-t border-zinc-800">
-                                        <p className="text-xs text-emerald-500 font-medium">✅ 読み取り完了 —この情報をもとに、基本情報や投稿が生成されます。</p>
-                                        <textarea
-                                            value={scrapedPreview}
-                                            onChange={(e) => setScrapedPreview(e.target.value)}
-                                            className="flex min-h-[120px] max-h-[160px] w-full rounded-md border border-emerald-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y overflow-y-auto"
-                                        />
-                                        <Button
-                                            type="button"
-                                            onClick={async () => {
-                                                await handleExtractInfo(scrapedPreview + "\n" + shopInfo.features + "\n" + (shopInfo.sampleTexts || ""), true);
-                                                setSetupStep(2);
-                                            }}
-                                            disabled={isExtractingInfo}
-                                            className="w-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
-                                        >
-                                            {isExtractingInfo ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : <><Check className="w-4 h-4" /> この内容で基本情報を入力して次へ</>}
-                                        </Button>
-                                    </div>
-                                )}
                                 <div className="pt-4 border-t border-zinc-800 space-y-3">
                                     <button
                                         type="button"
@@ -217,14 +227,10 @@ export function InitialSetup({
                                         店舗の基本情報
                                     </h3>
                                     <p className="text-sm text-zinc-300 mt-1">
-                                    {setupPath === "url" ? "自動で入力された内容を確認・修正してください。" : "以下の項目を入力してください。わからない項目は空欄でも進めます。"}
+                                    {setupPath === "url" ? "自動で入力された内容を確認・修正してください。" : "以下の項目を入力してください。* のついた項目は必須です。"}
                                     </p>
                                 </div>
                                 <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="shopIndustry" className="font-medium">業種 <span className="text-red-500">*</span></Label>
-                                        <Input id="shopIndustry" required value={shopInfo.industry} onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：美容室、エステサロン、カフェ" />
-                                    </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500">*</span></Label>
                                         <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：サロン名" />
@@ -254,13 +260,29 @@ export function InitialSetup({
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-3 pt-4">
-                                    <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(1)}>
-                                        <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
-                                    </Button>
-                                    <Button type="button" className="gradient-accent hover:opacity-95 text-zinc-950 font-semibold flex-1" onClick={() => setSetupStep(3)}>
-                                        次へ <ChevronRight className="w-4 h-4 ml-1" />
-                                    </Button>
+                                <div className="flex flex-col gap-3 pt-4">
+                                    {(!shopInfo.name?.trim() || !shopInfo.address?.trim() || !shopInfo.phone?.trim() || !shopInfo.businessHours?.trim() || !shopInfo.holidays?.trim()) && (
+                                        <p className="text-xs text-amber-400">※ 店舗名・住所・電話番号・営業時間・定休日は必須です</p>
+                                    )}
+                                    <div className="flex gap-3">
+                                        <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(1)}>
+                                            <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            className="gradient-accent hover:opacity-95 text-zinc-950 font-semibold flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            onClick={() => setSetupStep(3)}
+                                            disabled={
+                                                !shopInfo.name?.trim() ||
+                                                !shopInfo.address?.trim() ||
+                                                !shopInfo.phone?.trim() ||
+                                                !shopInfo.businessHours?.trim() ||
+                                                !shopInfo.holidays?.trim()
+                                            }
+                                        >
+                                            次へ <ChevronRight className="w-4 h-4 ml-1" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -274,6 +296,60 @@ export function InitialSetup({
                                     </h3>
                                     <p className="text-sm text-zinc-300 mt-1">任意の項目は後から設定画面で変更できます。</p>
                                 </div>
+
+                                {/* 投稿の締め文（CTA）（必須） */}
+                                <div className="space-y-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                                    <h4 className="font-semibold text-emerald-400 text-sm">投稿の締め文（CTA） <span className="text-emerald-400/80 font-normal">（必須）</span></h4>
+                                    <p className="text-xs text-zinc-400">種類を選び、URLまたは電話番号を入力すると生成投稿の最後に反映されます。</p>
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm text-zinc-200">CTAの種類</Label>
+                                            <select
+                                                value={shopInfo.ctaType ?? "line"}
+                                                onChange={(e) => {
+                                                    const next: CtaType = e.target.value as CtaType;
+                                                    setShopInfo({
+                                                        ...shopInfo,
+                                                        ctaType: next,
+                                                        ctaValue: next === "line" && !(shopInfo.ctaValue ?? "").trim() ? (shopInfo.lineUrl ?? "") : (shopInfo.ctaValue ?? ""),
+                                                        ctaText: "",
+                                                    });
+                                                }}
+                                                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                            >
+                                                {CTA_TYPE_OPTIONS.map((opt) => (
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-sm text-zinc-200">
+                                                {CTA_TYPE_OPTIONS.find((o) => o.value === (shopInfo.ctaType ?? "line"))?.valueLabel ?? "URL・電話番号"}
+                                            </Label>
+                                            {shopInfo.ctaType === "other" ? (
+                                                <textarea
+                                                    value={shopInfo.ctaValue ?? ""}
+                                                    onChange={(e) => setShopInfo({ ...shopInfo, ctaValue: e.target.value })}
+                                                    placeholder={CTA_TYPE_OPTIONS.find((o) => o.value === "other")?.valuePlaceholder}
+                                                    className="flex min-h-[80px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    type={shopInfo.ctaType === "phone" ? "tel" : "url"}
+                                                    value={shopInfo.ctaValue ?? ""}
+                                                    onChange={(e) => setShopInfo({ ...shopInfo, ctaValue: e.target.value })}
+                                                    placeholder={
+                                                        shopInfo.ctaType === "line"
+                                                            ? (shopInfo.lineUrl || CTA_TYPE_OPTIONS.find((o) => o.value === "line")?.valuePlaceholder)
+                                                            : CTA_TYPE_OPTIONS.find((o) => o.value === (shopInfo.ctaType ?? "line"))?.valuePlaceholder
+                                                    }
+                                                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <details className="group bg-zinc-800/20 rounded-xl border border-zinc-800/50 overflow-hidden">
                                     <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between text-sm text-zinc-300 hover:bg-zinc-800/30">
                                         <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> あなたらしさ（文調の学習）・特記事項</span>
@@ -282,11 +358,10 @@ export function InitialSetup({
                                     <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
                                         <div className="space-y-2">
                                             <Label htmlFor="shopSampleTexts" className="text-sm">
-                                                今まで書いた文章のサンプル（2〜3投稿分コピペ） <span className="text-red-400 text-xs align-middle">*</span>
+                                                今まで書いた文章のサンプル（2〜3投稿分コピペ・任意）
                                             </Label>
                                             <Textarea
                                                 id="shopSampleTexts"
-                                                required
                                                 value={shopInfo.sampleTexts || ""}
                                                 onChange={(e) => setShopInfo({ ...shopInfo, sampleTexts: e.target.value })}
                                                 placeholder="例：これまでSNSに投稿していた文章を2〜3件コピペすると、文体を学習します。"
@@ -337,30 +412,30 @@ export function InitialSetup({
                                     <h4 className="font-semibold text-zinc-200 text-sm">出力する媒体</h4>
                                     <div className="flex flex-wrap gap-6">
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("instagram", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("instagram", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
                                             Instagram用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("gbp", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("gbp", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
                                             Google Map/GBP用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("portal", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("portal", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
                                             ブログ用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("line", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("line", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
                                             LINE用
                                         </label>
                                         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("short", e.target.checked) })} className="w-4 h-4 rounded accent-amber-500" />
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("short", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
                                             ショート動画の台本
                                         </label>
                                     </div>
                                 </div>
                                 {(shopInfo.outputTargets?.short) && (
-                                    <div className="space-y-4 p-4 rounded-xl border border-emerald-500/30 bg-amber-500/5">
-                                        <h4 className="font-semibold text-amber-400 text-sm">ショート動画の設定（精度向上のため任意で入力）</h4>
+                                    <div className="space-y-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                                        <h4 className="font-semibold text-emerald-400 text-sm">ショート動画の設定（精度向上のため任意で入力）</h4>
                                         <p className="text-sm text-zinc-400">バズりやすいフックのタイプを選ぶと、台本の冒頭が安定して出ます。</p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <div className="space-y-2">
@@ -403,25 +478,6 @@ export function InitialSetup({
                                                     ))}
                                                 </select>
                                             </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm text-zinc-300">ショート用サンプル台本（話し言葉のサンプルがあるとトーンが揃います）</label>
-                                            <textarea
-                                                value={shopInfo.shortSampleScript ?? ""}
-                                                onChange={(e) => setShopInfo({ ...shopInfo, shortSampleScript: e.target.value })}
-                                                placeholder="例：過去に使った台本や、話し言葉のサンプルを貼り付け"
-                                                className="flex min-h-[80px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white resize-y"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm text-zinc-300">ショート用メモ（フック・CTAの希望など）</label>
-                                            <input
-                                                type="text"
-                                                value={shopInfo.shortMemo ?? ""}
-                                                onChange={(e) => setShopInfo({ ...shopInfo, shortMemo: e.target.value })}
-                                                placeholder="例：冒頭は問いかけで、CTAはLINE誘導のみ"
-                                                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                            />
                                         </div>
                                     </div>
                                 )}

@@ -168,6 +168,71 @@ export function useShopConfig(
         }
     };
 
+    /** 設定画面用：複数URLを順に読み取り、scrapedContent に追記して extract・分析まで実行 */
+    const handleScrapeUrlsForSettings = async (urls: string[]) => {
+        const valid = urls.filter((u) => u?.trim().startsWith("http"));
+        if (valid.length === 0) {
+            addToast("1つ以上有効なURLを入力してください。", "error");
+            return;
+        }
+        setIsScrapingSettings(true);
+        try {
+            let allText = "";
+            const addedUrls: string[] = [];
+            for (const url of valid) {
+                const res = await fetch("/api/scrape", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: url.trim() }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "読み取り失敗");
+                if (data.text?.trim()) {
+                    const sep = allText ? "\n\n---\n\n" : "";
+                    allText += sep + data.text.trim();
+                    addedUrls.push(url.trim());
+                }
+            }
+            if (!allText) {
+                addToast("読み取れたテキストがありませんでした。", "error");
+                return;
+            }
+            const fullText = (shopInfo.scrapedContent || "").trim()
+                ? (shopInfo.scrapedContent || "") + "\n\n---\n\n" + allText
+                : allText;
+            setShopInfo((prev) => ({
+                ...prev,
+                scrapedContent: fullText,
+                referenceUrls: [...new Set([...prev.referenceUrls, ...addedUrls])],
+            }));
+            await handleExtractInfo(fullText, false);
+            addToast(`${addedUrls.length}件のURLから読み取りました。下の枠に追記されました。`, "success");
+            setIsAnalyzing(true);
+            try {
+                const analyzeRes = await fetch("/api/analyze-shop", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scrapedContent: fullText }),
+                });
+                const analysis = await analyzeRes.json();
+                const keys = ["concept", "strengths", "target", "staff", "voice"] as const;
+                const isValid = analyzeRes.ok && keys.every(
+                    (k) => analysis?.[k] && typeof analysis[k].status === "string" && typeof analysis[k].reason === "string"
+                );
+                if (isValid) setAnalysisResult(analysis);
+            } catch (e) {
+                console.error("分析エラー:", e);
+            } finally {
+                setIsAnalyzing(false);
+            }
+        } catch (error) {
+            if (error instanceof Error) addToast(error.message, "error");
+            else addToast("予期せぬエラーが発生しました", "error");
+        } finally {
+            setIsScrapingSettings(false);
+        }
+    };
+
     const saveShopInfo = async (infoToSave: typeof shopInfo) => {
         if (!user) return;
         const { error } = await supabase.from('shops').upsert({
@@ -361,6 +426,50 @@ export function useShopConfig(
         }
     };
 
+    /** 複数URLを順に読み取り、結果を蓄積エリアに追記する（初回設定用）。step は進めない。 */
+    const handleScrapeUrls = async (urls: string[]) => {
+        const valid = urls.filter((u) => u?.trim().startsWith("http"));
+        if (valid.length === 0) {
+            addToast("1つ以上有効なURLを入力してください。", "error");
+            return;
+        }
+        setIsScraping(true);
+        try {
+            let allText = "";
+            const addedUrls: string[] = [];
+            for (const url of valid) {
+                const res = await fetch("/api/scrape", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: url.trim() }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "読み取り失敗");
+                if (data.text?.trim()) {
+                    const sep = allText ? "\n\n---\n\n" : "";
+                    allText += sep + data.text.trim();
+                    addedUrls.push(url.trim());
+                }
+            }
+            if (allText) {
+                setScrapedPreview((prev) => (prev ? prev + "\n\n---\n\n" + allText : allText));
+                setShopInfo((prev) => ({
+                    ...prev,
+                    scrapedContent: prev.scrapedContent ? prev.scrapedContent + "\n\n---\n\n" + allText : allText,
+                    referenceUrls: [...new Set([...prev.referenceUrls, ...addedUrls])],
+                }));
+                addToast(`${addedUrls.length}件のURLから読み取りました。下の枠に追記されました。`, "success");
+            } else {
+                addToast("読み取れたテキストがありませんでした。", "error");
+            }
+        } catch (error) {
+            if (error instanceof Error) addToast(error.message, "error");
+            else addToast("予期せぬエラーが発生しました", "error");
+        } finally {
+            setIsScraping(false);
+        }
+    };
+
     const handleQuickSaveSettings = async (onSuccess?: () => void) => {
         if (!user) return;
         const supplements = shopInfo.manualSupplements;
@@ -408,11 +517,13 @@ export function useShopConfig(
         isScrapingSettings, setIsScrapingSettings,
         fetchShopInfo,
         handleScrapeUrlForSettings,
+        handleScrapeUrlsForSettings,
         saveShopInfo,
         handleSaveShopInfo,
         handleSkipWithMinimal,
         handleExtractInfo,
         handleScrapeUrl,
+        handleScrapeUrls,
         handleQuickSaveSettings,
         analysisResult,
         isAnalyzing,

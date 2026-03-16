@@ -50,6 +50,8 @@ export function useContentGenerator(
         Object.fromEntries(REFINE_TAB_IDS.map((id) => [id, null]))
     );
     const [isRefining, setIsRefining] = useState(false);
+    /** LINE用：季節の挨拶（例：3月も半ば、いかがお過ごしですか？）を含めるか。デフォルトtrue */
+    const [lineIncludeSeasonalGreeting, setLineIncludeSeasonalGreeting] = useState(true);
     const [isLlmoGenerating, setIsLlmoGenerating] = useState(false);
 
     const setRefineInstruction = (tabId: string, value: string | null) => {
@@ -386,7 +388,7 @@ export function useContentGenerator(
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody),
+                body: JSON.stringify({ ...requestBody, lineIncludeSeasonalGreeting }),
             });
 
             const responseData = await response.json();
@@ -631,6 +633,8 @@ export function useContentGenerator(
         handlePatternChange,
         handleGenerate,
         handleCopy,
+        lineIncludeSeasonalGreeting,
+        setLineIncludeSeasonalGreeting,
         refineInstruction,
         setRefineInstruction,
         isRefining,

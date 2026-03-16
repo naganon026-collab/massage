@@ -36,10 +36,6 @@ export function useStoreManager(user: any, addToast: (msg: string, type: "succes
             addToast("店舗名を入力してください。", "error");
             return;
         }
-        if (!storeFormData.industry?.trim()) {
-            addToast("業種を入力してください。", "error");
-            return;
-        }
         if (!storeFormData.address?.trim()) {
             addToast("住所を入力してください。", "error");
             return;

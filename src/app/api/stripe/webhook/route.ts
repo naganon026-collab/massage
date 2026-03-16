@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getPlanFromPriceId } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
@@ -29,10 +29,23 @@ export async function POST(req: NextRequest) {
                 id: string;
                 status: string;
                 current_period_end: number;
+                items?: { data?: Array<{ price?: string | { id: string } }> };
             };
             const customerId = sub.customer;
             const customer = (await getStripe().customers.retrieve(customerId)) as { metadata?: { userId?: string } };
             const userId = customer.metadata?.userId;
+
+            let priceId: string | undefined;
+            const firstItem = sub.items?.data?.[0];
+            if (firstItem?.price) {
+                priceId = typeof firstItem.price === "string" ? firstItem.price : firstItem.price.id;
+            }
+            if (!priceId) {
+                const expanded = await getStripe().subscriptions.retrieve(sub.id, { expand: ["items.data.price"] });
+                const item = expanded.items?.data?.[0];
+                priceId = item?.price?.id;
+            }
+            const plan = sub.status === "active" ? getPlanFromPriceId(priceId) : "free";
 
             if (userId) {
                 await supabase.from("subscriptions").upsert(
@@ -40,7 +53,7 @@ export async function POST(req: NextRequest) {
                         user_id: userId,
                         stripe_customer_id: customerId,
                         stripe_subscription_id: sub.id,
-                        plan: sub.status === "active" ? "standard" : "free",
+                        plan,
                         status: sub.status,
                         current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
                         updated_at: new Date().toISOString(),

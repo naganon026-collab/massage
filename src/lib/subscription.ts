@@ -54,6 +54,14 @@ export async function getDailyGenerationCount(userId: string): Promise<number> {
 /** 開発時は1日の上限を実質無制限にする（テスト・開発用） */
 const effectiveDailyLimit = process.env.NODE_ENV === "development" ? 999 : DAILY_GENERATION_LIMIT;
 
+/** 投稿可能か（standard / pro のみ） */
+export async function canPost(userId: string): Promise<boolean> {
+    const subscription = await getUserSubscription(userId);
+    const plan = (subscription?.plan as keyof typeof PLANS) || "free";
+    const planConfig = PLANS[plan] ?? PLANS.free;
+    return planConfig.canPost === true;
+}
+
 /** 生成可能かチェック（月次＋1日5回の上限を適用） */
 export async function canGenerate(userId: string): Promise<{
     allowed: boolean;

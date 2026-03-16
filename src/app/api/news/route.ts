@@ -4,7 +4,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
 const newsSchema = z.object({
-  industry: z.string().min(1, "業種が指定されていません。").max(100),
+  industry: z.string().max(100).optional(),
   address: z.string().max(100).optional(),
 });
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     const { industry, address } = parsed.data;
 
-    const baseQuery = `${industry} ニュース`;
+    const baseQuery = `${(industry || "サロン").trim() || "サロン"} ニュース`;
     const locationHint = address ? ` ${address}` : "";
     const query = encodeURIComponent(baseQuery + locationHint);
 

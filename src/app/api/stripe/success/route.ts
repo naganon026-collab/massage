@@ -62,6 +62,9 @@ export async function GET(req: NextRequest) {
         periodEndUnix,
       });
 
+      const plan = (session.metadata?.plan as string) || "standard";
+      const validPlan = ["light", "standard", "pro"].includes(plan) ? plan : "standard";
+
       const { data, error } = await supabase
         .from("subscriptions")
         .upsert(
@@ -69,7 +72,7 @@ export async function GET(req: NextRequest) {
             user_id: userId,
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: sub.id,
-            plan: "standard",
+            plan: validPlan,
             status: "active",
             current_period_end: current_period_end_iso,
             updated_at: new Date().toISOString(),
