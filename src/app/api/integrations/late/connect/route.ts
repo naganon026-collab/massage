@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const redirectUrl = `${baseUrl}/auth/late/callback`;
 
     try {
-        let profileId: string;
+        let profileId: string | undefined;
 
         const { data: existing } = await supabase
             .from("shop_integrations")

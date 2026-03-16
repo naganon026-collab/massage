@@ -4,13 +4,14 @@ import React from "react";
 import { X } from "lucide-react";
 import { PLANS, type PlanId } from "@/lib/stripe";
 
-const PAID_PLANS: PlanId[] = ["light", "standard", "pro"];
+const PAID_PLANS = ["light", "standard", "pro"] as const;
+type PaidPlanId = (typeof PAID_PLANS)[number];
 
 type Props = {
     show: boolean;
     onClose: () => void;
     currentPlan: string;
-    onSelectPlan: (plan: PlanId) => void;
+    onSelectPlan: (plan: PaidPlanId) => void;
     isLoading?: boolean;
 };
 

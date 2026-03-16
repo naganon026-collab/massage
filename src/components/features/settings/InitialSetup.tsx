@@ -178,7 +178,7 @@ export function InitialSetup({
                                     <p className="text-xs text-emerald-500 font-medium">読み取り結果 — この情報をもとに、基本情報や投稿が生成されます。</p>
                                     <p className="text-xs text-zinc-400">ここにURLやコピーしたテキストをどんどん追加してください。メニュー表・ブログ・口コミなど、貼り足すほど生成の精度が上がります。</p>
                                     <textarea
-                                        value={scrapedPreview}
+                                        value={scrapedPreview ?? ""}
                                         onChange={(e) => setScrapedPreview(e.target.value)}
                                         className="flex min-h-[280px] max-h-[420px] w-full rounded-md border border-emerald-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y overflow-y-auto"
                                         placeholder="上で「まとめて読み取る」を押すとここに結果が追記されます。ほかのページをコピーしたテキストも貼り付けてOKです。"
