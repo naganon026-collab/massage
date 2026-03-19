@@ -17,6 +17,7 @@ const refineSchema = z.object({
         ctaType: z.enum(["phone", "reservation", "line", "other"]).optional(),
         ctaValue: z.string().optional(),
         ctaText: z.string().optional(),
+        phone: z.string().optional(),
     }).optional(),
     patternTitle: z.string().optional(),
     portalTitle: z.string().optional(),
@@ -129,13 +130,26 @@ ${isShort ? "\n必ず有効なJSON文字列1つで返すこと。hook, scenes, c
         const ct = si?.ctaType;
         const cv = (si?.ctaValue ?? "").trim();
         const leg = (si?.ctaText ?? "").trim();
-        let ctaToAppend = leg;
-        if (!ctaToAppend && ct === "phone" && (cv || si?.phone)) ctaToAppend = `お気軽にお電話ください：${cv || si?.phone}（今週末の空きもご確認いただけます）`;
-        if (!ctaToAppend && ct === "reservation" && cv) ctaToAppend = `1分で予約できます！こちらから：${cv}`;
-        if (!ctaToAppend && (ct === "line" || cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me")))) ctaToAppend = (cv || lineUrl) ? `下のリンクから1分で予約できます↓ ${cv || lineUrl}` : "プロフィールのリンクを1タップでご予約ください";
-        if (!ctaToAppend && ct === "other" && cv) ctaToAppend = cv;
-        if (!ctaToAppend && cv) ctaToAppend = cv;
-        if (!ctaToAppend && lineUrl) ctaToAppend = `下のリンクから1分で予約できます↓ ${lineUrl}`;
+        let ctaToAppend = (si?.ctaText ?? "").trim();
+        if (!ctaToAppend) {
+            if (ct === "phone") {
+                const p = cv || si?.phone;
+                if (p) ctaToAppend = `お気軽にお電話ください：${p}（今週末の空きもご確認いただけます）`;
+            } else if (ct === "reservation" && cv) {
+                ctaToAppend = `1分で予約できます！こちらから：${cv}`;
+            } else if (ct === "line") {
+                const url = cv || lineUrl;
+                if (url) ctaToAppend = `下のリンクから1分で予約できます↓ ${url}`;
+            } else if (ct === "other" && cv) {
+                ctaToAppend = cv;
+            } else if (cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me"))) {
+                ctaToAppend = `下のリンクから1分で予約できます↓ ${cv}`;
+            } else if (cv) {
+                ctaToAppend = cv;
+            } else if (lineUrl) {
+                ctaToAppend = `下のリンクから1分で予約できます↓ ${lineUrl}`;
+            }
+        }
         if (ctaToAppend && (target === "instagram" || target === "gbp" || target === "line")) {
             const cta = ctaToAppend.trim();
             const ensureCta = (text: string | undefined): string => {
