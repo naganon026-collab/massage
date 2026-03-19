@@ -976,12 +976,21 @@ ${q3 || "記載なし"}
         const cv = (si?.ctaValue ?? "").trim();
         const leg = (si?.ctaText ?? "").trim();
         let ctaToAppend = "";
-        if (ct === "phone") ctaToAppend = (cv || si?.phone) ? `お気軽にお電話ください：${cv || si?.phone}（今週末の空きもご確認いただけます）` : "";
-        else if (ct === "reservation" && cv) ctaToAppend = `1分で予約できます！こちらから：${cv}`;
-        else if (ct === "line") ctaToAppend = (cv || lineUrl) ? `LINEでお気軽にご予約・ご相談ください↓ ${cv || lineUrl}` : "";
-        else if (ct === "other" && cv) ctaToAppend = cv;
-        else if (cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me"))) ctaToAppend = `LINEでお気軽にご予約・ご相談ください↓ ${cv}`;
-        else if (cv) ctaToAppend = cv;
+        if (ct === "phone") {
+            const p = cv || si?.phone;
+            if (p) ctaToAppend = `お気軽にお電話ください：${p}（今週末の空きもご確認いただけます）`;
+        } else if (ct === "reservation" && cv) {
+            ctaToAppend = `1分で予約できます！こちらから：${cv}`;
+        } else if (ct === "line") {
+            const url = cv || lineUrl;
+            if (url) ctaToAppend = `LINEでお気軽にご予約・ご相談ください↓ ${url}`;
+        } else if (ct === "other" && cv) {
+            ctaToAppend = cv;
+        } else if (cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me"))) {
+            ctaToAppend = `LINEでお気軽にご予約・ご相談ください↓ ${cv}`;
+        } else if (cv) {
+            ctaToAppend = cv;
+        }
         if (!ctaToAppend && leg) ctaToAppend = leg;
         if (!ctaToAppend && lineUrl) ctaToAppend = `下のリンクから1分で予約できます↓ ${lineUrl}`;
         if (!ctaToAppend) ctaToAppend = "プロフィールのリンクを1タップでご予約ください";
