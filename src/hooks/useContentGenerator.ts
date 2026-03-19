@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Pattern, HistoryEntry, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData, TREATMENT_TAGS, CONCERN_TAGS, EDUCATION_TAGS, EDUCATION_REASON_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, SCENE_MESSAGE_TAGS, MESSAGE_TONE_TAGS, TODAYS_FOCUS_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_OPTION_TAGS } from "@/types";
+import { Pattern, HistoryEntry, ShopInfo, PATTERNS, StoreRecord, ShortScriptData, LlmoArticleData, INDUSTRY_DATA } from "@/types";
 import type { TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, SceneMessageTagId, NoticeTypeTagId, UrgencyTagId, VoiceOptionTagId } from "@/types";
 const REFINE_TAB_IDS = ["instagram", "gbp", "portal", "line", "short"] as const;
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,10 @@ export function useContentGenerator(
     stores: StoreRecord[],
     selectedStoreId: string | null,
     addToast: (msg: string, type: "success" | "error") => void,
-    onGenerateSuccess?: () => void
+    onGenerateSuccess?: () => void,
+    canGenerateBlog?: boolean,
+    isPracticeMode?: boolean,
+    onLimitExceeded?: () => void
 ) {
     const supabase = createClient();
 
@@ -53,12 +56,13 @@ export function useContentGenerator(
     /** LINE用：季節の挨拶（例：3月も半ば、いかがお過ごしですか？）を含めるか。デフォルトtrue */
     const [lineIncludeSeasonalGreeting, setLineIncludeSeasonalGreeting] = useState(true);
     const [isLlmoGenerating, setIsLlmoGenerating] = useState(false);
+    const [imageMemo, setImageMemo] = useState("");
 
     const setRefineInstruction = (tabId: string, value: string | null) => {
         setRefineInstructionState((prev) => ({ ...prev, [tabId]: value }));
     };
 
-    const currentPattern = PATTERNS.find(p => p.id === selectedPattern)!;
+    const currentPattern = PATTERNS.find(p => p.id === selectedPattern) || PATTERNS[0];
 
     const fetchHistory = async (userId: string) => {
         const { data, error } = await supabase
@@ -119,6 +123,7 @@ export function useContentGenerator(
         setSelectedPattern(patternId);
         if (patternId !== "I") setUploadImageData(null);
         setFormData({ q1: "", q2: "", q3: "" });
+        setImageMemo("");
         setReceivedComment("");
         setReplyNote("");
         setGeneratedResults(null);
@@ -143,7 +148,8 @@ export function useContentGenerator(
         selectedConcernArg?: string | null,
         selectedEducationReasonArg?: string | null,
         selectedFocusArg?: string | null,
-        selectedMessageToneArg?: string | null
+        selectedMessageToneArg?: string | null,
+        imageMemoArg?: string
     ) => {
         if (selectedPattern === "I") {
             if (!uploadImageData) {
@@ -157,7 +163,7 @@ export function useContentGenerator(
                 return;
             }
             if (!selectedConcernArg) {
-                addToast("今日のお客様のお悩みを1つ選んでください。", "error");
+                addToast("お客様のお悩みを1つ選んでください。", "error");
                 return;
             }
         }
@@ -220,6 +226,10 @@ export function useContentGenerator(
             })();
 
             const useWeather = currentPattern.useWeather ?? false;
+            const baseOutputTargets = activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false };
+            const outputTargets = canGenerateBlog === false
+                ? { ...baseOutputTargets, portal: false }
+                : baseOutputTargets;
             let normalBody: {
                 patternTitle: string;
                 useWeather: boolean;
@@ -238,12 +248,14 @@ export function useContentGenerator(
                 q2: formData.q2,
                 q3: formData.q3,
                 shopInfo: activeShopInfo,
-                outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
+                outputTargets,
                 generatedAt: new Date().toISOString(),
             };
+            const industryKey = activeShopInfo.industry || "salon";
+            const tags = INDUSTRY_DATA[industryKey] || INDUSTRY_DATA["salon"];
             if (selectedPattern === "A" && selectedTreatmentArg && selectedConcernArg) {
-                const tag = TREATMENT_TAGS.find((t) => t.id === selectedTreatmentArg)!;
-                const concernLabel = CONCERN_TAGS.find((t) => t.id === selectedConcernArg)?.label ?? tag.concern;
+                const tag = tags.TREATMENT_TAGS.find((t) => t.id === selectedTreatmentArg)!;
+                const concernLabel = tags.CONCERN_TAGS.find((t) => t.id === selectedConcernArg)?.label ?? tag.concern;
                 normalBody = {
                     ...normalBody,
                     patternId: "A",
@@ -262,7 +274,7 @@ export function useContentGenerator(
                 };
             }
             if (selectedPattern === "B" && selectedEducationArg && selectedEducationReasonArg) {
-                const tag = EDUCATION_TAGS.find((t) => t.id === selectedEducationArg)!;
+                const tag = tags.EDUCATION_TAGS.find((t) => t.id === selectedEducationArg)!;
                 normalBody = {
                     ...normalBody,
                     patternId: "B",
@@ -274,13 +286,13 @@ export function useContentGenerator(
                         items: tag.items,
                         solution: tag.solution,
                         memo: educationMemoArg ?? "",
-                        reason: EDUCATION_REASON_TAGS.find((t) => t.id === selectedEducationReasonArg)?.label ?? "",
+                        reason: tags.EDUCATION_REASON_TAGS.find((t) => t.id === selectedEducationReasonArg)?.label ?? "",
                     }),
                 };
             }
             if (selectedPattern === "C" && selectedNoticeTypeArg && selectedUrgencyArg) {
-                const noticeTag = NOTICE_TYPE_TAGS.find((t) => t.id === selectedNoticeTypeArg)!;
-                const urgencyTag = URGENCY_TAGS.find((t) => t.id === selectedUrgencyArg)!;
+                const noticeTag = tags.NOTICE_TYPE_TAGS.find((t) => t.id === selectedNoticeTypeArg)!;
+                const urgencyTag = tags.URGENCY_TAGS.find((t) => t.id === selectedUrgencyArg)!;
                 normalBody = {
                     ...normalBody,
                     patternId: "C",
@@ -298,7 +310,7 @@ export function useContentGenerator(
                 };
             }
             if (selectedPattern === "D" && selectedVoiceOptionArg) {
-                const tag = VOICE_OPTION_TAGS.find((t) => t.id === selectedVoiceOptionArg)!;
+                const tag = tags.VOICE_OPTION_TAGS.find((t) => t.id === selectedVoiceOptionArg)!;
                 normalBody = {
                     ...normalBody,
                     patternId: "D",
@@ -314,7 +326,7 @@ export function useContentGenerator(
                 };
             }
             if (selectedPattern === "E" && selectedMessageArg) {
-                const msg = STAFF_MESSAGE_TAGS.find((t) => t.id === selectedMessageArg)!;
+                const msg = tags.STAFF_MESSAGE_TAGS.find((t) => t.id === selectedMessageArg)!;
                 normalBody = {
                     ...normalBody,
                     patternId: "E",
@@ -330,9 +342,9 @@ export function useContentGenerator(
                 };
             }
             if (selectedPattern === "H" && selectedSceneArg && selectedSceneMessageArg) {
-                const scene = SALON_SCENE_TAGS.find((t) => t.id === selectedSceneArg)!;
-                const msg = SCENE_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessageArg)!;
-                const messageTone = selectedMessageToneArg ? MESSAGE_TONE_TAGS.find((t) => t.id === selectedMessageToneArg)?.note ?? "" : "";
+                const scene = tags.SALON_SCENE_TAGS.find((t) => t.id === selectedSceneArg)!;
+                const msg = tags.SCENE_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessageArg)!;
+                const messageTone = selectedMessageToneArg ? tags.MESSAGE_TONE_TAGS.find((t) => t.id === selectedMessageToneArg)?.note ?? "" : "";
                 normalBody = {
                     ...normalBody,
                     patternId: "H",
@@ -362,38 +374,28 @@ export function useContentGenerator(
                             ? {
                                 patternTitle: currentPattern.title,
                                 useWeather: currentPattern.useWeather ?? false,
-                                q1: "",
+                                q1: imageMemoArg ?? "",
                                 q2: "",
                                 q3: "",
                                 shopInfo: activeShopInfo,
-                                outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
+                                outputTargets,
                                 imageData: uploadImageData!,
                                 generatedAt: new Date().toISOString(),
-                            }
-                            : selectedPattern === "F"
-                            ? {
-                                patternTitle: currentPattern.title,
-                                patternId: "F",
-                                useWeather: currentPattern.useWeather ?? false,
-                                q1: "",
-                                q2: "",
-                                q3: "",
-                                shopInfo: activeShopInfo,
-                                outputTargets: activeShopInfo.outputTargets || { instagram: true, gbp: true, portal: true, line: false, short: false },
-                                generatedAt: new Date().toISOString(),
-                                todaysFocus: selectedFocusArg ? TODAYS_FOCUS_TAGS.find((t) => t.id === selectedFocusArg)?.note ?? "" : "",
                             }
                             : normalBody;
 
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...requestBody, lineIncludeSeasonalGreeting }),
+                body: JSON.stringify({ ...requestBody, lineIncludeSeasonalGreeting, isPracticeMode: isPracticeMode === true }),
             });
 
             const responseData = await response.json();
 
             if (!response.ok) {
+                if (response.status === 403 && responseData.error === "LIMIT_EXCEEDED") {
+                    onLimitExceeded?.();
+                }
                 const msg =
                     response.status === 403 && responseData.message
                         ? responseData.message
@@ -424,7 +426,7 @@ export function useContentGenerator(
                     selectedPattern === 'G'
                         ? { platform: replyPlatform, receivedComment, replyNote }
                         : selectedPattern === 'I'
-                                ? { imageUploaded: true }
+                                ? { imageUploaded: true, memo: imageMemoArg ?? "" }
                                 : selectedPattern === 'A' && selectedTreatmentArg
                                     ? { treatmentTagId: selectedTreatmentArg, reaction: optionalMemosArg?.reaction ?? "", beforeAfter: optionalMemosArg?.beforeAfter ?? "" }
                                     : selectedPattern === 'B' && selectedEducationArg
@@ -457,6 +459,7 @@ export function useContentGenerator(
                     model: meta?.model ?? null,
                     tokens: meta?.tokens ?? null,
                     error: null,
+                    is_practice: isPracticeMode === true,
                 }).then(({ error }) => {
                     if (error) console.error('履歴保存エラー:', error);
                     else fetchHistory(user.id);
@@ -479,6 +482,7 @@ export function useContentGenerator(
                     model: "gemini-2.5-flash",
                     tokens: 0,
                     error: errMsg,
+                    is_practice: isPracticeMode === true,
                 }).then(({ error: insertErr }) => {
                     if (insertErr) console.error("履歴エラー保存失敗:", insertErr);
                 });
@@ -617,6 +621,7 @@ export function useContentGenerator(
         receivedComment, setReceivedComment,
         replyNote, setReplyNote,
         uploadImageData, setUploadImageData,
+        imageMemo, setImageMemo,
         isGenerating, setIsGenerating,
         generationProgress,
         generatedResults, setGeneratedResults,

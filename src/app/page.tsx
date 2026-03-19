@@ -8,8 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import {
   Copy, Loader2, Sparkles, Check, ChevronRight, Settings, Send,
-  LogOut, History, Clock, Pencil, Trash2, Store, X, ArrowDown, RefreshCw,
-  FileText, Image, MessageCircle, Plug, Crown, BarChart3
+  LogOut, History, Clock, Pencil, Trash2, Store, X, RefreshCw,
+  FileText, Image, MessageCircle, Plug, Crown, BarChart3, Menu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToastContainer, useToast } from "@/components/ui/toast";
 
 import { getSeasonalContext } from "@/lib/seasonalContext";
-import { ADMIN_EMAIL, PATTERNS, PATTERN_CATEGORIES, getPatternCategoryId, REFINE_OPTIONS, TREATMENT_TAGS, CONCERN_TAGS, EDUCATION_TAGS, EDUCATION_REASON_TAGS, STAFF_MESSAGE_TAGS, SALON_SCENE_TAGS, SCENE_MESSAGE_TAGS, MESSAGE_TONE_TAGS, TODAYS_FOCUS_TAGS, NOTICE_TYPE_TAGS, URGENCY_TAGS, VOICE_CATEGORIES, VOICE_OPTION_TAGS, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
+import { ADMIN_EMAIL, PATTERNS, PATTERN_CATEGORIES, getPatternCategoryId, REFINE_OPTIONS, INDUSTRY_DATA, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
 import type { Pattern, TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, SceneMessageTagId, NoticeTypeTagId, UrgencyTagId, VoiceCategoryId, VoiceOptionTagId, PatternCategoryId } from "@/types";
 import { useStoreManager } from "@/hooks/useStoreManager";
 import { useShopConfig } from "@/hooks/useShopConfig";
@@ -29,6 +29,7 @@ import { SettingsOverlay } from "@/components/features/settings/SettingsOverlay"
 import { AppConnectionsOverlay } from "@/components/features/settings/AppConnectionsOverlay";
 import { StoreManagerOverlay } from "@/components/features/store-manager/StoreManagerOverlay";
 import { UpgradeOverlay } from "@/components/UpgradeOverlay";
+import { LimitExceededModal } from "@/components/LimitExceededModal";
 import { InitialSetup } from "@/components/features/settings/InitialSetup";
 import { PostToLineButton } from "@/components/PostToLineButton";
 import { PostToLateButton } from "@/components/PostToLateButton";
@@ -58,6 +59,23 @@ function linkifyText(text: string): React.ReactNode {
   }
   return parts.length ? <>{parts}</> : text;
 }
+
+/** 練習モード用サンプル店舗（5回枠にカウントしない初回生成用） */
+const SAMPLE_PRACTICE_SHOP: ShopInfo = {
+  name: "Hair Studio Lumière",
+  address: "長野市",
+  industry: "サロン",
+  phone: "",
+  lineUrl: "",
+  businessHours: "10:00〜19:00",
+  holidays: "不定休",
+  features: "ゼロタッチカラー、頭皮ケア",
+  snsUrl: "",
+  sampleTexts: "",
+  scrapedContent: "",
+  referenceUrls: [],
+  outputTargets: { instagram: true, gbp: true, portal: false, line: true, short: false },
+};
 
 // デモ用テキスト（ランディング用）
 const LP_DEMOS: Record<string, Record<string, string>> = {
@@ -248,7 +266,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 py-1.5 px-4 rounded-full text-[13px] font-medium mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <span className="text-[10px]">✦</span> 美容室・サロン・カフェ・整体院に対応
           </div>
-          <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75">
+          <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75">
             美容室・サロン専用
             <br />
             SNS投稿を<em className="not-italic gradient-accent-text">1分で</em>
@@ -539,6 +557,7 @@ function SEOContentGenerator() {
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
   const [showAppConnectionsOverlay, setShowAppConnectionsOverlay] = useState(false);
   const [showUpgradeOverlay, setShowUpgradeOverlay] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{
     allowed: boolean;
@@ -549,7 +568,11 @@ function SEOContentGenerator() {
     dailyUsed?: number;
     dailyLimit?: number;
     dailyRemaining?: number;
+    canGenerateBlog?: boolean;
+    isPracticeMode?: boolean;
   } | null>(null);
+  const [showPracticeCelebration, setShowPracticeCelebration] = useState(false);
+  const [showLimitExceededModal, setShowLimitExceededModal] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all");
   const resultsRef = useRef<HTMLDivElement>(null);
   const [selectedTreatment, setSelectedTreatment] = useState<TreatmentTagId | null>(null);
@@ -584,13 +607,19 @@ function SEOContentGenerator() {
   const storeManager = useStoreManager(user, addToast);
   const { fetchStores } = storeManager;
 
-  const contentGen = useContentGenerator(user, shopConfig.shopInfo, storeManager.stores, storeManager.selectedStoreId, addToast, () => {
+  const shopInfoForGen = generationStatus?.isPracticeMode ? SAMPLE_PRACTICE_SHOP : shopConfig.shopInfo;
+  const contentGen = useContentGenerator(user, shopInfoForGen, storeManager.stores, storeManager.selectedStoreId, addToast, () => {
+    // 練習モードで初回生成完了時は祝福オーバーレイを表示
+    const wasPracticeMode = generationStatus?.isPracticeMode === true;
+    if (wasPracticeMode) setShowPracticeCelebration(true);
+    // 生成完了セクションへ自動スクロール（DOM更新を待つ）
+    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     // 生成成功後にプラン情報を再取得（本日 X/5 回を更新）
     fetch("/api/user/plan", { credentials: "same-origin" })
       .then((r) => r.json())
       .then(setGenerationStatus)
       .catch(() => {});
-  });
+  }, generationStatus?.canGenerateBlog, generationStatus?.isPracticeMode, () => setShowLimitExceededModal(true));
   const { fetchHistory } = contentGen;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -711,6 +740,28 @@ function SEOContentGenerator() {
     }
   }, [shopConfig.isConfigured]);
 
+  // 早期 return の前に必ず destructure と useEffect を実行（React Hooks のルール）
+  const { shopInfo, setShopInfo, isConfigured, setIsConfigured, setupStep, setSetupStep, setupPath, setSetupPath,
+    scrapeUrl, setScrapeUrl, isScraping, isExtractingInfo, scrapedPreview, setScrapedPreview,
+    handleScrapeUrl, handleScrapeUrls, handleReadAndProceed, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
+    settingsScrapeUrl, setSettingsScrapeUrl, isScrapingSettings,
+    handleScrapeUrlForSettings, handleScrapeUrlsForSettings, handleQuickSaveSettings,
+    analysisResult, isAnalyzing,
+  } = shopConfig;
+
+  const { selectedPattern, setSelectedPattern, handlePatternChange, currentPattern,
+    formData, setFormData, replyPlatform, setReplyPlatform,
+    receivedComment, setReceivedComment, replyNote, setReplyNote,
+    uploadImageData, setUploadImageData, imageMemo, setImageMemo,
+    isGenerating, generationProgress, generatedResults, setGeneratedResults, copiedTab, editingTab, setEditingTab,
+    generationHistory, showHistory, setShowHistory,
+    deletingHistoryId, handleGenerate,
+    handleCopy, handleRestoreHistory, handleDeleteHistory,
+    lineIncludeSeasonalGreeting, setLineIncludeSeasonalGreeting,
+    refineInstruction, setRefineInstruction, isRefining, handleRefine,
+    isLlmoGenerating, handleGenerateLlmo,
+  } = contentGen;
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -754,14 +805,6 @@ function SEOContentGenerator() {
   // 管理者は /admin へリダイレクトするので一瞬だけローディング表示
   if (user.email === ADMIN_EMAIL) return <LoadingScreen />;
 
-  const { shopInfo, setShopInfo, isConfigured, setIsConfigured, setupStep, setSetupStep, setupPath, setSetupPath,
-    scrapeUrl, setScrapeUrl, isScraping, isExtractingInfo, scrapedPreview, setScrapedPreview,
-    handleScrapeUrl, handleScrapeUrls, handleExtractInfo, handleSaveShopInfo, handleSkipWithMinimal,
-    settingsScrapeUrl, setSettingsScrapeUrl, isScrapingSettings,
-    handleScrapeUrlForSettings, handleScrapeUrlsForSettings, handleQuickSaveSettings,
-    analysisResult, isAnalyzing,
-  } = shopConfig;
-
   const { stores, selectedStoreId, setSelectedStoreId, showStoreManager, setShowStoreManager,
     showStoreForm, setShowStoreForm, editingStoreId, setEditingStoreId,
     storeFormData, setStoreFormData, isSavingStore, isDeletingStore,
@@ -769,40 +812,29 @@ function SEOContentGenerator() {
     handleSaveStore, handleDeleteStore, openEditStore, handleScrapeUrlForStore,
   } = storeManager;
 
-  const { selectedPattern, handlePatternChange, currentPattern,
-    formData, setFormData, replyPlatform, setReplyPlatform,
-    receivedComment, setReceivedComment, replyNote, setReplyNote,
-    uploadImageData, setUploadImageData,
-    isGenerating, generationProgress, generatedResults, setGeneratedResults, copiedTab, editingTab, setEditingTab,
-    generationHistory, showHistory, setShowHistory,
-    deletingHistoryId, handleGenerate,
-    handleCopy, handleRestoreHistory, handleDeleteHistory,
-    lineIncludeSeasonalGreeting, setLineIncludeSeasonalGreeting,
-    refineInstruction, setRefineInstruction, isRefining, handleRefine,
-    isLlmoGenerating, handleGenerateLlmo,
-  } = contentGen;
-
   // 選択中の店舗があればその設定、なければデフォルトのshopInfoを使う
   const activeShopInfo = selectedStoreId
     ? (stores.find(s => s.id === selectedStoreId)?.settings ?? shopInfo)
     : shopInfo;
 
+  const industryKey = activeShopInfo.industry || "salon";
+  const tags = INDUSTRY_DATA[industryKey] || INDUSTRY_DATA["salon"];
+
   const canGenerate =
     selectedPattern === "G" ? receivedComment.trim().length > 0
-      : currentPattern.isAuto === true
-        ? true
+      : selectedPattern === "I" ? !!uploadImageData
         : currentPattern.isTagSelect === true
-          ? (currentPattern.id === "A" ? selectedTreatment !== null && selectedConcern !== null
-            : currentPattern.id === "B" ? selectedEducation !== null && selectedEducationReason !== null
-            : currentPattern.id === "C" ? selectedNoticeType !== null && selectedUrgency !== null
-            : currentPattern.id === "D" ? selectedVoiceOption !== null && voiceMemo.trim() !== ""
-            : currentPattern.id === "E" ? selectedMessage !== null && staffMemo.trim() !== ""
-            : currentPattern.id === "H" ? selectedScene !== null && selectedSceneMessage !== null
-            : false)
-          : (formData.q1.trim() || formData.q2.trim() || formData.q3.trim());
+            ? (currentPattern.id === "A" ? selectedTreatment !== null && selectedConcern !== null
+              : currentPattern.id === "B" ? selectedEducation !== null && selectedEducationReason !== null
+              : currentPattern.id === "C" ? selectedNoticeType !== null && selectedUrgency !== null
+              : currentPattern.id === "D" ? selectedVoiceOption !== null && voiceMemo.trim() !== ""
+              : currentPattern.id === "E" ? selectedMessage !== null && staffMemo.trim() !== ""
+              : currentPattern.id === "H" ? selectedScene !== null && selectedSceneMessage !== null
+              : false)
+            : (formData.q1.trim() || formData.q2.trim() || formData.q3.trim());
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-emerald-500/30 pb-20 selection:text-zinc-950">
+    <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-emerald-500/30 selection:text-zinc-950 pb-[max(5rem,calc(5rem+env(safe-area-inset-bottom)))]">
       {/* トースト通知 */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
@@ -825,6 +857,12 @@ function SEOContentGenerator() {
         onSelectPlan={handleSelectPlan}
         isLoading={isCheckoutLoading}
       />
+      <LimitExceededModal
+        show={showLimitExceededModal}
+        onClose={() => setShowLimitExceededModal(false)}
+        onUpgrade={handleUpgrade}
+        currentPlan={generationStatus?.plan}
+      />
       <StoreManagerOverlay
         showStoreManager={showStoreManager}
         setShowStoreManager={setShowStoreManager}
@@ -844,6 +882,7 @@ function SEOContentGenerator() {
         setStoreScrapeUrl={setStoreScrapeUrl}
         handleScrapeUrlForStore={handleScrapeUrlForStore}
         isScrapingStore={isScrapingStore}
+        canGenerateBlog={generationStatus?.canGenerateBlog}
       />
 
       <SettingsOverlay
@@ -861,6 +900,7 @@ function SEOContentGenerator() {
         analysisResult={analysisResult}
         isAnalyzing={isAnalyzing}
         addToast={addToast}
+        canGenerateBlog={generationStatus?.canGenerateBlog}
       />
 
       <AppConnectionsOverlay
@@ -870,128 +910,166 @@ function SEOContentGenerator() {
       />
 
       {/* ===== ヘッダー ===== */}
-      <header className="sticky top-0 z-50 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur-xl">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-50 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur-xl pt-[env(safe-area-inset-top)]">
+        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between min-h-[44px]">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-9 h-9 rounded-lg gradient-accent flex items-center justify-center glow-accent transition-smooth shrink-0">
               <Sparkles className="w-5 h-5 text-zinc-950" />
             </div>
             <div className="flex flex-col min-w-0">
-              <h1 className="font-display text-xl font-bold tracking-tight leading-tight gradient-accent-text">Logic Post</h1>
+              <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight leading-tight gradient-accent-text truncate">Logic Post</h1>
               {user?.email && (
-                <span className="text-sm font-normal text-zinc-400 truncate leading-tight">{user.email}</span>
+                <span className="text-sm sm:text-base font-normal text-zinc-400 truncate leading-tight hidden sm:block">{user.email}</span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* 管理者向け：店舗管理ボタン */}
+          {/* デスクトップ：右側ボタン群 */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
             {user?.email === ADMIN_EMAIL && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowStoreManager(true)}
-                className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setShowStoreManager(true)} className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5 min-h-[44px]" aria-label="店舗管理">
                 <Store className="w-4 h-4" />
-                <span className="hidden sm:inline text-xs">店舗管理</span>
+                <span className="text-sm">店舗管理</span>
               </Button>
             )}
-
-            {/* 管理者のみ：管理画面リンク */}
             {user?.email === ADMIN_EMAIL && (
-              <Link
-                href="/admin"
-                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-100 transition-colors px-2 py-1 rounded hover:bg-zinc-800"
-              >
+              <Link href="/admin" className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100 transition-colors px-3 py-2 rounded hover:bg-zinc-800 min-h-[44px]">
                 🔧 管理画面
               </Link>
             )}
-
-            {/* プラン表示（設定の左）：プラン別表示 ＋ 本日 X/5 回 */}
-            <span className="flex items-center gap-1.5 flex-wrap">
-                {(generationStatus?.plan ?? "free") === "pro" && (
-                  <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                    ✨ プロ（無制限）
-                  </span>
-                )}
-                {(generationStatus?.plan ?? "free") === "standard" && (
-                  <span className="text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                    ✨ スタンダード 残り{generationStatus?.remaining ?? 0}回
-                  </span>
-                )}
-                {(generationStatus?.plan ?? "free") === "light" && (
-                  <span
-                    className={`text-[10px] sm:text-xs font-medium px-2 py-1 rounded-full border ${
-                      (generationStatus?.remaining ?? 0) === 0
-                        ? "bg-destructive/20 text-destructive border-destructive/40"
-                        : "bg-muted text-muted-foreground border-border"
-                    }`}
-                  >
-                    📊 ライト 残り{generationStatus?.remaining ?? 0}回/30回
-                  </span>
-                )}
-                {(generationStatus?.plan ?? "free") === "free" && (
-                  <span className="flex items-center gap-1.5 text-[10px] sm:text-xs font-medium text-zinc-400">
-                    <BarChart3 className="w-3.5 h-3.5 shrink-0" />
-                    今月 残り{generationStatus?.remaining ?? 0}回 / 5回
-                  </span>
-                )}
-              </span>
-
-            {/* アプリ接続ボタン */}
+            <span className="flex items-center gap-1.5">
+              {(generationStatus?.plan ?? "free") === "pro" && (
+                <span className="text-sm font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">✨ プロ（無制限）</span>
+              )}
+              {(generationStatus?.plan ?? "free") === "standard" && (
+                <span className="text-sm font-medium px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">✨ スタンダード 残り{generationStatus?.remaining ?? 0}回</span>
+              )}
+              {(generationStatus?.plan ?? "free") === "light" && (
+                <span className={`text-sm font-medium px-2 py-1 rounded-full border ${(generationStatus?.remaining ?? 0) === 0 ? "bg-destructive/20 text-destructive border-destructive/40" : "bg-muted text-muted-foreground border-border"}`}>
+                  📊 ライト 残り{generationStatus?.remaining ?? 0}回/30回
+                </span>
+              )}
+              {(generationStatus?.plan ?? "free") === "free" && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-400">
+                  <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                  今月 残り{generationStatus?.remaining ?? 0}回 / 5回
+                </span>
+              )}
+            </span>
             {isConfigured && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAppConnectionsOverlay(true)}
-                className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setShowAppConnectionsOverlay(true)} className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5 min-h-[44px]" aria-label="アプリ接続">
                 <Plug className="w-4 h-4" />
-                <span className="hidden sm:inline text-xs">アプリ接続</span>
+                <span className="text-sm">アプリ接続</span>
               </Button>
             )}
-
-            {/* 設定ボタン */}
             {isConfigured && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSettingsOverlay(true)}
-                className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setShowSettingsOverlay(true)} className="text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 gap-1.5 min-h-[44px]" aria-label="設定">
                 <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline text-xs">設定</span>
+                <span className="text-sm">設定</span>
               </Button>
             )}
-
-            {/* アップグレードボタン（free / light / standard のみ表示） */}
             {((generationStatus?.plan ?? "free") === "free" || (generationStatus?.plan ?? "free") === "light" || (generationStatus?.plan ?? "free") === "standard") && (
-              <Button
-                size="sm"
-                onClick={handleUpgrade}
-                className="gap-1.5 rounded-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold px-4 py-1.5 border-0 shadow-lg shadow-emerald-500/20 transition-smooth"
-              >
+              <Button size="sm" onClick={handleUpgrade} className="gap-1.5 rounded-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold px-4 py-2.5 border-0 shadow-lg shadow-emerald-500/20 transition-smooth min-h-[44px]">
                 <Crown className="w-4 h-4" />
-                <span className="text-xs">アップグレード</span>
+                <span className="text-sm">アップグレード</span>
               </Button>
             )}
-
-            {/* ログアウトボタン */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-zinc-500 hover:text-red-400 hover:bg-zinc-800"
-            >
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-zinc-500 hover:text-red-400 hover:bg-zinc-800 min-h-[44px] min-w-[44px]" aria-label="ログアウト">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
+
+          {/* モバイル：ハンバーガーボタン */}
+          <button
+            type="button"
+            onClick={() => setShowHeaderMenu(true)}
+            className="md:hidden flex items-center justify-center text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 min-h-[56px] min-w-[56px] rounded-md shrink-0"
+            aria-label="メニューを開く"
+          >
+            <Menu className="size-10" strokeWidth={2} />
+          </button>
         </div>
       </header>
 
+      {/* モバイル用ハンバーガーメニュー（スライドオーバーレイ） */}
+      {showHeaderMenu && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setShowHeaderMenu(false)} aria-hidden="true" />
+          <div className="fixed top-0 right-0 bottom-0 z-[70] w-[min(320px,85vw)] bg-zinc-900 border-l border-zinc-800 shadow-2xl flex flex-col md:hidden animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-zinc-800 shrink-0 pt-[max(1rem,env(safe-area-inset-top))]">
+              <span className="font-display text-lg font-semibold text-emerald-400">メニュー</span>
+              <button type="button" onClick={() => setShowHeaderMenu(false)} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="閉じる">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {/* プラン表示 */}
+              <div className="px-3 py-2 mb-3 rounded-lg bg-zinc-800/50">
+                {(generationStatus?.plan ?? "free") === "pro" && <p className="text-sm font-medium text-emerald-400">✨ プロ（無制限）</p>}
+                {(generationStatus?.plan ?? "free") === "standard" && <p className="text-sm font-medium text-emerald-400">✨ スタンダード 残り{generationStatus?.remaining ?? 0}回</p>}
+                {(generationStatus?.plan ?? "free") === "light" && <p className={`text-sm font-medium ${(generationStatus?.remaining ?? 0) === 0 ? "text-destructive" : "text-zinc-300"}`}>📊 ライト 残り{generationStatus?.remaining ?? 0}回/30回</p>}
+                {(generationStatus?.plan ?? "free") === "free" && <p className="text-sm font-medium text-zinc-400">今月 残り{generationStatus?.remaining ?? 0}回 / 5回</p>}
+              </div>
+              {user?.email === ADMIN_EMAIL && (
+                <button type="button" onClick={() => { setShowStoreManager(true); setShowHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-zinc-200 hover:bg-zinc-800 transition-colors min-h-[48px]">
+                  <Store className="w-5 h-5 text-amber-500" />
+                  <span>店舗管理</span>
+                </button>
+              )}
+              {user?.email === ADMIN_EMAIL && (
+                <Link href="/admin" onClick={() => setShowHeaderMenu(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-200 hover:bg-zinc-800 transition-colors min-h-[48px]">
+                  <span className="text-lg">🔧</span>
+                  <span>管理画面</span>
+                </Link>
+              )}
+              {isConfigured && (
+                <button type="button" onClick={() => { setShowAppConnectionsOverlay(true); setShowHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-zinc-200 hover:bg-zinc-800 transition-colors min-h-[48px]">
+                  <Plug className="w-5 h-5 text-emerald-500" />
+                  <span>アプリ接続</span>
+                </button>
+              )}
+              {isConfigured && (
+                <button type="button" onClick={() => { setShowSettingsOverlay(true); setShowHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-zinc-200 hover:bg-zinc-800 transition-colors min-h-[48px]">
+                  <Settings className="w-5 h-5 text-emerald-500" />
+                  <span>設定</span>
+                </button>
+              )}
+              {((generationStatus?.plan ?? "free") === "free" || (generationStatus?.plan ?? "free") === "light" || (generationStatus?.plan ?? "free") === "standard") && (
+                <button type="button" onClick={() => { handleUpgrade(); setShowHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-zinc-200 hover:bg-zinc-800 transition-colors min-h-[48px]">
+                  <Crown className="w-5 h-5 text-amber-400" />
+                  <span className="font-medium">アップグレード</span>
+                </button>
+              )}
+              <button type="button" onClick={() => { handleLogout(); setShowHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-400 hover:bg-zinc-800 transition-colors min-h-[48px] mt-2">
+                <LogOut className="w-5 h-5" />
+                <span>ログアウト</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 練習完了祝福オーバーレイ */}
+      {showPracticeCelebration && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="max-w-md w-full rounded-2xl border border-emerald-500/40 bg-zinc-900 p-6 sm:p-8 shadow-2xl shadow-emerald-500/10 animate-in zoom-in-95 duration-300">
+            <p className="text-center text-4xl mb-4">🎉</p>
+            <h2 className="font-display text-2xl font-bold text-white text-center mb-2">生成完了！</h2>
+            <p className="text-center text-zinc-400 text-sm mb-6">
+              Instagram・GoogleMap投稿など複数媒体分ができました。コピーしてそのまま使えます。
+            </p>
+            <Button
+              onClick={() => setShowPracticeCelebration(false)}
+              className="w-full gradient-accent hover:opacity-95 text-zinc-950 font-bold py-6 rounded-xl"
+            >
+              生成テキストを表示し本番モードへ
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ===== メインコンテンツ ===== */}
-      <main className="container mx-auto px-4 py-10 max-w-4xl">
+      <main className="container mx-auto px-4 sm:px-6 py-10 max-w-4xl">
         {!isConfigured ? (
           /* ===== 初期設定ウィザード ===== */
           <InitialSetup
@@ -1007,6 +1085,7 @@ function SEOContentGenerator() {
             isExtractingInfo={isExtractingInfo}
             handleScrapeUrl={handleScrapeUrl}
             handleScrapeUrls={handleScrapeUrls}
+            handleReadAndProceed={handleReadAndProceed}
             handleExtractInfo={handleExtractInfo}
             scrapedPreview={scrapedPreview}
             setScrapedPreview={(v) => setScrapedPreview(v ?? "")}
@@ -1014,6 +1093,7 @@ function SEOContentGenerator() {
             handleSkipWithMinimal={handleSkipWithMinimal}
             onGoToMain={() => setIsConfigured(true)}
             user={user}
+            canGenerateBlog={generationStatus?.canGenerateBlog}
           />
         ) : (
           /* ===== メイン生成UI ===== */
@@ -1025,20 +1105,36 @@ function SEOContentGenerator() {
               </div>
             )}
 
-            {/* 未設定時バナー：設定を促す＋初回ヒント */}
+            {/* 残り1回バナー（無料プラン・使い切る前にスタンダードへ） */}
+            {(generationStatus?.plan ?? "free") === "free" && (generationStatus?.remaining ?? 0) === 1 && !generationStatus?.isPracticeMode && (
+              <div className="mx-4 mb-3 rounded-lg p-4 bg-amber-500/10 border-2 border-amber-500/40">
+                <p className="font-semibold text-amber-200">⚠️ 今月あと1回使えます</p>
+                <p className="mt-1 text-sm text-zinc-300">使い切る前にスタンダードへ</p>
+                <Button
+                  size="sm"
+                  onClick={handleUpgrade}
+                  className="mt-3 gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
+                >
+                  スタンダードプランを見る
+                </Button>
+              </div>
+            )}
+
+            {/* 練習モードバナー */}
+            {generationStatus?.isPracticeMode && (
+              <div className="mx-4 mb-3 rounded-lg p-4 bg-emerald-500/10 border border-emerald-500/30 text-sm text-emerald-200">
+                <p className="font-semibold">🎯 練習モード</p>
+                <p className="mt-1 text-zinc-300">まずは1回、生成を試してみましょう。この1回は無料5回枠にカウントされません。</p>
+              </div>
+            )}
+
+            {/* 未設定時バナー：設定を促す */}
             {shopInfo.name === "未設定の店舗" && (
               <div className="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                      💡 店舗情報を設定するとより精度が上がります
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      まずはこのまま投稿を生成してみてください。
-                      慣れてきたら設定を入力すると
-                      お店らしい投稿が生成されます。
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    💡 店舗情報を設定するとより精度が上がります
+                  </p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1047,18 +1143,6 @@ function SEOContentGenerator() {
                   >
                     設定する
                   </Button>
-                </div>
-                <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
-                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-2">
-                    👆 まずパターンAを試してみてください
-                  </p>
-                  <div className="flex gap-2 text-xs text-amber-600 dark:text-amber-400 flex-wrap">
-                    <span>① パターンAを選ぶ</span>
-                    <span>→</span>
-                    <span>② 施術タグをタップ</span>
-                    <span>→</span>
-                    <span>③ 生成ボタンを押す</span>
-                  </div>
                 </div>
               </div>
             )}
@@ -1088,15 +1172,14 @@ function SEOContentGenerator() {
                     </button>
                   ))}
                 </div>
-                {selectedStoreId ? (
-                  <p className="text-xs text-zinc-500">✅ 選択中: <span className="text-emerald-400 font-medium">{stores.find(s => s.id === selectedStoreId)?.name}</span> の店舗情報を使って生成します</p>
-                ) : (
+                {!selectedStoreId && (
                   <p className="text-xs text-zinc-500">店舗を選択していない場合は、デフォルトの設定（shops テーブル）を使用します</p>
                 )}
               </section>
             )}
 
-            {/* ===== ①目的を決める / ②投稿パターンの選択 ===== */}
+            {/* ===== ①目的を決める / ②投稿パターンの選択（練習モード時は非表示） ===== */}
+            {!generationStatus?.isPracticeMode && (
             <section className="space-y-5">
               {/* ①目的を決める */}
               <div>
@@ -1112,7 +1195,18 @@ function SEOContentGenerator() {
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={() => setSelectedPatternCategory(cat.id)}
+                        onClick={() => {
+                          setSelectedPatternCategory(cat.id);
+                          // 単一パターンのカテゴリー（返信、画像投稿など）の場合は自動選択
+                          if (cat.patternIds.length === 1) {
+                            const singlePatternId = cat.patternIds[0];
+                            handlePatternChange(singlePatternId);
+
+                            if (cat.id === "reply") {
+                              setReplyPlatform("sns");
+                            }
+                          }
+                        }}
                         className={`text-left p-4 rounded-xl border-2 transition-smooth bg-zinc-900 hover:border-emerald-500/60 hover:bg-zinc-800/80 ${isActive ? "ring-2 ring-emerald-500 border-emerald-500 bg-zinc-800" : "border-zinc-700"}`}
                       >
                         <p className="text-base font-bold text-white leading-snug">{cat.label}</p>
@@ -1123,6 +1217,7 @@ function SEOContentGenerator() {
                 </div>
               </div>
               {/* ②投稿パターンの選択 */}
+              {!(selectedPatternCategory === "image" || selectedPatternCategory === "reply") && (
               <div className="mt-12">
                 {(() => {
                   const effectiveCategory = selectedPatternCategory ?? getPatternCategoryId(selectedPattern);
@@ -1172,7 +1267,7 @@ function SEOContentGenerator() {
                               </CardTitle>
                               <p className="text-base font-bold text-white leading-snug">{pattern.title}</p>
                             </CardHeader>
-                            <CardContent className="px-5 pb-5 pt-2 text-sm text-zinc-400 leading-relaxed">{pattern.description}</CardContent>
+                            <CardContent className="px-5 pb-5 pt-2 text-base text-zinc-400 leading-relaxed">{pattern.description}</CardContent>
                           </Card>
                         ))}
                       </div>
@@ -1180,12 +1275,16 @@ function SEOContentGenerator() {
                   );
                 })()}
               </div>
+              )}
             </section>
+            )}
 
-            {/* ===== ③投稿内容を決める ===== */}
+            {/* ===== ③投稿内容を決める（練習モード時はステップ1として表示） ===== */}
             <section className="space-y-5">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">3</span>
+              <div id="input-section-header" className="flex items-center gap-3">
+                {!(selectedPatternCategory === "image" || selectedPatternCategory === "reply") && (
+                  <span className="flex items-center justify-center w-9 h-9 rounded-full gradient-accent text-zinc-950 text-lg font-bold shrink-0">{generationStatus?.isPracticeMode ? "1" : "3"}</span>
+                )}
                 <h2 className="font-display text-2xl font-bold text-white">
                   {selectedPattern === "G" ? "返信する内容の入力" : selectedPattern === "I" ? "画像のアップロード" : "投稿内容を決める"}
                 </h2>
@@ -1194,7 +1293,7 @@ function SEOContentGenerator() {
               {selectedPattern === "G" ? (
                 /* パターンG：コメント返信フォーム */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                  <CardContent className="p-7 space-y-7">
+                  <CardContent className="p-4 sm:p-7 space-y-7">
                     <div className="space-y-3">
                       <Label className="text-base font-semibold text-zinc-100">返信するプラットフォームを選択</Label>
                       <div className="flex gap-3">
@@ -1206,7 +1305,7 @@ function SEOContentGenerator() {
                             key={id}
                             type="button"
                             onClick={() => setReplyPlatform(id as "sns" | "gbp")}
-                            className={`flex-1 py-3 px-4 rounded-xl border text-sm font-semibold transition-all ${replyPlatform === id
+                            className={`flex-1 py-3 px-4 rounded-xl border text-base font-semibold transition-all ${replyPlatform === id
                               ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
                               : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:border-zinc-500"
                               }`}
@@ -1220,7 +1319,7 @@ function SEOContentGenerator() {
                       <Label htmlFor="receivedComment" className="text-base font-semibold text-zinc-100">
                         もらったコメント・クチコミ <span className="text-red-400">*</span>
                       </Label>
-                      <p className="text-sm text-zinc-400">返信したいコメントやクチコミの文章をそのまま貼り付けてください。</p>
+                      <p className="text-base text-zinc-400">返信したいコメントやクチコミの文章をそのまま貼り付けてください。</p>
                       <Textarea
                         id="receivedComment"
                         value={receivedComment}
@@ -1233,7 +1332,7 @@ function SEOContentGenerator() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="replyNote" className="text-base font-semibold text-zinc-100">特記事項・返信に含めたい内容（任意）</Label>
-                      <p className="text-sm text-zinc-400">返信に加えたい補足情報があれば記入してください。</p>
+                      <p className="text-base text-zinc-400">返信に加えたい補足情報があれば記入してください。</p>
                       <Textarea
                         id="replyNote"
                         value={replyNote}
@@ -1247,7 +1346,7 @@ function SEOContentGenerator() {
               ) : selectedPattern === "I" ? (
                 /* パターンI：画像アップロードフォーム */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                  <CardContent className="p-7 space-y-7">
+                  <CardContent className="p-4 sm:p-7 space-y-7">
                     <div className="space-y-2">
                       <Label className="text-base font-semibold text-zinc-100 flex items-center gap-2">
                         <Pencil className="w-4 h-4 text-emerald-500" />
@@ -1313,20 +1412,36 @@ function SEOContentGenerator() {
                         )}
                       </div>
                     </div>
+                    <div className="space-y-3 pt-2">
+                       <div className="flex items-center gap-2">
+                         <Label className="text-base font-semibold text-zinc-100 italic">
+                           画像の内容や、伝えたいこと（任意）
+                         </Label>
+                       </div>
+                       <Textarea
+                         placeholder="例：新しく導入したトリートメントのツヤ感をアピールしたい / 今日のお客様の素敵な笑顔を伝えたい"
+                         value={imageMemo}
+                         onChange={(e) => setImageMemo(e.target.value)}
+                         className="min-h-[100px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500"
+                       />
+                       <p className="text-xs text-zinc-500 pl-1">
+                         ※ 画像でAIが内容を判断しますが、補足情報を入力するとより精度の高い文章になります。
+                       </p>
+                    </div>
                   </CardContent>
                 </Card>
               ) : currentPattern.isTagSelect ? (
                 currentPattern.id === "A" ? (
                 /* パターンA：施術タグ選択＋任意2問 */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                  <CardContent className="p-7 space-y-6">
+                  <CardContent className="p-4 sm:p-7 space-y-6">
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
-                        <Label className="text-base font-semibold text-zinc-100">今日の施術</Label>
+                        <Label className="text-base font-semibold text-zinc-100">{tags.labelTreatment}</Label>
                         <span className="text-xs text-red-500 font-medium">必須</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {TREATMENT_TAGS.map((tag) => (
+                        {tags.TREATMENT_TAGS.map((tag) => (
                           <button
                             key={tag.id}
                             type="button"
@@ -1335,8 +1450,8 @@ function SEOContentGenerator() {
                                 selectedTreatment === tag.id ? null : tag.id
                               )
                             }
-                            className={`
-                              px-4 py-2 rounded-full text-sm font-medium
+                              className={`
+                              px-4 py-3 rounded-full text-sm font-medium
                               border-2 transition-all duration-150 select-none
                               active:scale-95
                               ${selectedTreatment === tag.id
@@ -1349,21 +1464,15 @@ function SEOContentGenerator() {
                           </button>
                         ))}
                       </div>
-                      {selectedTreatment && (
-                        <p className="text-xs text-zinc-400 pl-1">
-                          ✅ {TREATMENT_TAGS.find((t) => t.id === selectedTreatment)?.label}
-                          を選択中
-                        </p>
-                      )}
                     </div>
                     {selectedTreatment && (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">今日のお客様のお悩み</Label>
+                          <Label className="text-base font-semibold text-zinc-100">{tags.labelConcern}</Label>
                           <span className="text-xs text-red-500 font-medium">必須</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {CONCERN_TAGS.map((tag) => (
+                          {tags.CONCERN_TAGS.map((tag) => (
                             <button
                               key={tag.id}
                               type="button"
@@ -1371,7 +1480,7 @@ function SEOContentGenerator() {
                                 setSelectedConcern(selectedConcern === tag.id ? null : tag.id)
                               }
                               className={`
-                                px-4 py-2 rounded-full text-sm font-medium
+                                px-4 py-3 rounded-full text-sm font-medium
                                 border-2 transition-all duration-150 select-none active:scale-95
                                 ${selectedConcern === tag.id
                                   ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
@@ -1383,13 +1492,9 @@ function SEOContentGenerator() {
                             </button>
                           ))}
                         </div>
-                        {selectedConcern && (
-                          <p className="text-xs text-zinc-400 pl-1">
-                            ✅ {CONCERN_TAGS.find((t) => t.id === selectedConcern)?.label} を選択中
-                          </p>
-                        )}
                       </div>
                     )}
+                    {!generationStatus?.isPracticeMode && (
                     <details className="group">
                       <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
                         <span className="border border-emerald-500/40 rounded-full px-4 py-2 text-sm font-medium text-emerald-400 group-open:bg-emerald-500/10 transition-colors">
@@ -1426,19 +1531,20 @@ function SEOContentGenerator() {
                         ))}
                       </div>
                     </details>
+                    )}
                   </CardContent>
                 </Card>
                 ) : currentPattern.id === "B" ? (
                   /* パターンB：教育テーマタグ選択＋一言メモ */
                   <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                    <CardContent className="p-7 space-y-6">
+                    <CardContent className="p-4 sm:p-7 space-y-6">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">教育テーマを選んでください</Label>
+                          <Label className="text-base font-semibold text-zinc-100">{tags.labelEducation}</Label>
                           <span className="text-xs text-red-500 font-medium">必須</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {EDUCATION_TAGS.map((tag) => (
+                          {tags.EDUCATION_TAGS.map((tag) => (
                             <button
                               key={tag.id}
                               type="button"
@@ -1448,7 +1554,7 @@ function SEOContentGenerator() {
                                 )
                               }
                               className={`
-                                px-4 py-2 rounded-full text-sm font-medium
+                                px-4 py-3 rounded-full text-sm font-medium
                                 border-2 transition-all duration-150 select-none
                                 active:scale-95
                                 ${selectedEducation === tag.id
@@ -1461,21 +1567,15 @@ function SEOContentGenerator() {
                             </button>
                           ))}
                         </div>
-                        {selectedEducation && (
-                          <p className="text-xs text-zinc-400 pl-1">
-                            ✅ {EDUCATION_TAGS.find((t) => t.id === selectedEducation)?.label}
-                            を選択中
-                          </p>
-                        )}
                       </div>
                       {selectedEducation && (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <Label className="text-base font-semibold text-zinc-100">今日これを投稿する理由</Label>
+                            <Label className="text-base font-semibold text-zinc-100">{tags.labelEducationReason}</Label>
                             <span className="text-xs text-red-500 font-medium">必須</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {EDUCATION_REASON_TAGS.map((tag) => (
+                            {tags.EDUCATION_REASON_TAGS.map((tag) => (
                               <button
                                 key={tag.id}
                                 type="button"
@@ -1483,7 +1583,7 @@ function SEOContentGenerator() {
                                   setSelectedEducationReason(selectedEducationReason === tag.id ? null : tag.id)
                                 }
                                 className={`
-                                  px-4 py-2 rounded-full text-sm font-medium
+                                  px-4 py-3 rounded-full text-sm font-medium
                                   border-2 transition-all duration-150 select-none active:scale-95
                                   ${selectedEducationReason === tag.id
                                     ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
@@ -1495,11 +1595,6 @@ function SEOContentGenerator() {
                               </button>
                             ))}
                           </div>
-                          {selectedEducationReason && (
-                            <p className="text-xs text-zinc-400 pl-1">
-                              ✅ {EDUCATION_REASON_TAGS.find((t) => t.id === selectedEducationReason)?.label} を選択中
-                            </p>
-                          )}
                         </div>
                       )}
                       <details className="group">
@@ -1522,15 +1617,15 @@ function SEOContentGenerator() {
                 ) : currentPattern.id === "C" ? (
                   /* パターンC：お知らせ種類＋緊急度＋一言メモ */
                   <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                    <CardContent className="p-7 space-y-6">
+                    <CardContent className="p-4 sm:p-7 space-y-6">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Label className="text-base font-semibold text-zinc-100">お知らせの種類</Label>
                           <span className="text-xs text-red-500 font-medium">必須①</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {NOTICE_TYPE_TAGS.map((tag) => (
-                            <button key={tag.id} type="button" onClick={() => setSelectedNoticeType(selectedNoticeType === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedNoticeType === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                          {tags.NOTICE_TYPE_TAGS.map((tag) => (
+                            <button key={tag.id} type="button" onClick={() => setSelectedNoticeType(selectedNoticeType === tag.id ? null : tag.id)} className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedNoticeType === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
                               {tag.emoji} {tag.label}
                             </button>
                           ))}
@@ -1543,8 +1638,8 @@ function SEOContentGenerator() {
                             <span className="text-xs text-red-500 font-medium">必須②</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {URGENCY_TAGS.map((tag) => (
-                              <button key={tag.id} type="button" onClick={() => setSelectedUrgency(selectedUrgency === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedUrgency === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                            {tags.URGENCY_TAGS.map((tag) => (
+                              <button key={tag.id} type="button" onClick={() => setSelectedUrgency(selectedUrgency === tag.id ? null : tag.id)} className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedUrgency === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
                                 {tag.emoji} {tag.label}
                               </button>
                             ))}
@@ -1576,14 +1671,14 @@ function SEOContentGenerator() {
                 ) : currentPattern.id === "D" ? (
                   /* パターンD：2段階選択（厳選10個）＋お客様の声 */
                   <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                    <CardContent className="p-7 space-y-6">
+                    <CardContent className="p-4 sm:p-7 space-y-6">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Label className="text-base font-semibold text-zinc-100">カテゴリを選んでください</Label>
                           <span className="text-xs text-red-500 font-medium">必須①</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {VOICE_CATEGORIES.map((cat) => (
+                          {tags.VOICE_CATEGORIES.map((cat) => (
                             <button
                               key={cat.id}
                               type="button"
@@ -1591,13 +1686,12 @@ function SEOContentGenerator() {
                                 setSelectedVoiceCategory(selectedVoiceCategory === cat.id ? null : cat.id);
                                 setSelectedVoiceOption(null);
                               }}
-                              className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedVoiceCategory === cat.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
+                              className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedVoiceCategory === cat.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
                             >
                               {cat.emoji} {cat.label}
                             </button>
                           ))}
                         </div>
-                        {selectedVoiceCategory && <p className="text-xs text-zinc-400 pl-1">✅ {VOICE_CATEGORIES.find((c) => c.id === selectedVoiceCategory)?.label} を選択中</p>}
                       </div>
                       {selectedVoiceCategory && (
                         <div className="space-y-3">
@@ -1606,18 +1700,17 @@ function SEOContentGenerator() {
                             <span className="text-xs text-red-500 font-medium">必須②</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {VOICE_OPTION_TAGS.filter((t) => t.categoryId === selectedVoiceCategory).map((tag) => (
+                            {tags.VOICE_OPTION_TAGS.filter((t) => (t as any).categoryId === selectedVoiceCategory).map((tag) => (
                               <button
                                 key={tag.id}
                                 type="button"
                                 onClick={() => setSelectedVoiceOption(selectedVoiceOption === tag.id ? null : tag.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedVoiceOption === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
+                                className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedVoiceOption === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
                               >
                                 {tag.emoji} {tag.label}
                               </button>
                             ))}
                           </div>
-                          {selectedVoiceOption && <p className="text-xs text-zinc-400 pl-1">✅ {VOICE_OPTION_TAGS.find((t) => t.id === selectedVoiceOption)?.label} を選択中</p>}
                         </div>
                       )}
                       {selectedVoiceOption && (
@@ -1640,27 +1733,24 @@ function SEOContentGenerator() {
                 ) : currentPattern.id === "E" ? (
                   /* パターンE：伝えたいことタグ＋一言メモ（必須） */
                   <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                    <CardContent className="p-7 space-y-6">
+                    <CardContent className="p-4 sm:p-7 space-y-6">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">今日伝えたいことを選んでください</Label>
+                          <Label className="text-base font-semibold text-zinc-100">伝えたいことを選んでください</Label>
                           <span className="text-xs text-red-500 font-medium">必須①</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {STAFF_MESSAGE_TAGS.map((tag) => (
+                          {tags.STAFF_MESSAGE_TAGS.map((tag) => (
                             <button
                               key={tag.id}
                               type="button"
                               onClick={() => setSelectedMessage(selectedMessage === tag.id ? null : tag.id)}
-                              className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
+                              className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}
                             >
                               {tag.emoji} {tag.label}
                             </button>
                           ))}
                         </div>
-                        {selectedMessage && (
-                          <p className="text-xs text-zinc-400 pl-1">✅ {STAFF_MESSAGE_TAGS.find((t) => t.id === selectedMessage)?.label} を選択中</p>
-                        )}
                       </div>
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
@@ -1674,20 +1764,19 @@ function SEOContentGenerator() {
                 ) : currentPattern.id === "H" ? (
                   /* パターンH：場面タグ＋伝えたいことタグ＋一言メモ */
                   <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                    <CardContent className="p-7 space-y-6">
+                    <CardContent className="p-4 sm:p-7 space-y-6">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">今日の場面を選んでください</Label>
+                          <Label className="text-base font-semibold text-zinc-100">{tags.labelScene}</Label>
                           <span className="text-xs text-red-500 font-medium">必須①</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {SALON_SCENE_TAGS.map((tag) => (
-                            <button key={tag.id} type="button" onClick={() => setSelectedScene(selectedScene === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedScene === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                          {tags.SALON_SCENE_TAGS.map((tag) => (
+                            <button key={tag.id} type="button" onClick={() => setSelectedScene(selectedScene === tag.id ? null : tag.id)} className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedScene === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
                               {tag.emoji} {tag.label}
                             </button>
                           ))}
                         </div>
-                        {selectedScene && <p className="text-xs text-zinc-400 pl-1">✅ {SALON_SCENE_TAGS.find((t) => t.id === selectedScene)?.label} を選択中</p>}
                       </div>
                       {selectedScene && (
                         <div className="space-y-3">
@@ -1696,13 +1785,12 @@ function SEOContentGenerator() {
                             <span className="text-xs text-red-500 font-medium">必須②</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {SCENE_MESSAGE_TAGS.map((tag) => (
-                              <button key={tag.id} type="button" onClick={() => setSelectedSceneMessage(selectedSceneMessage === tag.id ? null : tag.id)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedSceneMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
+                            {tags.SCENE_MESSAGE_TAGS.map((tag) => (
+                              <button key={tag.id} type="button" onClick={() => setSelectedSceneMessage(selectedSceneMessage === tag.id ? null : tag.id)} className={`px-4 py-3 rounded-full text-sm font-medium border-2 transition-all duration-150 select-none active:scale-95 ${selectedSceneMessage === tag.id ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105" : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"}`}>
                                 {tag.emoji} {tag.label}
                               </button>
                             ))}
                           </div>
-                          {selectedSceneMessage && <p className="text-xs text-zinc-400 pl-1">✅ {SCENE_MESSAGE_TAGS.find((t) => t.id === selectedSceneMessage)?.label} を選択中</p>}
                         </div>
                       )}
                       {selectedSceneMessage && (
@@ -1712,7 +1800,7 @@ function SEOContentGenerator() {
                             <span className="ml-2 text-xs text-zinc-500 font-normal">（任意・選ぶだけでOK）</span>
                           </Label>
                           <div className="flex flex-wrap gap-2">
-                            {MESSAGE_TONE_TAGS.map((tag) => (
+                            {tags.MESSAGE_TONE_TAGS.map((tag) => (
                               <button
                                 key={tag.id}
                                 type="button"
@@ -1732,11 +1820,6 @@ function SEOContentGenerator() {
                               </button>
                             ))}
                           </div>
-                          {selectedMessageTone && (
-                            <p className="text-xs text-zinc-400 pl-1">
-                              ✅ {MESSAGE_TONE_TAGS.find((t) => t.id === selectedMessageTone)?.label} を選択中
-                            </p>
-                          )}
                         </div>
                       )}
                       <details className="group">
@@ -1750,64 +1833,10 @@ function SEOContentGenerator() {
                     </CardContent>
                   </Card>
                 ) : null
-              ) : currentPattern.isAuto ? (
-                /* パターンFのとき：入力フォームの代わりに季節情報カードを表示 */
-                (() => {
-                  const seasonal = getSeasonalContext();
-                  return (
-                    <>
-                      <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth p-6 space-y-4">
-                        <div className="text-center space-y-2">
-                          <div className="text-5xl">{seasonal.emoji}</div>
-                          <p className="text-sm font-medium text-zinc-100">
-                            入力不要です。そのまま生成ボタンを押してください。
-                          </p>
-                        </div>
-                        <div className="bg-zinc-950/50 rounded-lg p-4 space-y-2 text-xs text-zinc-400">
-                          {getSeasonalContext().text.split("\n").map((line, i) => (
-                            <p key={i}>{line}</p>
-                          ))}
-                        </div>
-                      </Card>
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium text-zinc-300">
-                          今日の切り口を選ぶ
-                          <span className="ml-2 text-xs text-zinc-500 font-normal">（任意・選ぶだけでOK）</span>
-                        </Label>
-                        <div className="flex flex-wrap gap-2">
-                          {TODAYS_FOCUS_TAGS.map((tag) => (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedFocus(selectedFocus === tag.id ? null : tag.id)
-                              }
-                              className={`
-                                px-4 py-2 rounded-full text-sm font-medium
-                                border-2 transition-all duration-150 select-none active:scale-95
-                                ${selectedFocus === tag.id
-                                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
-                                  : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
-                                }
-                              `}
-                            >
-                              {tag.emoji} {tag.label}
-                            </button>
-                          ))}
-                        </div>
-                        {selectedFocus && (
-                          <p className="text-xs text-zinc-400 pl-1">
-                            ✅ {TODAYS_FOCUS_TAGS.find((t) => t.id === selectedFocus)?.label} を選択中
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()
               ) : (
                 /* パターンC〜D：3問フォーム */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
-                  <CardContent className="p-7 space-y-7">
+                  <CardContent className="p-4 sm:p-7 space-y-7">
                     {(["q1", "q2", "q3"] as const).map((qKey) => (
                       <div key={qKey} className="space-y-2">
                         <Label htmlFor={qKey} className="text-base font-semibold text-zinc-100">{currentPattern.questions[qKey]}</Label>
@@ -1825,93 +1854,63 @@ function SEOContentGenerator() {
               )}
             </section>
 
-            {/* 入力完了ヒント */}
-            {canGenerate ? (
-                <p className="text-center text-base text-emerald-400 flex items-center justify-center gap-2 font-medium">
-                  <Check className="w-5 h-5" />
-                  入力完了 — 生成できます
-                </p>
-              ) : (
-                <p className="text-center text-base text-zinc-400">
-                  {selectedPattern === "G" ? "コメントを入力すると生成できます" : currentPattern.isTagSelect ? (currentPattern.id === "A" ? "施術タグとお悩みを選ぶと生成できます" : currentPattern.id === "B" ? "教育テーマと理由を選ぶと生成できます" : currentPattern.id === "C" ? "お知らせの種類と緊急度を選ぶと生成できます" : currentPattern.id === "D" ? "内容とお客様の一言を入力すると生成できます" : currentPattern.id === "E" ? "伝えたいことと一言メモを入力すると生成できます" : currentPattern.id === "H" ? "場面と伝えたいことを選ぶと生成できます" : "タグを選ぶと生成できます") : "3つの質問に答えると生成できます"}
-                </p>
+            {/* 生成前エリア：出力先・オプション・ボタンを1カードにまとめる */}
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5 space-y-4">
+              {/* 出力先＋設定リンク（練習モード時は非表示） */}
+              {!generationStatus?.isPracticeMode && (
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-zinc-400">
+                <span>出力先:</span>
+                <span>{[activeShopInfo.outputTargets?.instagram !== false && "Instagram", activeShopInfo.outputTargets?.gbp !== false && "GoogleMap投稿", activeShopInfo.outputTargets?.portal !== false && generationStatus?.canGenerateBlog && "ブログ", activeShopInfo.outputTargets?.line !== false && "LINE", activeShopInfo.outputTargets?.short && "ショート動画"].filter(Boolean).join("、")}</span>
+                <button type="button" onClick={() => setShowSettingsOverlay(true)} className="gradient-accent-text hover:opacity-90 underline underline-offset-2 font-medium" aria-label="設定で変更">
+                  設定で変更
+                </button>
+              </div>
               )}
 
-            {/* 出力先の説明（設定で変更可能であることを明示） */}
-            <div className="flex flex-wrap items-center justify-center gap-2 py-2 text-sm text-zinc-400">
-              <span>出力先:</span>
-              {[
-                activeShopInfo.outputTargets?.instagram !== false && "Instagram",
-                activeShopInfo.outputTargets?.gbp !== false && "GoogleMap投稿",
-                activeShopInfo.outputTargets?.portal !== false && "ブログ",
-                activeShopInfo.outputTargets?.line !== false && "LINE",
-                activeShopInfo.outputTargets?.short && "ショート動画",
-              ].filter(Boolean).join("、")}
-              <button
-                type="button"
-                onClick={() => setShowSettingsOverlay(true)}
-                className="gradient-accent-text hover:opacity-90 underline underline-offset-2 font-medium"
-              >
-                設定で変更
-              </button>
-            </div>
-
-            {/* ===== 生成進捗バー（高さをトランジションで詰めてレイアウトの上下ブレを防ぐ） ===== */}
-            <div
-              className={`w-full max-w-md mx-auto overflow-hidden transition-all duration-300 ease-out ${
-                generationProgress > 0 || isGenerating ? "max-h-16 opacity-100 pt-1" : "max-h-0 opacity-0 pt-0"
-              }`}
-            >
-              <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all duration-300 ease-out"
-                  style={{ width: `${generationProgress}%` }}
-                />
+              {/* 生成進捗バー */}
+              <div className={`w-full overflow-hidden transition-all duration-300 ease-out ${generationProgress > 0 || isGenerating ? "max-h-12 opacity-100" : "max-h-0 opacity-0"}`}>
+                <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+                  <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${generationProgress}%` }} />
+                </div>
+                <p className="text-center text-xs text-zinc-500 mt-1">生成中… {generationProgress}%</p>
               </div>
-              <p className="text-center text-xs text-zinc-500 mt-1.5">生成中… {generationProgress}%</p>
-            </div>
 
-            {/* LINE用：季節の挨拶オプション（LINE出力時のみ表示） */}
-            {activeShopInfo.outputTargets?.line !== false && (
-              <label className="flex items-center justify-center gap-2 py-2 cursor-pointer select-none group">
-                <input
-                  type="checkbox"
-                  checked={lineIncludeSeasonalGreeting}
-                  onChange={(e) => setLineIncludeSeasonalGreeting(e.target.checked)}
-                  className="w-4 h-4 rounded accent-emerald-500"
-                />
-                <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">
-                  季節の挨拶を含める（例：3月も半ば、いかがお過ごしですか？）
-                </span>
-              </label>
-            )}
+              {/* LINE用：季節の挨拶オプション（練習モード時は非表示） */}
+              {!generationStatus?.isPracticeMode && activeShopInfo.outputTargets?.line !== false && (
+                <label className="flex items-center justify-center gap-2 cursor-pointer select-none group">
+                  <input type="checkbox" checked={lineIncludeSeasonalGreeting} onChange={(e) => setLineIncludeSeasonalGreeting(e.target.checked)} className="w-5 h-5 rounded accent-emerald-500" />
+                  <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">季節の挨拶を含める（例：3月も半ば、いかがお過ごしですか？）</span>
+                </label>
+              )}
 
-            {/* ===== 生成ボタン ===== */}
-            <div className="flex flex-col items-center gap-3 pt-2">
+              {/* 生成ボタン */}
+              <div className="flex flex-col items-center gap-3 pt-1">
               <Button
                 onClick={() => {
+                  if (!generationStatus?.isPracticeMode && generationStatus != null && generationStatus?.allowed === false) {
+                    setShowLimitExceededModal(true);
+                    return;
+                  }
                   setInstagramPostImage(null);
-                  handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone);
+                  handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone, imageMemo);
                 }}
-                disabled={isGenerating || !canGenerate || generationStatus?.allowed === false}
-                className="gradient-accent hover:opacity-95 text-zinc-950 font-bold text-lg h-14 px-12 min-w-[300px] rounded-full glow-accent transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[56px]"
+                disabled={isGenerating || !canGenerate}
+                title={
+                  !generationStatus?.isPracticeMode && generationStatus != null && generationStatus?.allowed === false
+                    ? "タップでアップグレード案内を表示"
+                    : !canGenerate
+                      ? "入力内容を確認してください"
+                      : undefined
+                }
+                className="gradient-accent hover:opacity-95 text-zinc-950 font-bold text-xl h-16 px-16 min-w-0 w-full max-w-[340px] sm:max-w-[380px] rounded-full glow-accent transition-smooth active:scale-[0.98] group flex items-center justify-center gap-3 min-h-[64px] shadow-lg shadow-emerald-500/20"
               >
                 {isGenerating ? (
-                  <><Loader2 className="h-5 w-5 animate-spin text-zinc-950" /><span>AIがテキストを生成中...</span></>
+                  <><Loader2 className="h-6 w-6 animate-spin text-zinc-950" /><span>AIがテキストを生成中...</span></>
                 ) : (
-                  <><span>この内容で生成する</span><ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" /></>
+                  <><span>この内容で生成する</span><ChevronRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" /></>
                 )}
               </Button>
-              {generatedResults && (
-                <button
-                  type="button"
-                  onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  className="flex items-center gap-2 text-sm text-emerald-500 hover:text-emerald-400 transition-colors"
-                >
-                  <ArrowDown className="w-4 h-4" />
-                  結果へジャンプ
-                </button>
-              )}
+            </div>
             </div>
 
             {/* ===== STEP 3: 生成結果 ===== */}
@@ -1935,24 +1934,27 @@ function SEOContentGenerator() {
                   selectedPattern === "G" ? "reply" :
                     activeShopInfo.outputTargets?.instagram ? "instagram" :
                       activeShopInfo.outputTargets?.gbp ? "gbp" :
-                        activeShopInfo.outputTargets?.portal ? "portal" :
+                        activeShopInfo.outputTargets?.portal && generationStatus?.canGenerateBlog ? "portal" :
                           activeShopInfo.outputTargets?.short ? "short" : "line"
                 } className="w-full">
-                  <TabsList className="flex w-full bg-zinc-900/80 border border-zinc-800 p-1.5 overflow-x-auto scrollbar-none rounded-xl transition-smooth gap-1">
+                  <div className="relative">
+                    <TabsList className="flex w-full bg-zinc-900/80 border border-zinc-800 p-1.5 overflow-x-auto scrollbar-none rounded-xl transition-smooth gap-1">
                     {selectedPattern === "G" ? (
-                      <TabsTrigger value="reply" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">
+                      <TabsTrigger value="reply" className="flex-1 min-w-fit min-h-[44px] py-2 text-base font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">
                         {replyPlatform === "gbp" ? "🗺️ GoogleMap返信" : "📱 SNS返信"}
                       </TabsTrigger>
                     ) : (
                       <>
-                        {activeShopInfo.outputTargets?.instagram !== false && <TabsTrigger value="instagram" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">📸 Instagram</span><span className="sm:hidden">📸 IG</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.gbp !== false && <TabsTrigger value="gbp" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">🗺️ GoogleMap投稿</span><span className="sm:hidden">🗺️ Map</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.portal !== false && <TabsTrigger value="portal" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">📝 ブログ</span><span className="sm:hidden">📝 ブログ</span></TabsTrigger>}
-                        {activeShopInfo.outputTargets?.line !== false && <TabsTrigger value="line" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">💬 LINE</TabsTrigger>}
-                        {activeShopInfo.outputTargets?.short && <TabsTrigger value="short" className="flex-1 min-w-fit min-h-[44px] py-2 text-sm font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">🎬 ショート</TabsTrigger>}
+                        {activeShopInfo.outputTargets?.instagram !== false && <TabsTrigger value="instagram" className="flex-1 min-w-fit min-h-[44px] py-2 text-base font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">📸 Instagram</span><span className="sm:hidden">📸 IG</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.gbp !== false && <TabsTrigger value="gbp" className="flex-1 min-w-fit min-h-[44px] py-2 text-base font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">🗺️ GoogleMap投稿</span><span className="sm:hidden">🗺️ Map</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.portal !== false && generationStatus?.canGenerateBlog && <TabsTrigger value="portal" className="flex-1 min-w-fit min-h-[44px] py-2 text-base font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap"><span className="hidden sm:inline">📝 ブログ</span><span className="sm:hidden">📝 ブログ</span></TabsTrigger>}
+                        {activeShopInfo.outputTargets?.line !== false && <TabsTrigger value="line" className="flex-1 min-w-fit min-h-[44px] py-2 text-base font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">💬 LINE</TabsTrigger>}
+                        {activeShopInfo.outputTargets?.short && <TabsTrigger value="short" className="flex-1 min-w-fit min-h-[44px] py-2 text-base font-medium text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-emerald-400 data-[state=active]:ring-1 data-[state=active]:ring-emerald-500/30 whitespace-nowrap">🎬 ショート</TabsTrigger>}
                       </>
                     )}
                   </TabsList>
+                    <span className="sm:hidden absolute right-0 top-1/2 -translate-y-1/2 w-6 h-8 bg-gradient-to-l from-zinc-900/90 to-transparent pointer-events-none flex items-center justify-end pr-1 text-zinc-500 text-xs" aria-hidden="true">→</span>
+                  </div>
 
                   {selectedPattern === "G" ? (
                     /* パターンG 返信テキスト */
@@ -1960,7 +1962,7 @@ function SEOContentGenerator() {
                       <TabsContent value="reply">
                         <Card className="border-zinc-800 bg-zinc-900/80 card-elevated transition-smooth">
                           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
-                            <span className="text-sm font-medium text-zinc-400">返信テキスト</span>
+                            <span className="text-base font-medium text-zinc-400">返信テキスト</span>
                             <Button variant="secondary" size="sm" className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9" onClick={() => handleCopy(generatedResults.reply as string, "reply")}>
                               {copiedTab === "reply" ? <><Check className="w-4 h-4 mr-2 text-green-500" /> コピー完了</> : <><Copy className="w-4 h-4 mr-2" /> コピー</>}
                             </Button>
@@ -1970,7 +1972,7 @@ function SEOContentGenerator() {
                               <p className="text-xs text-zinc-400 mb-2 font-semibold uppercase tracking-wider">📨 受信したコメント</p>
                               <p className="text-base text-zinc-300 whitespace-pre-wrap leading-relaxed">{receivedComment}</p>
                             </div>
-                            <p className="text-sm text-emerald-500 font-semibold mb-3">✍️ 生成された返信文</p>
+                            <p className="text-base text-emerald-500 font-semibold mb-3">✍️ 生成された返信文</p>
                             <div className="whitespace-pre-wrap text-zinc-100 text-base font-medium leading-relaxed">{generatedResults.reply}</div>
                           </CardContent>
                         </Card>
@@ -1981,7 +1983,7 @@ function SEOContentGenerator() {
                     [
                       { id: "instagram", data: generatedResults.instagram, active: activeShopInfo.outputTargets?.instagram !== false },
                       { id: "gbp", data: generatedResults.gbp, active: activeShopInfo.outputTargets?.gbp !== false },
-                      { id: "portal", data: generatedResults.portal, active: activeShopInfo.outputTargets?.portal !== false },
+                      { id: "portal", data: generatedResults.portal, active: activeShopInfo.outputTargets?.portal !== false && !!generationStatus?.canGenerateBlog },
                       { id: "line", data: generatedResults.line, active: activeShopInfo.outputTargets?.line !== false },
                       { id: "short", data: generatedResults.shortScript, active: !!activeShopInfo.outputTargets?.short },
                     ].filter(t => t.active && t.data).map((tab) => (
@@ -1989,7 +1991,7 @@ function SEOContentGenerator() {
                         <Card className="border-zinc-800 bg-zinc-900/80 card-elevated transition-smooth">
                           {/* カードヘッダー：ボタンバー */}
                           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 flex-wrap gap-2">
-                            <span className="text-sm font-medium text-zinc-400">
+                            <span className="text-base font-medium text-zinc-400">
                               {tab.id === "instagram" ? "Instagram用テキスト" : tab.id === "gbp" ? "GoogleMap投稿用テキスト" : tab.id === "portal" ? "ブログ用テキスト" : tab.id === "line" ? "LINE用テキスト" : "ショート動画台本"}
                             </span>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -2061,7 +2063,7 @@ function SEOContentGenerator() {
                                               reader.readAsDataURL(file);
                                             }}
                                           />
-                                          <span className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 h-9">
+                                          <span className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-base font-medium text-emerald-400 hover:bg-emerald-500/20 h-9">
                                             画像を選択
                                           </span>
                                         </label>
@@ -2113,7 +2115,7 @@ function SEOContentGenerator() {
                                               reader.readAsDataURL(file);
                                             }}
                                           />
-                                          <span className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 h-9">
+                                          <span className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-base font-medium text-emerald-400 hover:bg-emerald-500/20 h-9">
                                             画像を選択
                                           </span>
                                         </label>
@@ -2273,7 +2275,7 @@ function SEOContentGenerator() {
                                     </ul>
                                   </div>
                                   <div>
-                                    <p className="text-xs font-semibold text-emerald-500 mb-1">👉 CTA（最後の誘導）</p>
+                                    <p className="text-xs font-semibold text-emerald-500 mb-1">👉 最後の誘導文</p>
                                     <textarea
                                       className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-100 resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
                                       value={parsed.cta}
@@ -2287,7 +2289,7 @@ function SEOContentGenerator() {
                               );
                             })() : editingTab === tab.id ? (
                               <textarea
-                                className="w-full min-h-[240px] bg-zinc-950 border border-emerald-500/30 rounded-lg p-4 text-zinc-300 text-sm font-medium leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                                className="w-full min-h-[240px] bg-zinc-950 border border-emerald-500/30 rounded-lg p-4 text-zinc-300 text-base font-medium leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all"
                                 value={tab.data as string}
                                 onChange={(e) => setGeneratedResults(prev => prev ? { ...prev, [tab.id]: e.target.value } : prev)}
                                 spellCheck={false}
@@ -2301,13 +2303,13 @@ function SEOContentGenerator() {
                         </Card>
                         {/* 改善して再生成 */}
                         <div className="mt-4 p-4 rounded-xl border border-zinc-800 bg-zinc-900/50">
-                          <p className="text-sm font-semibold text-zinc-200 mb-3">改善して再生成</p>
-                          <p className="text-sm text-zinc-400 mb-3">指示を1つ選んでからボタンを押すと、このタブの文章だけを改善して再生成します。</p>
+                          <p className="text-base font-semibold text-zinc-200 mb-3">改善して再生成</p>
+                          <p className="text-base text-zinc-400 mb-3">指示を1つ選んでからボタンを押すと、このタブの文章だけを改善して再生成します。</p>
                           <div className="flex flex-wrap gap-2 mb-4">
                             {REFINE_OPTIONS.map((opt) => (
                               <label
                                 key={opt.id}
-                                className={`flex items-center gap-2 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border transition-colors ${(refineInstruction[tab.id] ?? null) === opt.id ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300" : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-600"}`}
+                                className={`flex items-center gap-2 text-base cursor-pointer select-none px-3 py-2 rounded-lg border transition-colors ${(refineInstruction[tab.id] ?? null) === opt.id ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300" : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-600"}`}
                               >
                                 <input
                                   type="radio"
@@ -2325,7 +2327,8 @@ function SEOContentGenerator() {
                             size="sm"
                             variant="secondary"
                             className="gradient-accent hover:opacity-95 text-zinc-950 border-transparent"
-                            disabled={isRefining}
+                            disabled={isRefining || !(refineInstruction[tab.id] ?? null)}
+                            title={!(refineInstruction[tab.id] ?? null) ? "改善指示を1つ選んでから押してください" : undefined}
                             onClick={() => {
                               const currentText = typeof tab.data === "string" ? tab.data : JSON.stringify(tab.data);
                               const extra = tab.id === "portal" && generatedResults.portalTitle ? { portalTitle: generatedResults.portalTitle } : undefined;
@@ -2364,7 +2367,7 @@ function SEOContentGenerator() {
                           key={key}
                           type="button"
                           onClick={() => setHistoryFilter(key)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-smooth min-h-[36px] ${historyFilter === key ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500"}`}
+                          className={`px-3 py-1.5 rounded-lg text-base font-medium transition-smooth min-h-[36px] ${historyFilter === key ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500"}`}
                         >
                           {key === "all" ? "すべて" : key === "today" ? "今日" : "今週"}
                         </button>
@@ -2422,7 +2425,7 @@ function SEOContentGenerator() {
                                     </button>
                                   </div>
                                 </div>
-                                <p className="text-sm font-medium text-zinc-200 mb-1.5">{entry.pattern_title}</p>
+                                <p className="text-base font-medium text-zinc-200 mb-1.5">{entry.pattern_title}</p>
                                 {previewText && (
                                   <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-3">
                                     {previewText.replace(/<[^>]+>/g, "").slice(0, 80)}...

@@ -121,6 +121,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    font-size: 18px; /* ベースを16px→18pxに拡大（全体の可読性向上） */
+  }
+  html.large-text {
+    font-size: 22px; /* 文字サイズ拡大モード（高齢者向け） */
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -131,23 +137,22 @@
   font-family: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, sans-serif;
 }
 
-/* アクセントグラデーション・グロー（水色→緑→黄緑） */
+/* アクセントグラデーション（シアン→ライムグリーン・彩度控えめ） */
 .gradient-accent {
-  background: linear-gradient(90deg, #22d3ee 0%, #34d399 50%, #a3e635 100%);
-  background-size: 200% 200%;
+  background: linear-gradient(90deg, #67b8c7 0%, #5cb88a 50%, #9bc96d 100%);
 }
 .gradient-accent-subtle {
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.12) 0%, rgba(52, 211, 153, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(103, 184, 199, 0.12) 0%, rgba(155, 201, 109, 0.08) 100%);
 }
 .gradient-accent-text {
-  background: linear-gradient(90deg, #22d3ee 0%, #34d399 50%, #a3e635 100%);
+  background: linear-gradient(90deg, #67b8c7 0%, #5cb88a 50%, #9bc96d 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 .glow-amber,
 .glow-accent {
-  box-shadow: 0 0 24px -4px rgba(52, 211, 153, 0.3), 0 0 8px -2px rgba(34, 211, 238, 0.2);
+  box-shadow: 0 0 24px -4px rgba(92, 184, 138, 0.25), 0 0 8px -2px rgba(103, 184, 199, 0.15);
 }
 .glow-amber-sm {
   box-shadow: 0 0 12px -2px rgba(52, 211, 153, 0.25);

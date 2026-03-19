@@ -17,7 +17,9 @@ export const PLANS = {
         name: "無料プラン",
         price: 0,
         limit: 5,
+        dailyLimit: 5,
         canPost: false, // 投稿は standard / pro のみ
+        canGenerateBlog: false, // ブログ生成は pro のみ
         description: "月5回まで投稿生成可能",
     },
     light: {
@@ -25,7 +27,9 @@ export const PLANS = {
         name: "ライトプラン",
         price: 980,
         limit: 30,
+        dailyLimit: 5,
         canPost: false,
+        canGenerateBlog: false,
         description: "月30回まで生成、投稿不可",
         stripePriceId: process.env.STRIPE_PRICE_ID_LIGHT!,
     },
@@ -34,8 +38,10 @@ export const PLANS = {
         name: "スタンダードプラン",
         price: 2480,
         limit: 100,
+        dailyLimit: 5,
         canPost: true,
-        description: "月100回まで生成、投稿可",
+        canGenerateBlog: false,
+        description: "1日5回・月100回まで生成、投稿可",
         stripePriceId: process.env.STRIPE_PRICE_ID_STANDARD || process.env.STRIPE_PRICE_ID!,
     },
     pro: {
@@ -43,8 +49,10 @@ export const PLANS = {
         name: "プロプラン",
         price: 3980,
         limit: null,
+        dailyLimit: 5, // 1日5回はAPIコスト抑止のため全プラン共通
         canPost: true,
-        description: "生成無制限、投稿可",
+        canGenerateBlog: true,
+        description: "生成無制限、投稿可、ブログ生成可",
         stripePriceId: process.env.STRIPE_PRICE_ID_PRO!,
     },
 } as const;

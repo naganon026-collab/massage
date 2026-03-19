@@ -25,6 +25,7 @@ interface StoreManagerOverlayProps {
     setStoreScrapeUrl: (url: string) => void;
     handleScrapeUrlForStore: () => void;
     isScrapingStore: boolean;
+    canGenerateBlog?: boolean;
 }
 
 export function StoreManagerOverlay({
@@ -46,12 +47,13 @@ export function StoreManagerOverlay({
     setStoreScrapeUrl,
     handleScrapeUrlForStore,
     isScrapingStore,
+    canGenerateBlog = true,
 }: StoreManagerOverlayProps) {
     if (!showStoreManager) return null;
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm px-4 pt-16 md:pt-20"
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm px-4 pt-16 md:pt-20 pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom)))]"
             onClick={(e) => { if (e.target === e.currentTarget) { setShowStoreManager(false); setShowStoreForm(false); } }}
         >
             <div className="w-full max-w-3xl rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl card-elevated max-h-[85vh] overflow-hidden flex flex-col">
@@ -69,7 +71,8 @@ export function StoreManagerOverlay({
                     <button
                         type="button"
                         onClick={() => { setShowStoreManager(false); setShowStoreForm(false); setEditingStoreId(null); setStoreScrapeUrl(""); }}
-                        className="text-zinc-500 hover:text-zinc-200 text-sm"
+                        className="text-zinc-500 hover:text-zinc-200 text-sm min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-zinc-800"
+                        aria-label="閉じる"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -111,7 +114,7 @@ export function StoreManagerOverlay({
                                         value={storeFormData.scrapedContent || ""}
                                         onChange={(e) => setStoreFormData({ ...storeFormData, scrapedContent: e.target.value })}
                                         placeholder="URLから取得するか、手動で貼り付けてください。投稿生成時にAIが参照します。"
-                                        className="min-h-[140px] max-h-[160px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
+                                        className="min-h-[140px] max-h-[160px] w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-base text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y overflow-y-auto"
                                     />
                                 </div>
                             </div>
@@ -176,25 +179,30 @@ export function StoreManagerOverlay({
                                 </div>
                                 {/* 出力媒体 */}
                                 <div className="space-y-2 md:col-span-2">
-                                    <Label className="text-sm font-medium text-zinc-300">出力する媒体</Label>
+                                    <Label className="text-base font-medium text-zinc-300">出力する媒体</Label>
                                     <div className="flex flex-wrap gap-4">
                                         {[
                                             { key: "instagram", label: "Instagram用" },
                                             { key: "gbp", label: "GBP用" },
-                                            { key: "portal", label: "ブログ用" },
+                                            { key: "portal", label: "ブログ用", proOnly: true },
                                             { key: "line", label: "LINE用" },
                                             { key: "short", label: "ショート動画の台本" },
-                                        ].map(({ key, label }) => (
-                                            <label key={key} className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={storeFormData.outputTargets?.[key as keyof typeof storeFormData.outputTargets] ?? true}
-                                                    onChange={(e) => setStoreFormData({ ...storeFormData, outputTargets: { ...storeFormData.outputTargets!, [key]: e.target.checked } })}
-                                                    className="w-4 h-4 rounded accent-amber-500"
-                                                />
-                                                {label}
-                                            </label>
-                                        ))}
+                                        ].map(({ key, label, proOnly }) => {
+                                            const disabled = proOnly && !canGenerateBlog;
+                                            const checked = disabled && key === "portal" ? false : (storeFormData.outputTargets?.[key as keyof typeof storeFormData.outputTargets] ?? true);
+                                            return (
+                                                <label key={key} className={`flex items-center gap-2 text-base text-zinc-300 select-none ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(e) => setStoreFormData({ ...storeFormData, outputTargets: { ...storeFormData.outputTargets!, [key]: e.target.checked } })}
+                                                        disabled={disabled}
+                                                        className="w-4 h-4 rounded accent-amber-500"
+                                                    />
+                                                    {label}{disabled && <span className="text-amber-400">（プロプラン限定）</span>}
+                                                </label>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                                 {(storeFormData.outputTargets?.short) && (
@@ -256,7 +264,7 @@ export function StoreManagerOverlay({
                                             <Input
                                                 value={storeFormData.shortMemo ?? ""}
                                                 onChange={(e) => setStoreFormData({ ...storeFormData, shortMemo: e.target.value })}
-                                                placeholder="例：CTAはLINE誘導のみ"
+                                                placeholder="例：締め文はLINE誘導のみ"
                                                 className="bg-zinc-950 border-zinc-800 text-zinc-100"
                                             />
                                         </div>

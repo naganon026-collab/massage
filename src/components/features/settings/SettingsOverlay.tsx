@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS, CTA_TYPE_OPTIONS, type CtaType } from "@/types";
+import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS, CTA_TYPE_OPTIONS, isCtaSet, type CtaType } from "@/types";
 import { User } from "@supabase/supabase-js";
 
 type AnalysisResult = {
@@ -30,6 +30,7 @@ interface SettingsOverlayProps {
     analysisResult: AnalysisResult | null;
     isAnalyzing: boolean;
     addToast: (msg: string, type: "success" | "error") => void;
+    canGenerateBlog?: boolean;
 }
 
 const sectionTitle = "text-xl font-bold text-emerald-400 mt-10 first:mt-0 mb-4 pb-2 border-b border-emerald-500/30";
@@ -52,6 +53,7 @@ export function SettingsOverlay({
     analysisResult,
     isAnalyzing,
     addToast,
+    canGenerateBlog = true,
 }: SettingsOverlayProps) {
     const [settingsScrapeUrls, setSettingsScrapeUrls] = useState<string[]>(["", "", ""]);
     const ot = shopInfo.outputTargets;
@@ -67,7 +69,7 @@ export function SettingsOverlay({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm px-4 sm:px-6 pt-20 pb-8"
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm px-4 sm:px-6 pt-20 pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom)))]"
             onClick={(e) => {
                 if (e.target === e.currentTarget) {
                     setShowSettingsOverlay(false);
@@ -84,7 +86,8 @@ export function SettingsOverlay({
                     <button
                         type="button"
                         onClick={() => { setShowSettingsOverlay(false); setSettingsScrapeUrl(""); }}
-                        className="text-zinc-500 hover:text-zinc-200 text-sm p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+                        className="text-zinc-500 hover:text-zinc-200 text-sm p-2 rounded-lg hover:bg-zinc-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label="閉じる"
                     >
                         閉じる ✕
                     </button>
@@ -126,7 +129,7 @@ export function SettingsOverlay({
                             value={shopInfo.scrapedContent ?? ""}
                             onChange={(e) => setShopInfo((prev) => ({ ...prev, scrapedContent: e.target.value }))}
                             placeholder="上で「まとめて読み取る」を押すとここに結果が追記されます。ほかのページをコピーしたテキストも貼り付けてOKです。"
-                            className={`flex min-h-[280px] max-h-[420px] w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-xs text-zinc-300 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-y overflow-y-auto ${inputBase}`}
+                            className={`flex min-h-[280px] max-h-[420px] w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-base text-zinc-300 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-y overflow-y-auto ${inputBase}`}
                         />
                     </div>
                     {isAnalyzing && (
@@ -194,6 +197,19 @@ export function SettingsOverlay({
                     {/* 基本情報 */}
                     <h3 className={sectionTitle}>基本情報</h3>
                     <div className="space-y-5">
+                        <div>
+                            <Label htmlFor="quickIndustry" className={fieldLabel}>業種 <span className="text-red-400">*</span></Label>
+                            <select
+                                id="quickIndustry"
+                                required
+                                value={shopInfo.industry || "salon"}
+                                onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })}
+                                className={inputBase}
+                            >
+                                <option value="salon">美容院・サロン</option>
+                                <option value="restaurant">飲食店</option>
+                            </select>
+                        </div>
                         <div>
                             <Label htmlFor="quickName" className={fieldLabel}>店舗名 <span className="text-red-400">*</span></Label>
                             <Input
@@ -329,33 +345,47 @@ export function SettingsOverlay({
                         {[
                             { key: "instagram" as const, label: "Instagram用" },
                             { key: "gbp" as const, label: "Google Map/GBP用" },
-                            { key: "portal" as const, label: "ブログ用" },
+                            { key: "portal" as const, label: "ブログ用", proOnly: true },
                             { key: "line" as const, label: "LINE用" },
                             { key: "short" as const, label: "ショート動画の台本" },
-                        ].map(({ key, label }) => (
-                            <label key={key} className="flex items-center gap-2.5 text-sm text-zinc-100 cursor-pointer select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={shopInfo.outputTargets?.[key] ?? (key !== "short")}
-                                    onChange={(e) =>
-                                        setShopInfo({
-                                            ...shopInfo,
-                                            outputTargets: outputTargetsWith(key, e.target.checked),
-                                        })
-                                    }
-                                    className="w-4 h-4 rounded accent-emerald-500"
-                                />
-                                {label}
-                            </label>
-                        ))}
+                        ].map(({ key, label, proOnly }) => {
+                            const disabled = proOnly && !canGenerateBlog;
+                            const checked = disabled && key === "portal" ? false : (shopInfo.outputTargets?.[key] ?? (key !== "short"));
+                            return (
+                                <label key={key} className={`flex items-center gap-2.5 text-base text-zinc-100 select-none ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={(e) =>
+                                            setShopInfo({
+                                                ...shopInfo,
+                                                outputTargets: outputTargetsWith(key, e.target.checked),
+                                            })
+                                        }
+                                        disabled={disabled}
+                                        className="w-5 h-5 rounded accent-emerald-500"
+                                    />
+                                    {label}{disabled && <span className="text-xs text-amber-400">（プロプラン限定）</span>}
+                                </label>
+                            );
+                        })}
                     </div>
 
-                    {/* 投稿の締め文（CTA） */}
-                    <h3 className={sectionTitle}>投稿の締め文（CTA） <span className="text-amber-400 font-normal text-sm">（必須）</span></h3>
-                    <p className={fieldHint}>種類を選び、URLまたは電話番号を入力すると生成投稿の最後に反映されます。</p>
+                    {/* 投稿の締め文（予約・問い合わせの誘導） */}
+                    <h3 className={sectionTitle}>投稿の締め文（予約・問い合わせの誘導） <span className="text-amber-400 font-normal text-sm">（必須）</span></h3>
+                    {!isCtaSet(shopInfo) && (
+                        <div className="flex items-center gap-3 p-4 rounded-xl border-2 border-amber-500/60 bg-amber-500/10 text-amber-200">
+                            <span className="text-2xl">⚠️</span>
+                            <div>
+                                <p className="font-semibold text-amber-400">締め文が設定されていません</p>
+                                <p className="text-sm mt-1">投稿生成の前に、種類を選びURLまたは電話番号を入力してください。未設定のままでは生成できません。</p>
+                            </div>
+                        </div>
+                    )}
+                    <p className="fieldHint">種類を選び、URLまたは電話番号を入力すると生成投稿の最後に反映されます。</p>
                     <div className="space-y-4 mt-3">
                         <div>
-                            <Label className={fieldLabel}>CTAの種類</Label>
+                            <Label className={fieldLabel}>締め文の種類</Label>
                             <select
                                 id="cta-type"
                                 value={shopInfo.ctaType ?? "line"}
@@ -369,7 +399,7 @@ export function SettingsOverlay({
                                     });
                                 }}
                                 className={`mt-2 ${inputBase}`}
-                                aria-label="CTAの種類"
+                                aria-label="締め文の種類"
                             >
                                 {CTA_TYPE_OPTIONS.map((opt) => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -386,7 +416,7 @@ export function SettingsOverlay({
                                     onChange={(e) => setShopInfo({ ...shopInfo, ctaValue: e.target.value })}
                                     placeholder={CTA_TYPE_OPTIONS.find((o) => o.value === "other")?.valuePlaceholder}
                                     className={`min-h-[80px] mt-2 ${inputBase} resize-y`}
-                                    aria-label="CTAの文言"
+                                    aria-label="締めの一文"
                                 />
                             ) : (
                                 <Input
@@ -399,7 +429,7 @@ export function SettingsOverlay({
                                             : CTA_TYPE_OPTIONS.find((o) => o.value === (shopInfo.ctaType ?? "line"))?.valuePlaceholder
                                     }
                                     className={`mt-2 ${inputBase}`}
-                                    aria-label="CTAのURL・電話番号"
+                                    aria-label="締め文のURL・電話番号"
                                 />
                             )}
                         </div>
@@ -478,11 +508,11 @@ export function SettingsOverlay({
                             const ctaValue = (shopInfo.ctaValue ?? "").trim();
                             if (ctaType === "other") {
                                 if (!ctaValue) {
-                                    addToast("CTAの文言を入力してください。", "error");
+                                    addToast("締めの一文を入力してください。", "error");
                                     return;
                                 }
                             } else if (ctaType !== "line" && !ctaValue) {
-                                addToast("CTAのURLまたは電話番号を入力してください。", "error");
+                                addToast("締め文のURLまたは電話番号を入力してください。", "error");
                                 return;
                             }
                             handleQuickSaveSettings(() => {

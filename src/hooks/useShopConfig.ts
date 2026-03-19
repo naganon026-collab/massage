@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ShopInfo, ADMIN_EMAIL } from "@/types";
+import { ShopInfo, ADMIN_EMAIL, isCtaSet } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -249,6 +249,10 @@ export function useShopConfig(
     ): Promise<boolean> => {
         e.preventDefault();
         if (!user) return false;
+        if (options?.fromStep3Complete && !isCtaSet(shopInfo)) {
+            addToast("締め文を設定してください。予約・問い合わせの誘導の種類とURL・電話番号を入力してください。", "error");
+            return false;
+        }
         const { error } = await supabase.from('shops').upsert({
             user_id: user.id,
             settings: shopInfo,
@@ -316,6 +320,12 @@ export function useShopConfig(
 
             if (!res.ok) {
                 console.error("情報抽出エラー:", data.error);
+                const msg = typeof data?.error === "string" ? data.error : "基本情報の自動抽出に失敗しました。";
+                if (msg.includes("GEMINI_API_KEY") || msg.includes("Gemini APIキー")) {
+                    addToast("基本情報の自動抽出には .env.local に GEMINI_API_KEY の設定が必要です。", "error");
+                } else {
+                    addToast(msg, "error");
+                }
                 return;
             }
 
@@ -426,6 +436,108 @@ export function useShopConfig(
         }
     };
 
+    /** URL読み取り＋基本情報抽出＋次へ を1ボタンで完結（初回設定用） */
+    const handleReadAndProceed = async (
+        urls: string[],
+        existingText: string,
+        onProceed: () => void
+    ): Promise<void> => {
+        const validUrls = urls.filter((u) => u?.trim().startsWith("http"));
+        let fullText = (existingText ?? "").trim();
+
+        if (validUrls.length > 0) {
+            setIsScraping(true);
+            try {
+                let allText = "";
+                const addedUrls: string[] = [];
+                for (const url of validUrls) {
+                    const res = await fetch("/api/scrape", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ url: url.trim() }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "読み取り失敗");
+                    if (data.text?.trim()) {
+                        const sep = allText ? "\n\n---\n\n" : "";
+                        allText += sep + data.text.trim();
+                        addedUrls.push(url.trim());
+                    }
+                }
+                const scrapedContent = shopInfo.scrapedContent ? shopInfo.scrapedContent + "\n\n---\n\n" + allText : allText;
+                fullText = fullText ? fullText + "\n\n---\n\n" + allText : allText;
+                setScrapedPreview((prev) => (prev ? prev + "\n\n---\n\n" + allText : allText));
+                setShopInfo((prev) => ({
+                    ...prev,
+                    scrapedContent,
+                    referenceUrls: [...new Set([...prev.referenceUrls, ...addedUrls])],
+                }));
+                if (!allText) {
+                    addToast("読み取れたテキストがありませんでした。", "error");
+                    return;
+                }
+            } catch (error) {
+                if (error instanceof Error) addToast(error.message, "error");
+                else addToast("予期せぬエラーが発生しました", "error");
+                return;
+            } finally {
+                setIsScraping(false);
+            }
+        }
+
+        if (!fullText.trim()) {
+            addToast("URLを入力するか、テキストを貼り付けてください。", "error");
+            return;
+        }
+
+        if (validUrls.length === 0) {
+            setShopInfo((prev) => ({ ...prev, scrapedContent: fullText }));
+        }
+
+        setIsExtractingInfo(true);
+        try {
+            const textToExtract = fullText + "\n" + (shopInfo.features || "") + "\n" + (shopInfo.sampleTexts || "");
+            const res = await fetch("/api/extract-info", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: textToExtract }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                const msg = typeof data?.error === "string" ? data.error : "基本情報の自動抽出に失敗しました。";
+                if (msg.includes("GEMINI_API_KEY") || msg.includes("Gemini APIキー")) {
+                    addToast("基本情報の自動抽出には .env.local に GEMINI_API_KEY の設定が必要です。手動で入力してください。", "error");
+                } else {
+                    addToast(msg + " 手動で入力してください。", "error");
+                }
+                return;
+            }
+
+            setShopInfo((prev) => {
+                const nextInfo = { ...prev };
+                if (data.industry) nextInfo.industry = data.industry;
+                if (data.name) nextInfo.name = data.name;
+                if (data.address) nextInfo.address = data.address;
+                if (data.phone) nextInfo.phone = data.phone;
+                if (data.lineUrl) nextInfo.lineUrl = data.lineUrl;
+                if (data.businessHours) nextInfo.businessHours = data.businessHours;
+                if (data.holidays) nextInfo.holidays = data.holidays;
+                return nextInfo;
+            });
+
+            if (data.name || data.address || data.phone) {
+                addToast("店舗名・住所・電話番号などを自動入力しました。", "success");
+            }
+            onProceed();
+        } catch (error) {
+            console.error("情報抽出エラー:", error);
+            addToast("基本情報の自動抽出に失敗しました。手動で入力してください。", "error");
+        } finally {
+            setIsExtractingInfo(false);
+        }
+    };
+
     /** 複数URLを順に読み取り、結果を蓄積エリアに追記する（初回設定用）。step は進めない。 */
     const handleScrapeUrls = async (urls: string[]) => {
         const valid = urls.filter((u) => u?.trim().startsWith("http"));
@@ -452,13 +564,52 @@ export function useShopConfig(
                 }
             }
             if (allText) {
+                const fullText = shopInfo.scrapedContent ? shopInfo.scrapedContent + "\n\n---\n\n" + allText : allText;
                 setScrapedPreview((prev) => (prev ? prev + "\n\n---\n\n" + allText : allText));
-                setShopInfo((prev) => ({
-                    ...prev,
-                    scrapedContent: prev.scrapedContent ? prev.scrapedContent + "\n\n---\n\n" + allText : allText,
-                    referenceUrls: [...new Set([...prev.referenceUrls, ...addedUrls])],
-                }));
-                addToast(`${addedUrls.length}件のURLから読み取りました。下の枠に追記されました。`, "success");
+                addToast(`${addedUrls.length}件のURLから読み取りました。基本情報を抽出しています…`, "success");
+                try {
+                    const extractRes = await fetch("/api/extract-info", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: fullText }),
+                    });
+                    const extracted = await extractRes.json();
+                    setShopInfo((prev) => {
+                        const next = {
+                            ...prev,
+                            scrapedContent: prev.scrapedContent ? prev.scrapedContent + "\n\n---\n\n" + allText : allText,
+                            referenceUrls: [...new Set([...prev.referenceUrls, ...addedUrls])],
+                        };
+                        if (extractRes.ok && extracted) {
+                            if (extracted.industry) next.industry = extracted.industry;
+                            if (extracted.name) next.name = extracted.name;
+                            if (extracted.address) next.address = extracted.address;
+                            if (extracted.phone) next.phone = extracted.phone;
+                            if (extracted.lineUrl) next.lineUrl = extracted.lineUrl;
+                            if (extracted.businessHours) next.businessHours = extracted.businessHours;
+                            if (extracted.holidays) next.holidays = extracted.holidays;
+                        }
+                        return next;
+                    });
+                    if (extractRes.ok && extracted && (extracted.name || extracted.address || extracted.phone)) {
+                        addToast("店舗名・住所・電話番号などを自動入力しました。", "success");
+                    } else if (!extractRes.ok) {
+                        const errMsg = typeof extracted?.error === "string" ? extracted.error : "基本情報の自動抽出に失敗しました。";
+                        if (errMsg.includes("GEMINI_API_KEY") || errMsg.includes("Gemini APIキー")) {
+                            addToast("基本情報の自動抽出には .env.local に GEMINI_API_KEY の設定が必要です。手動で入力してください。", "error");
+                        } else {
+                            addToast(errMsg + " 手動で入力してください。", "error");
+                        }
+                    }
+                } catch (e) {
+                    console.error("情報抽出エラー:", e);
+                    setShopInfo((prev) => ({
+                        ...prev,
+                        scrapedContent: prev.scrapedContent ? prev.scrapedContent + "\n\n---\n\n" + allText : allText,
+                        referenceUrls: [...new Set([...prev.referenceUrls, ...addedUrls])],
+                    }));
+                    addToast("基本情報の自動抽出に失敗しました（通信エラー）。手動で入力してください。", "error");
+                }
             } else {
                 addToast("読み取れたテキストがありませんでした。", "error");
             }
@@ -524,6 +675,7 @@ export function useShopConfig(
         handleExtractInfo,
         handleScrapeUrl,
         handleScrapeUrls,
+        handleReadAndProceed,
         handleQuickSaveSettings,
         analysisResult,
         isAnalyzing,

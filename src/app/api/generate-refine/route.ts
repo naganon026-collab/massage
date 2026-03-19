@@ -130,12 +130,12 @@ ${isShort ? "\n必ず有効なJSON文字列1つで返すこと。hook, scenes, c
         const cv = (si?.ctaValue ?? "").trim();
         const leg = (si?.ctaText ?? "").trim();
         let ctaToAppend = leg;
-        if (!ctaToAppend && ct === "phone" && cv) ctaToAppend = `ご予約・お問い合わせはお電話で：${cv}`;
-        if (!ctaToAppend && ct === "reservation" && cv) ctaToAppend = `ご予約はこちらから：${cv}`;
-        if (!ctaToAppend && (ct === "line" || cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me")))) ctaToAppend = `ご予約・お問い合わせはプロフィールのLINEからお待ちしております（${cv || lineUrl}）`;
+        if (!ctaToAppend && ct === "phone" && (cv || si?.phone)) ctaToAppend = `お気軽にお電話ください：${cv || si?.phone}（今週末の空きもご確認いただけます）`;
+        if (!ctaToAppend && ct === "reservation" && cv) ctaToAppend = `1分で予約できます！こちらから：${cv}`;
+        if (!ctaToAppend && (ct === "line" || cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me")))) ctaToAppend = (cv || lineUrl) ? `下のリンクから1分で予約できます↓ ${cv || lineUrl}` : "プロフィールのリンクを1タップでご予約ください";
         if (!ctaToAppend && ct === "other" && cv) ctaToAppend = cv;
         if (!ctaToAppend && cv) ctaToAppend = cv;
-        if (!ctaToAppend && lineUrl) ctaToAppend = `ご予約・お問い合わせはプロフィールのLINEからお待ちしております（${lineUrl}）`;
+        if (!ctaToAppend && lineUrl) ctaToAppend = `下のリンクから1分で予約できます↓ ${lineUrl}`;
         if (ctaToAppend && (target === "instagram" || target === "gbp" || target === "line")) {
             const cta = ctaToAppend.trim();
             const ensureCta = (text: string | undefined): string => {

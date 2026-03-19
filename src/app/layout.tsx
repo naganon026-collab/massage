@@ -23,6 +23,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover", // セーフエリア対応（ノッチ・ホームインジケーター）
 };
 
 export const metadata: Metadata = {

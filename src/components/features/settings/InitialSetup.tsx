@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS, CTA_TYPE_OPTIONS, type CtaType } from "@/types";
+import { ShopInfo, ADMIN_EMAIL, SHORT_HOOK_OPTIONS, CTA_TYPE_OPTIONS, isCtaSet, type CtaType } from "@/types";
 import { User } from "@supabase/supabase-js";
 
 interface InitialSetupProps {
@@ -21,6 +21,7 @@ interface InitialSetupProps {
     isExtractingInfo: boolean;
     handleScrapeUrl: () => Promise<void>;
     handleScrapeUrls: (urls: string[]) => Promise<void>;
+    handleReadAndProceed?: (urls: string[], existingText: string, onProceed: () => void) => Promise<void>;
     handleExtractInfo: (text: string, save: boolean) => Promise<void>;
     scrapedPreview: string | null;
     setScrapedPreview: (preview: string | null) => void;
@@ -28,6 +29,7 @@ interface InitialSetupProps {
     handleSkipWithMinimal?: () => Promise<void>;
     onGoToMain?: () => void;
     user: User | null;
+    canGenerateBlog?: boolean;
 }
 
 export function InitialSetup({
@@ -43,6 +45,7 @@ export function InitialSetup({
     isExtractingInfo,
     handleScrapeUrl,
     handleScrapeUrls,
+    handleReadAndProceed,
     handleExtractInfo,
     scrapedPreview,
     setScrapedPreview,
@@ -50,6 +53,7 @@ export function InitialSetup({
     handleSkipWithMinimal,
     onGoToMain,
     user,
+    canGenerateBlog = true,
 }: InitialSetupProps) {
     const [isSetupComplete, setIsSetupComplete] = useState(false);
     const [scrapeUrls, setScrapeUrls] = useState<string[]>(["", "", ""]);
@@ -110,6 +114,15 @@ export function InitialSetup({
 
     return (
         <div className="max-w-xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {handleSkipWithMinimal && (
+                <Button
+                    type="button"
+                    onClick={handleSkipWithMinimal}
+                    className="w-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
+                >
+                    まずはアプリを使う（設定は後でする）
+                </Button>
+            )}
             <div className="text-center space-y-2">
                 <h2 className="font-display text-2xl font-bold text-white">初期設定（店舗情報）</h2>
                 <p className="text-zinc-400">作成される文章に埋め込むための基本情報を設定してください。</p>
@@ -165,34 +178,30 @@ export function InitialSetup({
                                             placeholder={`URL ${i + 1}（例: https://...）`}
                                         />
                                     ))}
-                                    <Button
-                                        type="button"
-                                        onClick={() => { setSetupPath("url"); handleScrapeUrls(scrapeUrls); }}
-                                        disabled={isScraping || !scrapeUrls.some((u) => u?.trim().startsWith("http"))}
-                                        className="w-full gradient-accent hover:opacity-95 text-zinc-950 border-none font-semibold"
-                                    >
-                                        {isScraping ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : "まとめて読み取る"}
-                                    </Button>
                                 </div>
                                 <div className="space-y-3 pt-4 border-t border-zinc-800">
-                                    <p className="text-xs text-emerald-500 font-medium">読み取り結果 — この情報をもとに、基本情報や投稿が生成されます。</p>
-                                    <p className="text-xs text-zinc-400">ここにURLやコピーしたテキストをどんどん追加してください。メニュー表・ブログ・口コミなど、貼り足すほど生成の精度が上がります。</p>
+                                    <p className="text-sm text-emerald-500 font-medium">読み取り結果 — この情報をもとに、基本情報や投稿が生成されます。</p>
+                                    <p className="text-sm text-zinc-400">URLを入力するか、ここにコピーしたテキストを貼り付けてください。メニュー表・ブログ・口コミなど、貼り足すほど生成の精度が上がります。</p>
                                     <textarea
                                         value={scrapedPreview ?? ""}
                                         onChange={(e) => setScrapedPreview(e.target.value)}
-                                        className="flex min-h-[280px] max-h-[420px] w-full rounded-md border border-emerald-500/30 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y overflow-y-auto"
-                                        placeholder="上で「まとめて読み取る」を押すとここに結果が追記されます。ほかのページをコピーしたテキストも貼り付けてOKです。"
+                                        className="flex min-h-[280px] max-h-[420px] w-full rounded-md border border-emerald-500/30 bg-zinc-950 px-3 py-2 text-base text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-y overflow-y-auto"
+                                        placeholder="URLを入力して下のボタンを押すか、ここにテキストを貼り付けてください。"
                                     />
                                     <Button
                                         type="button"
-                                        onClick={async () => {
-                                            await handleExtractInfo(scrapedPreview + "\n" + shopInfo.features + "\n" + (shopInfo.sampleTexts || ""), true);
-                                            setSetupStep(2);
+                                        onClick={() => {
+                                            if (handleReadAndProceed) {
+                                                setSetupPath(scrapeUrls.some((u) => u?.trim().startsWith("http")) ? "url" : "manual");
+                                                void handleReadAndProceed(scrapeUrls, scrapedPreview ?? "", () => setSetupStep(2));
+                                            } else {
+                                                void handleExtractInfo((scrapedPreview ?? "") + "\n" + shopInfo.features + "\n" + (shopInfo.sampleTexts || ""), true).then(() => setSetupStep(2));
+                                            }
                                         }}
-                                        disabled={isExtractingInfo || !scrapedPreview?.trim()}
+                                        disabled={isScraping || isExtractingInfo || (!scrapeUrls.some((u) => u?.trim().startsWith("http")) && !scrapedPreview?.trim())}
                                         className="w-full gradient-accent hover:opacity-95 text-zinc-950 font-semibold"
                                     >
-                                        {isExtractingInfo ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : <><Check className="w-4 h-4" /> この内容で基本情報を入力して次へ</>}
+                                        {(isScraping || isExtractingInfo) ? <><Loader2 className="w-4 h-4 animate-spin" /> 読み取り中...</> : <><Check className="w-4 h-4" /> URLを読み取って基本情報を入力し、次へ</>}
                                     </Button>
                                 </div>
                                 <div className="pt-4 border-t border-zinc-800 space-y-3">
@@ -204,17 +213,6 @@ export function InitialSetup({
                                         お店のホームページがない場合はこちら
                                     </button>
                                     <p className="text-sm text-zinc-400">手入力で住所や電話番号などを入力して進めます。</p>
-                                    {handleSkipWithMinimal && (
-                                        <div className="pt-2">
-                                            <button
-                                                type="button"
-                                                onClick={handleSkipWithMinimal}
-                                                className="text-sm text-zinc-500 hover:text-emerald-500 transition-colors"
-                                            >
-                                                とばしてアプリを使う → あとで設定から入力
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
@@ -231,6 +229,19 @@ export function InitialSetup({
                                     </p>
                                 </div>
                                 <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="shopIndustry" className="font-medium">業種 <span className="text-red-500">*</span></Label>
+                                        <select
+                                            id="shopIndustry"
+                                            required
+                                            value={shopInfo.industry || "salon"}
+                                            onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })}
+                                            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        >
+                                            <option value="salon">美容院・サロン</option>
+                                            <option value="restaurant">飲食店</option>
+                                        </select>
+                                    </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500">*</span></Label>
                                         <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：サロン名" />
@@ -297,13 +308,22 @@ export function InitialSetup({
                                     <p className="text-sm text-zinc-300 mt-1">任意の項目は後から設定画面で変更できます。</p>
                                 </div>
 
-                                {/* 投稿の締め文（CTA）（必須） */}
+                                {/* 投稿の締め文（予約・問い合わせの誘導）（必須） */}
                                 <div className="space-y-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-                                    <h4 className="font-semibold text-emerald-400 text-sm">投稿の締め文（CTA） <span className="text-emerald-400/80 font-normal">（必須）</span></h4>
+                                    <h4 className="font-semibold text-emerald-400 text-sm">投稿の締め文（予約・問い合わせの誘導） <span className="text-emerald-400/80 font-normal">（必須）</span></h4>
+                                    {!isCtaSet(shopInfo) && (
+                                        <div className="flex items-center gap-3 p-3 rounded-lg border-2 border-amber-500/60 bg-amber-500/10 text-amber-200">
+                                            <span className="text-xl">⚠️</span>
+                                            <div>
+                                                <p className="font-semibold text-amber-400 text-sm">締め文を設定してください</p>
+                                                <p className="text-xs mt-0.5">種類を選び、URLまたは電話番号を入力しないと投稿を生成できません。</p>
+                                            </div>
+                                        </div>
+                                    )}
                                     <p className="text-xs text-zinc-400">種類を選び、URLまたは電話番号を入力すると生成投稿の最後に反映されます。</p>
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-                                            <Label className="text-sm text-zinc-200">CTAの種類</Label>
+                                            <Label className="text-sm text-zinc-200">締め文の種類</Label>
                                             <select
                                                 value={shopInfo.ctaType ?? "line"}
                                                 onChange={(e) => {
@@ -409,26 +429,26 @@ export function InitialSetup({
                                     </div>
                                 )}
                                 <div className="space-y-3">
-                                    <h4 className="font-semibold text-zinc-200 text-sm">出力する媒体</h4>
+                                    <h4 className="font-semibold text-zinc-200 text-base">出力する媒体</h4>
                                     <div className="flex flex-wrap gap-6">
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("instagram", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-base text-zinc-100">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.instagram ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("instagram", e.target.checked) })} className="w-5 h-5 rounded accent-emerald-500" />
                                             Instagram用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("gbp", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-base text-zinc-100">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.gbp ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("gbp", e.target.checked) })} className="w-5 h-5 rounded accent-emerald-500" />
                                             Google Map/GBP用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.portal ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("portal", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
-                                            ブログ用
+                                        <label className={`flex items-center gap-2 select-none text-base text-zinc-100 ${!canGenerateBlog ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+                                            <input type="checkbox" checked={canGenerateBlog ? (shopInfo.outputTargets?.portal ?? true) : false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("portal", e.target.checked) })} disabled={!canGenerateBlog} className="w-5 h-5 rounded accent-emerald-500" />
+                                            ブログ用{!canGenerateBlog && <span className="text-xs text-amber-400">（プロプラン限定）</span>}
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("line", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-base text-zinc-100">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.line ?? true} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("line", e.target.checked) })} className="w-5 h-5 rounded accent-emerald-500" />
                                             LINE用
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-zinc-100">
-                                            <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("short", e.target.checked) })} className="w-4 h-4 rounded accent-emerald-500" />
+                                        <label className="flex items-center gap-2 cursor-pointer select-none text-base text-zinc-100">
+                                            <input type="checkbox" checked={shopInfo.outputTargets?.short ?? false} onChange={(e) => setShopInfo({ ...shopInfo, outputTargets: outputTargetsWith("short", e.target.checked) })} className="w-5 h-5 rounded accent-emerald-500" />
                                             ショート動画の台本
                                         </label>
                                     </div>
@@ -485,7 +505,11 @@ export function InitialSetup({
                                     <Button type="button" variant="outline" className="border-zinc-600 text-zinc-300 hover:bg-zinc-800" onClick={() => setSetupStep(2)}>
                                         <ChevronLeft className="w-4 h-4 mr-1" /> 戻る
                                     </Button>
-                                    <Button type="submit" className="flex-1 gradient-accent hover:opacity-95 text-zinc-950 font-semibold">
+                                    <Button
+                                        type="submit"
+                                        className="flex-1 gradient-accent hover:opacity-95 text-zinc-950 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={!isCtaSet(shopInfo)}
+                                    >
                                         <Check className="w-4 h-4 mr-2 inline" />
                                         設定を保存してはじめる
                                     </Button>

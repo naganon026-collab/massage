@@ -19,14 +19,15 @@ export function UpgradeOverlay({ show, onClose, currentPlan, onSelectPlan, isLoa
     if (!show) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-[max(1rem,calc(1rem+env(safe-area-inset-bottom)))]">
             <div className="bg-zinc-900 border border-zinc-700 rounded-xl max-w-md w-full shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between p-4 border-b border-zinc-700">
                     <h2 className="text-lg font-semibold text-zinc-100">プランを選択</h2>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100"
+                        className="p-2 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label="閉じる"
                     >
                         <X className="w-5 h-5" />
                     </button>

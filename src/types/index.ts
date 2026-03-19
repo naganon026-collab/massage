@@ -1,4 +1,4 @@
-export type Pattern = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I";
+export type Pattern = "A" | "B" | "C" | "D" | "E" | "G" | "H" | "I";
 
 export const ADMIN_EMAIL = "naganon026@gmail.com";
 
@@ -49,16 +49,34 @@ export interface ShopInfo {
     ctaValue?: string;
     /** @deprecated 選択式移行前の自由文。未設定時は ctaType + ctaValue を使用 */
     ctaText?: string;
+    /** 文字を大きく表示（高齢者向け） */
+    largeTextMode?: boolean;
+    /** かんたんモード（パターンAのみ表示） */
+    simpleMode?: boolean;
 }
 
 /** CTAの選択肢（電話 / 予約ページ / LINE / その他） */
 export type CtaType = "phone" | "reservation" | "line" | "other";
 
+/** CTAが設定済みかどうかを判定（生成前に必須チェック用） */
+export function isCtaSet(shopInfo: ShopInfo): boolean {
+    const ct = shopInfo.ctaType ?? "line";
+    const cv = (shopInfo.ctaValue ?? "").trim();
+    const leg = (shopInfo.ctaText ?? "").trim();
+    if (leg) return true;
+    if (ct === "phone") return !!(cv || shopInfo.phone?.trim());
+    if (ct === "reservation") return !!cv;
+    if (ct === "line") return !!(cv || shopInfo.lineUrl?.trim());
+    if (ct === "other") return !!cv;
+    if (cv && (/^https?:\/\//i.test(cv) || cv.includes("line.me"))) return true;
+    return !!cv;
+}
+
 export const CTA_TYPE_OPTIONS: { value: CtaType; label: string; valueLabel: string; valuePlaceholder: string }[] = [
     { value: "phone", label: "電話", valueLabel: "電話番号", valuePlaceholder: "例：03-1234-5678" },
     { value: "reservation", label: "予約ページ", valueLabel: "予約ページのURL", valuePlaceholder: "https://..." },
     { value: "line", label: "LINE", valueLabel: "LINEのURL", valuePlaceholder: "https://line.me/..." },
-    { value: "other", label: "その他", valueLabel: "CTAの文言", valuePlaceholder: "例：ご予約はDMからお気軽にどうぞ" },
+    { value: "other", label: "その他", valueLabel: "締めの一文", valuePlaceholder: "例：ご予約はDMからお気軽にどうぞ" },
 ];
 
 /** バズりやすいショート動画のフック選択肢（リサーチベース） */
@@ -220,18 +238,6 @@ export const PATTERNS: PatternData[] = [
         questions: { q1: "", ex1: "", q2: "", ex2: "", q3: "", ex3: "" },
     },
     {
-        id: "F",
-        title: "今日の旬な投稿",
-        description: "日付・季節・時期をもとに今日投稿すべき最適な内容をAIが自動で決めて生成",
-        useWeather: true,
-        isAuto: true,
-        questions: {
-            q1: "", ex1: "",
-            q2: "", ex2: "",
-            q3: "", ex3: "",
-        }
-    },
-    {
         id: "G",
         title: "コメント・クチコミへの返信",
         description: "SNSやGoogleに届いたコメントへ、オーナーとして誠実で温かみのある返信を生成",
@@ -265,10 +271,10 @@ export const PATTERNS: PatternData[] = [
 
 /** パターン選択の1段階目：目的別カテゴリ（案1） */
 export const PATTERN_CATEGORIES = [
-    { id: "acquire", label: "集客・認知", description: "新規やリーチを増やしたい", patternIds: ["A", "B", "D"] as const satisfies readonly Pattern[] },
-    { id: "connect", label: "つながり・ファン化", description: "リピート・指名を増やしたい", patternIds: ["E", "H"] as const satisfies readonly Pattern[] },
-    { id: "action", label: "今すぐ動いてほしい", description: "予約や反応をすぐ取りたい", patternIds: ["C", "G"] as const satisfies readonly Pattern[] },
-    { id: "easy", label: "手軽・ネタに困ったとき", description: "ネタや入力を減らしたい", patternIds: ["F", "I"] as const satisfies readonly Pattern[] },
+    { id: "acquire", label: "集客・認知", description: "新規やリーチを増やしたい", patternIds: ["A", "B", "C"] as const satisfies readonly Pattern[] },
+    { id: "connect", label: "つながり・ファン化", description: "リピート・指名を増やしたい", patternIds: ["E", "H", "D"] as const satisfies readonly Pattern[] },
+    { id: "image", label: "画像から投稿を作る", description: "写真を活かした魅力的な投稿を作成", patternIds: ["I"] as const satisfies readonly Pattern[] },
+    { id: "reply", label: "コメントを返信する", description: "届いた声に丁寧に応える", patternIds: ["G"] as const satisfies readonly Pattern[] },
 ] as const;
 
 export type PatternCategoryId = (typeof PATTERN_CATEGORIES)[number]["id"];
@@ -360,7 +366,7 @@ export const CONCERN_TAGS = [
     { id: "scalp", label: "頭皮が気になる", emoji: "🧴" },
 ] as const;
 
-export type TreatmentTagId = (typeof TREATMENT_TAGS)[number]["id"];
+export type TreatmentTagId = string;
 
 export const EDUCATION_TAGS = [
     {
@@ -445,7 +451,7 @@ export const EDUCATION_TAGS = [
     },
 ] as const;
 
-export type EducationTagId = (typeof EDUCATION_TAGS)[number]["id"];
+export type EducationTagId = string;
 
 /** パターンB：今日このテーマを投稿する理由タグ */
 export const EDUCATION_REASON_TAGS = [
@@ -467,7 +473,7 @@ export const STAFF_MESSAGE_TAGS = [
     { id: "consultation", label: "カウンセリングへのこだわり", emoji: "💬", message: "施術前のカウンセリングに一番時間をかけています。なりたいイメージを一緒に言語化します", hook: "「うまく伝えられるか不安」という方へ", target: "希望をうまく伝えられるか不安な方・イメチェンしたいけど迷っている方" },
 ] as const;
 
-export type StaffMessageTagId = (typeof STAFF_MESSAGE_TAGS)[number]["id"];
+export type StaffMessageTagId = string;
 
 /** パターンH専用の「今日の場面」タグ */
 export const SALON_SCENE_TAGS = [
@@ -481,7 +487,7 @@ export const SALON_SCENE_TAGS = [
     { id: "tool_care", label: "道具のお手入れ", emoji: "✂️", scene: "ハサミや道具を丁寧にお手入れしている様子" },
 ] as const;
 
-export type SalonSceneTagId = (typeof SALON_SCENE_TAGS)[number]["id"];
+export type SalonSceneTagId = string;
 
 /** パターンH専用：場面から伝えるメッセージタグ（STAFF_MESSAGE_TAGSとは別物） */
 export const SCENE_MESSAGE_TAGS = [
@@ -493,7 +499,7 @@ export const SCENE_MESSAGE_TAGS = [
     { id: "seasonal_update", label: "季節・旬の情報", emoji: "🌸", message: "今の季節に合わせた新しいメニューや情報をさりげなく伝える", target: "トレンドに敏感な方・季節に合わせてイメチェンしたい方" },
 ] as const;
 
-export type SceneMessageTagId = (typeof SCENE_MESSAGE_TAGS)[number]["id"];
+export type SceneMessageTagId = string;
 
 /** パターンH：伝え方のトーンタグ */
 export const MESSAGE_TONE_TAGS = [
@@ -523,7 +529,7 @@ export const NOTICE_TYPE_TAGS = [
     { id: "event", label: "イベント・特典", emoji: "🌸", type: "季節のイベント・特典のお知らせ", detail: "季節限定のイベントや特典をご用意しました" },
 ] as const;
 
-export type NoticeTypeTagId = (typeof NOTICE_TYPE_TAGS)[number]["id"];
+export type NoticeTypeTagId = string;
 
 /** パターンC：緊急度・期間 */
 export const URGENCY_TAGS = [
@@ -535,7 +541,7 @@ export const URGENCY_TAGS = [
     { id: "ongoing", label: "随時受付中", emoji: "✅", urgency: "随時受付中", phrase: "随時受け付けております。お気軽にご連絡ください" },
 ] as const;
 
-export type UrgencyTagId = (typeof URGENCY_TAGS)[number]["id"];
+export type UrgencyTagId = string;
 
 /** パターンD：お客様の声のカテゴリ（1段階目・厳選2つ） */
 export const VOICE_CATEGORIES = [
@@ -543,7 +549,7 @@ export const VOICE_CATEGORIES = [
     { id: "by_change", label: "変化・お悩みで選ぶ", emoji: "✨" },
 ] as const;
 
-export type VoiceCategoryId = (typeof VOICE_CATEGORIES)[number]["id"];
+export type VoiceCategoryId = string;
 
 /** パターンD：お客様の声の選択肢（2段階目・厳選10個・カテゴリ別） */
 export const VOICE_OPTION_TAGS = [
@@ -559,4 +565,136 @@ export const VOICE_OPTION_TAGS = [
     { id: "v_damage_heal", categoryId: "by_change" as const, label: "傷みが改善", emoji: "💎", concern: "枝毛・パサつき・ダメージ", result: "指通りが良くなった・傷みが気にならなくなった" },
 ] as const;
 
-export type VoiceOptionTagId = (typeof VOICE_OPTION_TAGS)[number]["id"];
+export type VoiceOptionTagId = string;
+
+
+export interface GenericTag {
+    id: string;
+    label: string;
+    emoji: string;
+    [key: string]: any;
+}
+
+export const INDUSTRY_DATA: Record<string, {
+    labelTreatment: string;
+    labelConcern: string;
+    labelEducation: string;
+    labelEducationReason: string;
+    labelScene: string;
+    labelVoiceCategory1: string;
+    labelVoiceCategory2: string;
+    TREATMENT_TAGS: readonly GenericTag[];
+    CONCERN_TAGS: readonly GenericTag[];
+    EDUCATION_TAGS: readonly GenericTag[];
+    EDUCATION_REASON_TAGS: readonly GenericTag[];
+    STAFF_MESSAGE_TAGS: readonly GenericTag[];
+    SALON_SCENE_TAGS: readonly GenericTag[];
+    SCENE_MESSAGE_TAGS: readonly GenericTag[];
+    MESSAGE_TONE_TAGS: readonly GenericTag[];
+    TODAYS_FOCUS_TAGS: readonly GenericTag[];
+    NOTICE_TYPE_TAGS: readonly GenericTag[];
+    URGENCY_TAGS: readonly GenericTag[];
+    VOICE_CATEGORIES: readonly GenericTag[];
+    VOICE_OPTION_TAGS: readonly GenericTag[];
+}> = {
+    salon: {
+        labelTreatment: "施術タグ",
+        labelConcern: "お客様のお悩み",
+        labelEducation: "教育テーマ",
+        labelEducationReason: "今日これを投稿する理由",
+        labelScene: "今日の場面",
+        labelVoiceCategory1: "施術で選ぶ",
+        labelVoiceCategory2: "変化・お悩みで選ぶ",
+        TREATMENT_TAGS,
+        CONCERN_TAGS,
+        EDUCATION_TAGS,
+        EDUCATION_REASON_TAGS,
+        STAFF_MESSAGE_TAGS,
+        SALON_SCENE_TAGS,
+        SCENE_MESSAGE_TAGS,
+        MESSAGE_TONE_TAGS,
+        TODAYS_FOCUS_TAGS,
+        NOTICE_TYPE_TAGS,
+        URGENCY_TAGS,
+        VOICE_CATEGORIES,
+        VOICE_OPTION_TAGS
+    },
+    restaurant: {
+        labelTreatment: "おすすめメニュー・料理",
+        labelConcern: "利用シーン・目的",
+        labelEducation: "食材・お店のこだわり",
+        labelEducationReason: "おすすめする理由",
+        labelScene: "お店の日常風景",
+        labelVoiceCategory1: "メニューで選ぶ",
+        labelVoiceCategory2: "シーンで選ぶ",
+        TREATMENT_TAGS: [
+            { id: "lunch", label: "ランチメニュー", emoji: "🍱", concern: "お得で美味しいランチを探している", approach: "こだわりの食材を使ったランチ", result: "午後の活力をチャージできる" },
+            { id: "dinner", label: "ディナーコース", emoji: "🍽️", concern: "特別な日のディナーを楽しみたい", approach: "季節の味覚を堪能できるコース", result: "思い出に残る素敵な時間を過ごせる" },
+            { id: "drink", label: "ドリンク・お酒", emoji: "🍷", concern: "美味しいお酒と料理を楽しみたい", approach: "料理に合う厳選されたお酒", result: "至福のひとときを味わえる" },
+            { id: "dessert", label: "デザート", emoji: "🍰", concern: "食後のデザートを楽しみたい", approach: "手作りこだわりデザート", result: "幸せな甘さで満たされる" },
+        ],
+        CONCERN_TAGS: [
+            { id: "date", label: "デート", emoji: "💑" },
+            { id: "family", label: "家族・子連れ", emoji: "👪" },
+            { id: "friends", label: "女子会・友人", emoji: "🥂" },
+            { id: "solo", label: "お一人様", emoji: "👤" },
+            { id: "anniversary", label: "記念日・お祝い", emoji: "🎉" },
+        ],
+        EDUCATION_TAGS: [
+            { id: "ingredients", label: "食材のこだわり", emoji: "🥬", theme: "当店が厳選する食材", items: "地元の新鮮な野菜を使用", solution: "安心安全で美味しい料理を提供" },
+            { id: "cooking", label: "調理のこだわり", emoji: "👨‍🍳", theme: "美味しくする一工夫", items: "長時間の仕込み", solution: "深い味わいを実現" },
+            { id: "pairing", label: "ペアリング", emoji: "🍷", theme: "料理とお酒の相性", items: "ソムリエおすすめの組み合わせ", solution: "料理の味をさらに引き立てる" },
+        ],
+        EDUCATION_REASON_TAGS: [
+            { id: "season_in", label: "旬の食材が入荷したから", emoji: "🌟" },
+            { id: "secret", label: "美味しさの秘密を知ってほしいから", emoji: "💡" },
+            { id: "recommend", label: "おすすめの食べ方があるから", emoji: "👍" },
+        ],
+        STAFF_MESSAGE_TAGS: [
+            { id: "passion", label: "料理への想い", emoji: "🔥", message: "一皿一皿に心を込めて作っています", hook: "料理人として大切にしていること", target: "美味しいものを探している方" },
+            { id: "hospitality", label: "おもてなし", emoji: "💝", message: "心地よい時間を過ごしていただきたいです", hook: "当店が目指す空間作り", target: "ゆっくりくつろぎたい方" },
+        ],
+        SALON_SCENE_TAGS: [ // will rename property conceptually later, using same name for compatibility
+            { id: "prep", label: "仕込み風景", emoji: "🔪", scene: "開店前の仕込みの様子" },
+            { id: "cooking", label: "調理風景", emoji: "🍳", scene: "厨房での調理の様子" },
+            { id: "hall", label: "店内の様子", emoji: "🪑", scene: "準備が整った店内の様子" },
+            { id: "farm", label: "買い出し", emoji: "🛒", scene: "新鮮な食材の仕入れの様子" },
+        ],
+        SCENE_MESSAGE_TAGS: [
+            { id: "care", label: "丁寧な仕事", emoji: "✨", message: "見えない部分も丁寧に仕込んでいます", target: "食にこだわる方" },
+            { id: "fresh", label: "鮮度", emoji: "🌿", message: "その日一番良いものをお届けします", target: "新鮮なものを食べたい方" },
+        ],
+        MESSAGE_TONE_TAGS: [
+            { id: "appetizing", label: "シズル感たっぷりに", emoji: "🤤", note: "思わずお腹が空くような表現で" },
+            { id: "warm", label: "温かみがある", emoji: "☕", note: "アットホームで親しみやすい表現" },
+            { id: "chef", label: "専門家として", emoji: "👨‍🍳", note: "プロの料理人としてのこだわりを伝える" },
+        ],
+        TODAYS_FOCUS_TAGS: [
+            { id: "weather_cold", label: "寒い日", emoji: "❄️", note: "寒い日にぴったりの温かいメニュー" },
+            { id: "weather_hot", label: "暑い日", emoji: "☀️", note: "暑い日におすすめのさっぱりメニュー" },
+            { id: "weekend", label: "週末", emoji: "🎉", note: "週末のご褒美や集まりに" },
+            { id: "new_menu", label: "新メニュー開始", emoji: "🆕", note: "今日から始まる新しい味" },
+        ],
+        NOTICE_TYPE_TAGS: [
+            { id: "vacancy", label: "空席情報", emoji: "🪑", type: "本日の空席状況", detail: "現在すぐにご案内可能です" },
+            { id: "soldout", label: "売り切れ", emoji: "📢", type: "人気メニュー完売のお知らせ", detail: "本日の〇〇は完売いたしました" },
+            { id: "holiday", label: "休業日", emoji: "📅", type: "休業日のお知らせ", detail: "〇日はお休みをいただきます" },
+            { id: "event", label: "イベント", emoji: "🎉", type: "特別イベントのお知らせ", detail: "特別なディナーイベントを開催します" },
+        ],
+        URGENCY_TAGS: [
+            { id: "today", label: "本日", emoji: "📌", urgency: "本日限定", phrase: "本日ご来店の方に" },
+            { id: "limited", label: "数量限定", emoji: "⚡", urgency: "数量限定", phrase: "なくなり次第終了となります" },
+            { id: "weekend", label: "今週末", emoji: "📆", urgency: "今週末まで", phrase: "今週末までの特別メニューです" },
+        ],
+        VOICE_CATEGORIES: [
+            { id: "by_menu", label: "メニューの感想", emoji: "🍽️" },
+            { id: "by_scene", label: "利用シーンの感想", emoji: "🎉" },
+        ],
+        VOICE_OPTION_TAGS: [
+            { id: "v_taste", categoryId: "by_menu", label: "美味しさ", emoji: "😋", concern: "初めての来店", result: "想像以上の美味しさでした" },
+            { id: "v_volume", categoryId: "by_menu", label: "ボリューム", emoji: "🍱", concern: "しっかり食べたい", result: "大満足のボリュームでした" },
+            { id: "v_atmosphere", categoryId: "by_scene", label: "雰囲気", emoji: "✨", concern: "ゆっくり過ごしたい", result: "居心地が良くて長居してしまいました" },
+            { id: "v_family", categoryId: "by_scene", label: "子連れ", emoji: "👶", concern: "子供連れで不安", result: "スタッフさんが優しくて安心しました" },
+        ],
+    }
+};
