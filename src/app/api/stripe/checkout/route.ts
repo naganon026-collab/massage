@@ -50,14 +50,14 @@ export async function POST(req: Request) {
             const updated = await stripe.subscriptions.update(subscription.stripe_subscription_id, {
                 items: [{ id: itemId, price: priceId }],
                 proration_behavior: "none",
-                billing_cycle_anchor: Math.floor(Date.now() / 1000),
+                billing_cycle_anchor: "now",
                 metadata: { userId: user.id, plan },
             });
             const prevPlan = subscription.plan as PlanId;
             const prevConfig = PLANS[prevPlan];
             const upgradeSource = ["free", "light"].includes(prevPlan);
             const prevLimit = upgradeSource && typeof prevConfig?.limit === "number" ? prevConfig.limit : 0;
-            const periodEnd = new Date((updated.current_period_end ?? 0) * 1000).toISOString();
+            const periodEnd = new Date(((updated as any).current_period_end ?? 0) * 1000).toISOString();
             await supabase.from("subscriptions").upsert(
                 {
                     user_id: user.id,
