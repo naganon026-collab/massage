@@ -24,6 +24,7 @@ export function useContentGenerator(
     const [replyPlatform, setReplyPlatform] = useState<"sns" | "gbp">("sns");
     const [receivedComment, setReceivedComment] = useState("");
     const [replyNote, setReplyNote] = useState("");
+    const [userOriginalEpisode, setUserOriginalEpisode] = useState("");
 
     const [uploadImageData, setUploadImageData] = useState<{ mimeType: string; data: string } | null>(null);
 
@@ -126,6 +127,7 @@ export function useContentGenerator(
         setImageMemo("");
         setReceivedComment("");
         setReplyNote("");
+        setUserOriginalEpisode("");
         setGeneratedResults(null);
     };
 
@@ -186,18 +188,10 @@ export function useContentGenerator(
                 addToast("カテゴリと内容を選んでください。", "error");
                 return;
             }
-            if (!voiceMemoArg?.trim()) {
-                addToast("お客様の一言を入力してください。", "error");
-                return;
-            }
         }
         if (selectedPattern === "E") {
             if (!selectedMessageArg) {
                 addToast("伝えたいことを1つ選んでください。", "error");
-                return;
-            }
-            if (!staffMemoArg?.trim()) {
-                addToast("一言メモを入力してください。", "error");
                 return;
             }
         }
@@ -387,7 +381,7 @@ export function useContentGenerator(
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...requestBody, lineIncludeSeasonalGreeting, isPracticeMode: isPracticeMode === true }),
+                body: JSON.stringify({ ...requestBody, userOriginalEpisode, lineIncludeSeasonalGreeting, isPracticeMode: isPracticeMode === true }),
             });
 
             const responseData = await response.json();
@@ -621,6 +615,7 @@ export function useContentGenerator(
         receivedComment, setReceivedComment,
         replyNote, setReplyNote,
         uploadImageData, setUploadImageData,
+        userOriginalEpisode, setUserOriginalEpisode,
         imageMemo, setImageMemo,
         isGenerating, setIsGenerating,
         generationProgress,

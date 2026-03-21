@@ -350,6 +350,78 @@ export const TREATMENT_TAGS = [
         approach: "ダメージ最小限のケアブリーチ",
         result: "透き通るような透明感カラーが実現",
     },
+    {
+        id: "gray_transition",
+        label: "脱白髪染め",
+        emoji: "🌿",
+        concern: "頻繁な白髪染めに疲弊している",
+        approach: "ハイライトを駆使したグレイヘア移行プログラム",
+        result: "白髪を活かした美しいデザインカラーに",
+    },
+    {
+        id: "no_styling_cut",
+        label: "ノースタイリング保証",
+        emoji: "✂️",
+        concern: "朝のセット・アイロンの時間が惜しい",
+        approach: "手で乾かすだけで完璧なフォルムになる骨格補正カット",
+        result: "アイロン不要で毎朝の時短が確実に",
+    },
+    {
+        id: "silent_retreat",
+        label: "無言接客（サイレント）",
+        emoji: "🤫",
+        concern: "美容院での会話に気を使って疲れてしまう",
+        approach: "一切の会話を排除し、静寂を約束するサードプレイス空間",
+        result: "心から休まり、精神的なデトックスができた状態に",
+    },
+    {
+        id: "brain_recovery_spa",
+        label: "脳疲労回復スパ",
+        emoji: "🧠",
+        concern: "慢性的なストレスや自律神経の乱れ、不眠",
+        approach: "デバイス測定と五感パーソナライズによる深層ヘッドスパ",
+        result: "自律神経が整い、深いリラックスと睡眠の質が向上",
+    },
+    {
+        id: "express_15min",
+        label: "15分お直しエクスプレス",
+        emoji: "⚡",
+        concern: "大切なイベント直前に、サッとプロのクオリティーにしたい",
+        approach: "濡らさず15分で完了するスタイリング・前髪カット特化",
+        result: "一瞬で完璧な第一印象のセットが完成",
+    },
+    {
+        id: "subscription",
+        label: "定期通い放題（サブスク）",
+        emoji: "🔁",
+        concern: "常に前髪や根元のプリン状態を完璧に保ちたい",
+        approach: "前髪・カラーリタッチ等の無制限メンテナンス",
+        result: "常にプロの仕上げで、人生からプリン状態が消滅",
+    },
+    {
+        id: "commit_treatment",
+        label: "結果コミット型髪質改善",
+        emoji: "🤝",
+        concern: "いろいろ試しても髪質が根本的に良くならない",
+        approach: "目標の髪質に到達するまでの完全オーダーメイド伴走",
+        result: "長年の悩みが解消され、確実に理想のツヤ髪に",
+    },
+    {
+        id: "inner_beauty",
+        label: "インナービューティー",
+        emoji: "🥗",
+        concern: "髪だけでなく、肌荒れや全身の不調も気になる",
+        approach: "専門家と連携した食事・細胞レベルからの内側ケア",
+        result: "体質から改善され、全身の美しさと健康が手に入る",
+    },
+    {
+        id: "ai_simulation",
+        label: "AI・3D似合わせ",
+        emoji: "🤖",
+        concern: "似合わないかもと怖くて、新しい髪型に挑戦できない",
+        approach: "AI診断と3Dモデルでの完全予測シミュレーション",
+        result: "失敗の恐怖が排除され、確実に似合うスタイルに",
+    },
 ] as const;
 
 /** パターンA：今日のお客様のお悩みタグ */
@@ -364,13 +436,28 @@ export const CONCERN_TAGS = [
     { id: "image", label: "イメチェンしたい", emoji: "🌟" },
     { id: "color", label: "色がパッとしない", emoji: "🎨" },
     { id: "scalp", label: "頭皮が気になる", emoji: "🧴" },
+    { id: "fatigue", label: "接客や会話に疲れる", emoji: "🤫" },
+    { id: "time_poor", label: "美容に割く時間がない", emoji: "⏰" },
+    { id: "gray_stress", label: "白髪染めループが辛い", emoji: "🔄" },
+    { id: "inner_health", label: "体質・根本から変えたい", emoji: "🥗" },
+    { id: "fear_change", label: "失敗が怖くて変えられない", emoji: "😨" },
 ] as const;
 
 export type TreatmentTagId = string;
 
+export const EDUCATION_CATEGORIES = [
+    { id: "hair_care", label: "ヘア・頭皮ケア", emoji: "🧴" },
+    { id: "styling_design", label: "スタイリング・似合わせ", emoji: "✂️" },
+    { id: "salon_tips", label: "美容院のトリセツ", emoji: "💡" },
+    { id: "inner_health", label: "インナービューティー", emoji: "🥗" },
+] as const;
+
+export type EducationCategoryId = typeof EDUCATION_CATEGORIES[number]["id"];
+
 export const EDUCATION_TAGS = [
     {
         id: "ng_care",
+        category: "hair_care",
         label: "NGヘアケア",
         emoji: "🚫",
         theme: "やってはいけないNGヘアケア",
@@ -379,6 +466,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "market_vs_salon",
+        category: "hair_care",
         label: "市販 vs サロン",
         emoji: "⚖️",
         theme: "市販品とサロン品の本当の違い",
@@ -387,6 +475,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "season_care",
+        category: "hair_care",
         label: "季節のヘアケア",
         emoji: "🌸",
         theme: "季節ごとの正しいヘアケア法",
@@ -395,6 +484,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "color_damage",
+        category: "hair_care",
         label: "カラーダメージ",
         emoji: "🎨",
         theme: "カラーダメージを最小限にする方法",
@@ -403,6 +493,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "hair_loss",
+        category: "hair_care",
         label: "抜け毛・薄毛",
         emoji: "🌿",
         theme: "抜け毛・薄毛が気になる方へのヘアケア",
@@ -411,6 +502,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "gray_hair",
+        category: "hair_care",
         label: "白髪ケア",
         emoji: "✨",
         theme: "白髪と上手に付き合う方法",
@@ -419,6 +511,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "curl_frizz",
+        category: "styling_design",
         label: "くせ毛・広がり",
         emoji: "💫",
         theme: "くせ毛・広がりをコントロールする方法",
@@ -427,6 +520,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "styling",
+        category: "styling_design",
         label: "スタイリング術",
         emoji: "💇",
         theme: "プロが教えるスタイリングの正しい方法",
@@ -435,6 +529,7 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "scalp_care",
+        category: "hair_care",
         label: "頭皮ケア",
         emoji: "🧴",
         theme: "頭皮ケアが髪質を変える理由",
@@ -443,11 +538,138 @@ export const EDUCATION_TAGS = [
     },
     {
         id: "home_care",
+        category: "hair_care",
         label: "おうちケア",
         emoji: "🏠",
         theme: "サロンケアを長持ちさせるおうちでのケア方法",
         items: "①シャンプーの頻度→毎日洗いすぎると頭皮が乾燥　②タオルドライ→ゴシゴシ拭くとキューティクルが傷む　③ドライヤーの距離→近すぎると熱ダメージが蓄積",
         solution: "サロン専売品とセットでホームケアをトータル提案します",
+    },
+    {
+        id: "aging_mental",
+        category: "inner_health",
+        label: "白髪染めと老け見え",
+        emoji: "🌿",
+        theme: "「隠す」白髪染めが、逆に老け見えを加速させる理由",
+        items: "①黒染めとのコントラストによる顔のくすみ　②毎月のケミカル塗布による頭皮の老化　③根元が伸びてきた時の強烈なストレス",
+        solution: "白髪を「活かす」脱白髪染めプログラムで精神的自由をご提案します",
+    },
+    {
+        id: "time_performance",
+        category: "styling_design",
+        label: "アイロン・習慣の断捨離",
+        emoji: "✂️",
+        theme: "毎朝アイロンを強制されるカットの「構造的な欠陥」",
+        items: "①アイロンに費やす年間約120時間の損失　②熱によるタンパク変性（髪の硬化）　③雨の日に崩れるという構造的弱点",
+        solution: "手で乾かすだけでフォルムが決まるノースタイリング保証カット",
+    },
+    {
+        id: "beyond_coating",
+        category: "inner_health",
+        label: "コーティングケアの罠",
+        emoji: "💎",
+        theme: "高級トリートメントをしても、髪が根本から綺麗にならない理由",
+        items: "①髪は死滅細胞であり外から塗っても治癒しない　②過剰コーティングの後遺症　③ツヤの9割は食事・睡眠・血流で作られる",
+        solution: "専門家と連携した細胞レベルからのインナービューティーケア",
+    },
+    {
+        id: "salon_stress",
+        category: "salon_tips",
+        label: "美容院ストレスの正体",
+        emoji: "🤫",
+        theme: "美容院から帰ると「なぜかどっと疲れている」本当の理由",
+        items: "①沈黙を恐れた無意識の気遣いによる脳疲労　②視覚・聴覚情報の過多　③「美容院＝話さなきゃいけない」という謎の常識",
+        solution: "一切の会話を排除し五感を休ませる「サイレント・リトリート空間」",
+    },
+    {
+        id: "scientific_match",
+        category: "styling_design",
+        label: "「似合う」の科学",
+        emoji: "🤖",
+        theme: "美容師の「感覚」や「センス」に任せると失敗する理由",
+        items: "①美容師個人の好みへの無意識な依存　②骨格・顔パーツとの論理的なミスマッチ　③サロン特有の照明による錯覚",
+        solution: "失敗の恐怖をなくす、AIと3Dモデリングを用いた完全予測似合わせ",
+    },
+    {
+        id: "autonomic_nerve",
+        category: "inner_health",
+        label: "自律神経と毛髪",
+        emoji: "🧠",
+        theme: "パサつく髪・抜ける髪は、あなたの「自律神経からのSOS」",
+        items: "①交感神経優位による頭皮血流の悪化　②睡眠の質低下が招く成長ホルモン不足　③無意識の食いしばりによる頭皮の硬化",
+        solution: "自律神経を測定し副交感神経を優位にする「脳疲労回復スパ」",
+    },
+    {
+        id: "order_tips",
+        category: "salon_tips",
+        label: "失敗しないオーダー術",
+        emoji: "🗣️",
+        theme: "美容院で失敗しないための上手なオーダー方法",
+        items: "①写真を見せても伝わらない理由　②美容師に絶対伝えるべき3つのこと　③お任せオーダーの正解",
+        solution: "カウンセリングに十分な時間をかけ、お客様の悩みを引き出します",
+    },
+    {
+        id: "before_salon",
+        category: "salon_tips",
+        label: "行く前のNG行動",
+        emoji: "🛑",
+        theme: "美容院に行く前にやってはいけないNGマナー",
+        items: "①行く直前のシャンプーは必要？　②ガチガチにセットして行くのはアリ？　③タートルネックやパーカーは避けるべき理由",
+        solution: "お客様がリラックスして過ごせる空間づくりを徹底しています",
+    },
+    {
+        id: "bangs_styling",
+        category: "styling_design",
+        label: "前髪の扱い方",
+        emoji: "✂️",
+        theme: "前髪のセルフカット・セルフスタイリング術",
+        items: "①セルフカットでパッツンになる理由　②夕方に割れる前髪の直し方　③絶対に失敗しない前髪の乾かし方",
+        solution: "前髪カットだけでも大歓迎です、プロにお任せください",
+    },
+    {
+        id: "iron_choice",
+        category: "styling_design",
+        label: "アイロンの選び方",
+        emoji: "🔥",
+        theme: "ヘアアイロン（コテ）の選び方と適正温度",
+        items: "①26mmと32mmどっちを買うべき？　②痛みにくい高級アイロンの仕組み　③髪質別のアイロン適正温度の真実",
+        solution: "お客様の髪質に合った道具や温度をアドバイスします",
+    },
+    {
+        id: "personal_color",
+        category: "styling_design",
+        label: "パーソナルカラー",
+        emoji: "🎨",
+        theme: "イエベ・ブルベにとらわれすぎる失敗",
+        items: "①パーソナルカラーだけでは似合わない理由　②骨格と顔のパーツから導く似合わせデザイン　③「好きな色」を似合わせるプロの技術",
+        solution: "トータルバランスで本当に一番似合うカラーをご提案します",
+    },
+    {
+        id: "generation_care",
+        category: "hair_care",
+        label: "年代別エイジングケア",
+        emoji: "⏳",
+        theme: "年代別の髪の変化とエイジングケアの真実",
+        items: "①30代・40代で突然髪質が変わる理由　②年齢に合わせたシャンプー選びの重要性　③エイジング毛特有のうねりの正体",
+        solution: "エイジング毛に特化した専用の髪質改善メニューをご用意しています",
+    },
+    {
+        id: "diet_hair",
+        category: "inner_health",
+        label: "食事と髪の関係",
+        emoji: "🥗",
+        theme: "ダイエットと食事の偏りが髪に与える影響",
+        items: "①極端なダイエットで髪が真っ先にボロボロになる理由　②最高の天然トリートメントになる食べ物　③栄養不足が引き起こす抜け毛",
+        solution: "健康的な美髪を作るためのインナーケアのアドバイスも行います",
+    },
+    {
+        id: "mens_care",
+        category: "hair_care",
+        label: "メンズヘア・頭皮ケア",
+        emoji: "👨",
+        theme: "男性こそ知っておくべき正しい頭皮ケアとスタイリング",
+        items: "①男性の薄毛予防は20代から必要な理由　②ワックスの付けすぎによる頭皮ダメージ　③モテるメンズの清潔感の作り方",
+        solution: "男性特有の悩みに合わせたメンズ専用メニューをご用意しています",
     },
 ] as const;
 
@@ -465,12 +687,19 @@ export const EDUCATION_REASON_TAGS = [
 
 /** パターンE・H共通で使う「伝えたいこと」タグ */
 export const STAFF_MESSAGE_TAGS = [
-    { id: "commitment", label: "こだわり", emoji: "🔥", message: "お客様一人ひとりの髪質・ライフスタイルに合わせた施術にこだわっています", hook: "美容師として一番大切にしていること、少し話させてください", target: "丁寧な施術を求めている方・じっくり相談したい方" },
-    { id: "episode", label: "印象的なエピソード", emoji: "✨", message: "お客様が仕上がりを見て喜んでくださった瞬間が、この仕事を続ける原動力です", hook: "先日、忘れられない出来事がありました", target: "初めての方・過去に失敗経験がある方" },
-    { id: "why_beauty", label: "美容師になった理由", emoji: "💫", message: "人を綺麗にすることで自信を持ってもらいたい、という想いでこの仕事を選びました", hook: "なぜ美容師になったのか、今日は少し話させてください", target: "サロン選びで迷っている方・スタッフの人柄を知りたい方" },
-    { id: "skill_growth", label: "技術へのこだわり", emoji: "📚", message: "技術は一生勉強だと思っています。お客様のためにどんなことも学び続けます", hook: "先日、新しい技術を習得してきました", target: "技術の高さを求めている方・最新のトリートメントを試したい方" },
-    { id: "customer_first", label: "お客様への想い", emoji: "💝", message: "来店してよかったと思っていただけることが、私が一番大切にしていることです", hook: "お客様から言われて、一番嬉しかった言葉があります", target: "居心地のよいサロンを探している方・長く通えるサロンを探している方" },
-    { id: "consultation", label: "カウンセリングへのこだわり", emoji: "💬", message: "施術前のカウンセリングに一番時間をかけています。なりたいイメージを一緒に言語化します", hook: "「うまく伝えられるか不安」という方へ", target: "希望をうまく伝えられるか不安な方・イメチェンしたいけど迷っている方" },
+    { id: "commitment", label: "こだわり", emoji: "🔥", message: "サロンワークの中で私が絶対に譲れないポイントと、その背景にある想い", hook: "当店が他とは違うアプローチをしているのには、ある理由があります", target: "丁寧な施術を求めている方・じっくり相談したい方" },
+    { id: "episode", label: "印象的なエピソード", emoji: "✨", message: "お客様からいただいた一言や、施術を通じた忘れられない出来事", hook: "先日ご来店いただいたお客様との間で、とても嬉しい出来事がありました", target: "初めての方・過去に失敗経験がある方" },
+    { id: "why_beauty", label: "美容師になった理由", emoji: "💫", message: "自分のコンプレックスを解消してくれた美容の力を、今度は自分が届けたいという原点", hook: "私がこの職業を選んだきっかけについて、少しお時間いただけますか", target: "サロン選びで迷っている方・スタッフの人柄を知りたい方" },
+    { id: "skill_growth", label: "技術へのこだわり", emoji: "📚", message: "現状に甘んじることなく、休日も新しい技術や知識を貪欲に吸収し続ける姿勢", hook: "現状の技術に満足せず、常にアップデートし続けるための最近の取り組み", target: "技術の高さを求めている方・最新のトリートメントを試したい方" },
+    { id: "customer_first", label: "お客様への想い", emoji: "💝", message: "髪を綺麗にするだけでなく、身も心もリラックスして帰っていただける居場所でありたい", hook: "「ここに来ると元気になる」その言葉を引き出すためのお店づくり", target: "居心地のよいサロンを探している方・長く通えるサロンを探している方" },
+    { id: "consultation", label: "カウンセリングへのこだわり", emoji: "💬", message: "施術に入る前のヒアリングで、お客様の潜在的な悩みや理想を徹底的に引き出すこと", hook: "「うまく伝えられない」と不安な方にこそ知ってほしい、当店の初回アプローチ", target: "希望をうまく伝えられるか不安な方・イメチェンしたいけど迷っている方" },
+    { id: "scissors_love", label: "道具・ハサミへの愛", emoji: "✂️", message: "決して安くないプロ専用の道具を厳選し、ミリ単位の仕上がりに責任を持つプロ意識", hook: "「え、そんなに違うの？」よく驚かれる、使うハサミでダメージが変わるという事実", target: "プロの技術やこだわりを知りたい方" },
+    { id: "product_obsession", label: "商材選びの裏話", emoji: "🧪", message: "どんなに原価が高くても、自分の髪と肌で納得いくまでテストした本物の薬だけを採用する", hook: "絶対に妥協したくなくて「自腹で人体実験」を繰り返した末の答え", target: "髪へのダメージを極力抑えたい方・安全性を重視する方" },
+    { id: "interior_secret", label: "空間・内装の秘密", emoji: "🛋️", message: "視覚や聴覚からもリフレッシュしていただくために店内の随所に仕掛けられた配慮", hook: "リラックス空間を作るため、実はサロン内の照明や音楽に「3つの秘密」を隠しています", target: "美容院で本当にリラックスしたい方" },
+    { id: "past_failure", label: "失敗から学んだ過去", emoji: "🌱", message: "かつて不器用で失敗ばかりだった経験があるからこそ、お客様の痛みがわかるという強み", hook: "アシスタント時代、一番怒られていた私が今思う「遠回りしたからこそ見えた景色」", target: "美容師の人柄やストーリーを知りたい・共感したい方" },
+    { id: "honest_request", label: "美容師の切実な本音", emoji: "🗣️", message: "プロの目線からお客様を想うがゆえにお伝えしたい、本当に正しい選択やNG行為", hook: "プロとしてこれだけは絶対に避けてほしい！と本気で思っているヘアケアNG行動", target: "信頼してすべて任せたい・本音のアドバイスが欲しい方" },
+    { id: "private_insight", label: "日常からのヒント", emoji: "☕", message: "サロンを離れたプライベートな時間や趣味から得られる、デザインへの思いがけない発見", hook: "休日の何気ないカフェ巡りやアート鑑賞が、実はヘアカラーの配合のヒントになっている", target: "スタッフのプライベートな一面やセンスを知りたい方" },
+    { id: "future_vision", label: "これからの目標・挑戦", emoji: "🚀", message: "今来てくれているお客様にさらに新鮮な驚きを提供するための、中長期的なビジョン", hook: "5年後、このサロンをただの美容院ではない「特別な場所」にするための計画", target: "長く通い続けサロンの成長を一緒に楽しんでくれる方" },
 ] as const;
 
 export type StaffMessageTagId = string;
@@ -527,6 +756,14 @@ export const NOTICE_TYPE_TAGS = [
     { id: "new_product", label: "新商品入荷", emoji: "🆕", type: "新しいトリートメント・商品の入荷のお知らせ", detail: "新しいサロン専売品が入荷しました" },
     { id: "holiday", label: "休業・営業時間変更", emoji: "📢", type: "臨時休業・営業時間変更のお知らせ", detail: "営業時間・休業日についてご案内があります" },
     { id: "event", label: "イベント・特典", emoji: "🌸", type: "季節のイベント・特典のお知らせ", detail: "季節限定のイベントや特典をご用意しました" },
+    { id: "staff_schedule", label: "スタッフ出勤・お休み", emoji: "🗓️", type: "スタッフの出勤日・休業日のお知らせ", detail: "スタッフの出勤スケジュールをお知らせします" },
+    { id: "staff_activities", label: "スタッフ活動報告", emoji: "🏆", type: "講習会参加やコンテストなどの活動報告", detail: "スタッフの活動や技術習得について報告します" },
+    { id: "hiring", label: "スタッフ募集・求人", emoji: "🤝", type: "アシスタント・スタイリスト募集のお知らせ", detail: "一緒に働く仲間を募集しています" },
+    { id: "booking_status", label: "予約状況・早め予約", emoji: "🔔", type: "予約の混雑状況や早めのご予約のお願い", detail: "ご予約が混み合ってきております。お早めにどうぞ" },
+    { id: "price_revision", label: "価格改定・リニューアル", emoji: "💰", type: "メニューの価格改定や内容変更のお知らせ", detail: "一部メニューの価格改定・変更に関する重要なお知らせです" },
+    { id: "cancellation_policy", label: "キャンセルポリシー", emoji: "⚠️", type: "キャンセルや遅刻に関するルールのご案内", detail: "ご予約の変更・キャンセルに関するお願いです" },
+    { id: "shop_info", label: "アクセス・店内設備", emoji: "🏠", type: "駐車場やお店の場所・店内改善のお知らせ", detail: "お店へのアクセスや店内設備に関するご案内です" },
+    { id: "media_appearance", label: "メディア掲載情報", emoji: "📰", type: "雑誌掲載やWebメディア紹介のお知らせ", detail: "当サロンがメディアで紹介されました" },
 ] as const;
 
 export type NoticeTypeTagId = string;
@@ -558,11 +795,22 @@ export const VOICE_OPTION_TAGS = [
     { id: "v_straight", categoryId: "by_treatment" as const, label: "縮毛矯正", emoji: "💫", concern: "くせ毛・うねりで毎朝のスタイリングが大変", result: "朝のスタイリング時間が大幅に短縮" },
     { id: "v_cut", categoryId: "by_treatment" as const, label: "カット", emoji: "✂️", concern: "なんとなく重い・スタイルがきまらない", result: "軽やかでまとまりやすいスタイルに" },
     { id: "v_gray_treatment", categoryId: "by_treatment" as const, label: "白髪・トリートメント", emoji: "💎", concern: "白髪が気になる・ダメージで手触りが悪い", result: "自然な仕上がり・ツヤツヤの髪に" },
+    { id: "v_perm", categoryId: "by_treatment" as const, label: "パーマ", emoji: "🌊", concern: "過去にパーマで失敗したトラウマがある", result: "ダメージレスで理想通りのゆるふわに" },
+    { id: "v_head_spa", categoryId: "by_treatment" as const, label: "ヘッドスパ", emoji: "💆", concern: "頭皮の疲れ・顔のむくみやくすみ", result: "日々の疲れが吹き飛び顔色も明るく" },
+    { id: "v_face_framing", categoryId: "by_treatment" as const, label: "前髪・顔周り", emoji: "✂️", concern: "前髪が割れる・顔周りのデザインがしっくりこない", result: "整形級に顔の印象が変わり小顔効果も" },
+    
     { id: "v_smooth", categoryId: "by_change" as const, label: "サラサラになった", emoji: "✨", concern: "パサつき・広がり・まとまらなさ", result: "サラサラでツヤが出た" },
     { id: "v_styling_easy", categoryId: "by_change" as const, label: "スタイリングが楽", emoji: "💇", concern: "毎朝のスタイリングに時間がかかっていた", result: "朝の支度が楽になった" },
     { id: "v_color_satisfied", categoryId: "by_change" as const, label: "色に満足", emoji: "🎨", concern: "自分に似合う色がわからない・失敗した", result: "イメージ通りの色・似合うと言われた" },
     { id: "v_curl_gone", categoryId: "by_change" as const, label: "くせが気にならなくなった", emoji: "💫", concern: "くせ毛・うねりが悩み", result: "くせが気にならなくなった・まとまるようになった" },
     { id: "v_damage_heal", categoryId: "by_change" as const, label: "傷みが改善", emoji: "💎", concern: "枝毛・パサつき・ダメージ", result: "指通りが良くなった・傷みが気にならなくなった" },
+    { id: "v_silent_relax", categoryId: "by_change" as const, label: "会話少なめでよかった", emoji: "🤫", concern: "美容室での会話が苦手だった", result: "ちょうど良い距離感でとてもリラックスできました" },
+    { id: "v_no_styling", categoryId: "by_change" as const, label: "朝が劇的に楽に", emoji: "⏰", concern: "毎朝のセットが面倒だった", result: "乾かすだけで本当に美容室帰りの形になった" },
+    { id: "v_gray_free", categoryId: "by_change" as const, label: "白髪の悩みから解放", emoji: "🌿", concern: "度重なる白髪染めが苦痛だった", result: "白髪を活かしたカラーで周囲からも褒められた" },
+    { id: "v_complimented", categoryId: "by_change" as const, label: "周りから褒められた", emoji: "🥰", concern: "自分に自信が持てない・垢抜けたい", result: "家族や同僚に「若返ったね！」と大絶賛された" },
+    { id: "v_counseling", categoryId: "by_change" as const, label: "わかってくれた", emoji: "🤝", concern: "どこの美容室でも細かいニュアンスが伝わらなかった", result: "初めて自分の理想を完全に理解して形にしてくれた" },
+    { id: "v_anti_aging", categoryId: "by_change" as const, label: "エイジング悩み解消", emoji: "🌟", concern: "トップのボリュームが出ず老けて見えていた", result: "ふんわり若々しくなり鏡を見るのが楽しくなった" },
+    { id: "v_find_salon", categoryId: "by_change" as const, label: "美容室難民の脱却", emoji: "🏡", concern: "長年しっくりくるサロンがなく転々としていた", result: "やっと「ずっと通いたい」と思える運命の美容室に出会えた" },
 ] as const;
 
 export type VoiceOptionTagId = string;
@@ -586,6 +834,7 @@ export const INDUSTRY_DATA: Record<string, {
     TREATMENT_TAGS: readonly GenericTag[];
     CONCERN_TAGS: readonly GenericTag[];
     EDUCATION_TAGS: readonly GenericTag[];
+    EDUCATION_CATEGORIES: readonly GenericTag[];
     EDUCATION_REASON_TAGS: readonly GenericTag[];
     STAFF_MESSAGE_TAGS: readonly GenericTag[];
     SALON_SCENE_TAGS: readonly GenericTag[];
@@ -608,6 +857,7 @@ export const INDUSTRY_DATA: Record<string, {
         TREATMENT_TAGS,
         CONCERN_TAGS,
         EDUCATION_TAGS,
+        EDUCATION_CATEGORIES,
         EDUCATION_REASON_TAGS,
         STAFF_MESSAGE_TAGS,
         SALON_SCENE_TAGS,
@@ -644,6 +894,10 @@ export const INDUSTRY_DATA: Record<string, {
             { id: "ingredients", label: "食材のこだわり", emoji: "🥬", theme: "当店が厳選する食材", items: "地元の新鮮な野菜を使用", solution: "安心安全で美味しい料理を提供" },
             { id: "cooking", label: "調理のこだわり", emoji: "👨‍🍳", theme: "美味しくする一工夫", items: "長時間の仕込み", solution: "深い味わいを実現" },
             { id: "pairing", label: "ペアリング", emoji: "🍷", theme: "料理とお酒の相性", items: "ソムリエおすすめの組み合わせ", solution: "料理の味をさらに引き立てる" },
+        ],
+        EDUCATION_CATEGORIES: [
+            { id: "ingredients", label: "食材について", emoji: "🥬" },
+            { id: "cooking", label: "調理について", emoji: "👨‍🍳" },
         ],
         EDUCATION_REASON_TAGS: [
             { id: "season_in", label: "旬の食材が入荷したから", emoji: "🌟" },

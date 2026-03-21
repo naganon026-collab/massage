@@ -113,6 +113,7 @@ const generateSchema = z.object({
     lineIncludeSeasonalGreeting: z.boolean().optional().default(true),
     /** 練習モード時は5回枠チェックをスキップ */
     isPracticeMode: z.boolean().optional().default(false),
+    userOriginalEpisode: z.string().optional(),
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -263,7 +264,7 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { patternTitle, patternId, useWeather: useWeatherParam, additionalContext, q1, q2, q3, shopInfo, news, outputTargets, imageData, generatedAt, todaysFocus, lineIncludeSeasonalGreeting } = parsed.data;
+        const { patternTitle, patternId, useWeather: useWeatherParam, additionalContext, q1, q2, q3, shopInfo, news, outputTargets, imageData, generatedAt, todaysFocus, lineIncludeSeasonalGreeting, userOriginalEpisode } = parsed.data;
 
         // ブログ生成は pro プランのみ
         if (outputTargets?.portal) {
@@ -464,6 +465,18 @@ ${shortMemo ? `- 店舗からの希望・メモ：${shortMemo}` : ""}
 「午前中からずっとスマホやパソコンと向き合っている方、いらっしゃいませんか？『なんか肩まで重だるい…』と感じているなら、それは目の疲れが影響しているかもしれません。目の奥の疲労は放っておくと頭痛や肩こりにつながりやすく、気づかないうちに頭から首までガチガチになっている方も少なくないんです。頭をじっくりほぐして目の奥の疲れを解放すると、肩の重さもすっと楽になりますよ。『視界がクリアになった』と感じてもらえると思います。頭と目の疲れ、今日のうちにリセットしてみませんか。」
 - 読んだ方が「まさに自分のことだ」「この人に任せれば安心できそう」と感じるような、押し付けがましくない共感性を重視してください。`;
 
+        const userEpisodeInstruction = userOriginalEpisode?.trim() ? `
+---
+【最優先事項：ユーザーのオリジナルエピソード・想い】
+「${userOriginalEpisode}」
+
+※AIへの絶対命令※
+上記のテキストは、ユーザーが直接書き込んだ「独自の想い・エピソード」です。
+選択肢のプロの知識やテンプレ情報の論理よりも、このテキストのニュアンス・感情・内容を
+今回の投稿の【最大のメインテーマ】として絶対的に優先して執筆してください。
+他のどのサロンにも書けない、このユーザーだけの血の通ったオリジナル文章（一次情報）に仕上げること。
+---` : "";
+
         const systemPrompt = `# あなたの役割
 あなたは美容業界専門のSNSマーケティングコンサルタントです。
 ${shopAddress}の${shopIndustry}「${shopName}」を担当し、特に20〜30代女性をターゲットにした「集客につながる美容院投稿」を作成します。
@@ -486,6 +499,7 @@ ${shopScrapedContent ? `【WEBサイトから抽出した参考情報】\n${shop
 ${toneInstruction}
 ${variationInstruction}
 ${shortInstruction}
+${userEpisodeInstruction}
 
 ---
 【重要】締め文（CTA）の絶対ルール

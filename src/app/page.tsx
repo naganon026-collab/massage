@@ -21,7 +21,7 @@ import { ToastContainer, useToast } from "@/components/ui/toast";
 
 import { getSeasonalContext } from "@/lib/seasonalContext";
 import { ADMIN_EMAIL, PATTERNS, PATTERN_CATEGORIES, getPatternCategoryId, REFINE_OPTIONS, INDUSTRY_DATA, ShopInfo, ShortScriptData, LlmoArticleData } from "@/types";
-import type { Pattern, TreatmentTagId, EducationTagId, StaffMessageTagId, SalonSceneTagId, SceneMessageTagId, NoticeTypeTagId, UrgencyTagId, VoiceCategoryId, VoiceOptionTagId, PatternCategoryId } from "@/types";
+import type { Pattern, TreatmentTagId, EducationTagId, EducationCategoryId, StaffMessageTagId, SalonSceneTagId, SceneMessageTagId, NoticeTypeTagId, UrgencyTagId, VoiceCategoryId, VoiceOptionTagId, PatternCategoryId } from "@/types";
 import { useStoreManager } from "@/hooks/useStoreManager";
 import { useShopConfig } from "@/hooks/useShopConfig";
 import { useContentGenerator } from "@/hooks/useContentGenerator";
@@ -576,8 +576,10 @@ function SEOContentGenerator() {
   const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all");
   const resultsRef = useRef<HTMLDivElement>(null);
   const [selectedTreatment, setSelectedTreatment] = useState<TreatmentTagId | null>(null);
+  const [selectedCategoryA, setSelectedCategoryA] = useState<"treatment" | "concern" | null>(null);
   const [optionalMemos, setOptionalMemos] = useState({ reaction: "", beforeAfter: "" });
   const [selectedEducation, setSelectedEducation] = useState<EducationTagId | null>(null);
+  const [selectedCategoryB, setSelectedCategoryB] = useState<EducationCategoryId | null>(null);
   const [educationMemo, setEducationMemo] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<StaffMessageTagId | null>(null);
   const [staffMemo, setStaffMemo] = useState("");
@@ -588,7 +590,6 @@ function SEOContentGenerator() {
   const [selectedUrgency, setSelectedUrgency] = useState<UrgencyTagId | null>(null);
   const [noticePeriod, setNoticePeriod] = useState("");
   const [noticeMemo, setNoticeMemo] = useState("");
-  const [voiceMemo, setVoiceMemo] = useState("");
   const [selectedVoiceCategory, setSelectedVoiceCategory] = useState<VoiceCategoryId | null>(null);
   const [selectedVoiceOption, setSelectedVoiceOption] = useState<VoiceOptionTagId | null>(null);
   const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
@@ -753,6 +754,7 @@ function SEOContentGenerator() {
     formData, setFormData, replyPlatform, setReplyPlatform,
     receivedComment, setReceivedComment, replyNote, setReplyNote,
     uploadImageData, setUploadImageData, imageMemo, setImageMemo,
+    userOriginalEpisode, setUserOriginalEpisode,
     isGenerating, generationProgress, generatedResults, setGeneratedResults, copiedTab, editingTab, setEditingTab,
     generationHistory, showHistory, setShowHistory,
     deletingHistoryId, handleGenerate,
@@ -824,14 +826,203 @@ function SEOContentGenerator() {
     selectedPattern === "G" ? receivedComment.trim().length > 0
       : selectedPattern === "I" ? !!uploadImageData
         : currentPattern.isTagSelect === true
-            ? (currentPattern.id === "A" ? selectedTreatment !== null && selectedConcern !== null
+            ? (currentPattern.id === "A" ? selectedTreatment !== null
               : currentPattern.id === "B" ? selectedEducation !== null && selectedEducationReason !== null
               : currentPattern.id === "C" ? selectedNoticeType !== null && selectedUrgency !== null
-              : currentPattern.id === "D" ? selectedVoiceOption !== null && voiceMemo.trim() !== ""
+              : currentPattern.id === "D" ? selectedVoiceOption !== null
               : currentPattern.id === "E" ? selectedMessage !== null && staffMemo.trim() !== ""
               : currentPattern.id === "H" ? selectedScene !== null && selectedSceneMessage !== null
               : false)
             : (formData.q1.trim() || formData.q2.trim() || formData.q3.trim());
+
+  const getEpisodePlaceholder = (patternId?: string) => {
+    // A: 施術
+    if (patternId === "A" && selectedTreatment) {
+      const examples: Record<string, string> = {
+        hair_quality: "長年パサつきに悩んでいたお客様でしたが、1回の施術で『自分の髪じゃないみたい！』と驚いてくださいました",
+        trend_color: "いつも同じ色になってしまうというお悩みでしたので、少し青みを足して透明感を出してみたら大正解でした！",
+        straight: "毎朝アイロンに30分かけていたそうですが、これからは起きてすぐ出かけられると大喜びでした",
+        cut: "少しレイヤーを入れただけで顔周りがパッと明るくなって『小顔に見える！』と嬉しそうでした",
+        gray: "暗く染めるのに抵抗があったため明るく透明感のある配合に。帰り際の笑顔が素敵でした",
+        perm: "直毛で動きが出ないのが悩みとおっしゃっていましたが、ふんわりパーマで朝のセットが格段に楽になったそうです",
+        treatment: "蓄積したダメージで手櫛も通らない状態からシルクのような手触りに復活してずっとご自身の髪を触られていました",
+        bleach: "ケアブリーチでダメージを最小限に抑えつつハイトーンを実現。透き通るような色味に感動していただけました",
+        gray_transition: "毎月の白髪染めに疲弊されていましたが、ハイライトを活かしたデザインで『染めるのが楽しみになった』とのことです",
+        no_styling_cut: "本当に手で乾かすだけでまとまるのか半信半疑でしたが、仕上がりを見て『魔法みたい』と驚かれていました",
+        silent_retreat: "美容院での会話が苦手で何年も美容院ジプシーだったそうですが、『ここなら通える』と次回予約をいただきました",
+        brain_recovery_spa: "最近よく眠れないとお悩みでしたが、スパ中からぐっすり眠られ、お顔のむくみも取れてスッキリされていました",
+        express_15min: "大事な商談の前にサクッとご来店。気になっていた前髪が綺麗になって自信を持って向かわれました",
+        subscription: "常にプリンを気にしていたストレスから解放され、毎日綺麗な状態でいられるのが本当に幸せだとおっしゃっています",
+        commit_treatment: "どこに行っても治らなかった深刻なダメージでしたが、半年間の伴走でついに理想のツヤ髪を手に入れられました",
+        inner_beauty: "外側からのケアだけでなく食事のアドバイスも実践していただいた結果、お肌まで凄く綺麗になってこられました",
+        ai_simulation: "ずっとショートにする勇気が出なかったそうですが、シミュレーションで似合うことを確認でき、念願のショートに！",
+        heavy: "髪が重くてまとまらないというお悩みでしたが、骨格補正カットでこんなに軽やかに仕上がりました",
+        frizz: "雨の日の広がり・うねりが長年のコンプレックスだとおっしゃっていましたが、見違えるようなツヤ髪に感動されていました",
+        styling: "毎朝のスタイリングに時間がかかりすぎて困っているとのこと。乾かすだけでまとまるスタイルをご提案しました",
+        damage: "パサつきによる深刻なダメージがありましたが、特化型ケアでここまで回復しました",
+        flat: "トップにボリュームが出ずペタンコになってしまうのがお悩みで、根元からの立ち上がりを意識した施術を行いました",
+        face: "顔まわりをすっきり見せたいというご要望に合わせ、小顔効果抜群のレイヤーを入れてみました",
+        image: "今までずっと同じ髪型で思い切ってイメチェンしたい！とのことで、骨格に合わせたスタイルに挑戦",
+        color: "カラー後すぐ色が抜けてパッとしないとお悩みでしたが、今回は持ちのいい配合で透明感たっぷりに仕上げました",
+        scalp: "最近頭皮の乾燥やかゆみが気になるとのことで、専用のケアメニューを追加しスッキリしていただきました",
+        fatigue: "美容院での会話に疲れてしまうというご新規様。当店独自のサイレント空間でゆっくりお休みいただけました",
+        time_poor: "とにかく忙しくて美容に時間を割けない！という方に、ホームケア不要で長持ちするスタイルをご提案",
+        gray_stress: "白髪染めループから抜け出したいという強いご希望。脱白髪染めで美しいグレイヘアへの第一歩を踏み出しました",
+        inner_health: "髪だけでなく体質改善から取り組みたいというご相談。インナーケアのアドバイスで髪質まで変わってきました",
+        fear_change: "失敗が怖くて何年も髪型を変えられなかったそうですが、シミュレーションで納得してお任せいただけました"
+      };
+      return `（例）${examples[selectedTreatment] || "仕上がりを見て「こんなに変わるの!?」と涙ぐんで喜んでくれた / 長年くせ毛で悩まれていたご新規様でした"}`;
+    }
+
+    // B: 教育
+    if (patternId === "B" && selectedEducation) {
+      const examples: Record<string, string> = {
+        ng_care: "実はお客様の7割が良かれと思ってこのNGケアをやってしまっています。私も昔はそうでした…",
+        market_vs_salon: "『なんで美容院の後だけサラサラなの？』とよく聞かれますが、実は市販品とサロン品には明確な違いがあるんです",
+        season_care: "この時期になると急にパサつきや抜け毛の相談が増えます。季節の変わり目にはこんなケアが必須です！",
+        color_damage: "せっかく可愛い色にしても1週間で色落ちしてしまうという相談を受け、このケア方法を徹底的にお伝えしました",
+        hair_loss: "最近シャンプーの時の抜け毛が気になるとご相談を受けました。実はこれ、頭皮の〇〇が原因かもしれません",
+        gray_hair: "『見つけるとつい抜いちゃう』というお客様が多いのですがこれは絶対にNGです！正しい対処法をお伝えします",
+        curl_frizz: "雨の日に絶対広がってしまうという方へ。実はアイロンの前にこの一手間を加えるだけで全然違うんです",
+        styling: "美容院の仕上がりを家で再現できない！というお悩みを解決するため、絶対に失敗しない乾かし方のコツをまとめました",
+        scalp_care: "髪のパサつきに悩む方にこそ知ってほしいのが頭皮ケア。畑が乾燥していると元気な作物は育ちません",
+        home_care: "月に1回のサロンケアよりも残り29日のホームケアが髪質を決めます。今日からできる最強ツールのご紹介です",
+        aging_mental: "『伸びてきた根元を見るたびに憂鬱になる』そんなストレスから解放される選択肢があることをもっと知ってほしいです",
+        time_performance: "毎朝のアイロン15分、1年で換算すると約90時間。この時間を無くせたらあなたの朝はどう変わりますか？",
+        beyond_coating: "高級トリートメントをしても数日で元通りになってしまう…そんな負のループから抜け出すための本質的なお話です",
+        salon_stress: "『美容院に行くと綺麗になるけど疲れる』という本音。無理に喋らなくていい、本当に休まる空間の必要性を語ります",
+        scientific_match: "『私には似合わない』は単なる思い込みかもしれません。骨格を分析すると誰にでも似合う法則が見えてきます",
+        autonomic_nerve: "最近抜け毛が増えた、パサつく…それは加齢ではなく、交感神経が優位になりすぎているサインかもしれません",
+        order_tips: "『写真を見せてもいつも違う髪型になる』と悩む方が多いので、絶対に失敗しない美容室でのオーダーのコツを伝授します",
+        before_salon: "『行く前にシャンプーはした方がいいの？』など、実はお客様からよく聞かれる美容院マナーの真実をお答えします",
+        bangs_styling: "自分で前髪を切るとなぜかぱっつんになってしまう…そんな失敗を防ぐための、誰でもできるセルフカット術です",
+        iron_choice: "『26mmと32mmどっちを買えばいい？』というよくある質問に、髪の長さと目指すスタイル別でお答えします！",
+        personal_color: "パーソナルカラー診断で『似合わない』と言われた色でも、実はプロの技でこんなに似合わせることができるんです",
+        generation_care: "30代を過ぎて突然髪のパサつきやうねりが気になり始めた方へ。これは傷みではなくエイジングサインかもしれません",
+        diet_hair: "極端な食事制限ダイエットをすると、真っ先に髪がボロボロになってしまいます。美髪をつくる食べ物をご紹介します",
+        mens_care: "男性の薄毛予防は実は20代からの頭皮ケアで決まります。パートナーにもぜひ教えてあげてください"
+      };
+      return `（例）${examples[selectedEducation] || "最近お客様から本当によく相談される内容です / 実は私自身もアシスタント時代によくやってしまっていました…"}`;
+    }
+
+    // C: お知らせ
+    if (patternId === "C" && selectedNoticeType) {
+      const examples: Record<string, string> = {
+        vacancy: "キャンセルが出たため急遽ご案内可能になりました！いつもすぐ埋まってしまう人気の時間帯なのでお見逃しなく",
+        campaign: "日頃の感謝を込めて過去一番お得なキャンペーンをご用意しました。この機会にぜひあのメニューを試してみてください",
+        new_menu: "私が半年間、自分の髪で何度もテストして『これだ！』と確信した最強のメニューをついに皆様にお届けできます",
+        new_product: "発売前から話題沸騰だったあの商品、やっと当店にも入荷しました！スタッフも全員自腹で買うほどの実力派です",
+        holiday: "誠に勝手ながらお休みをいただきます。しっかりリフレッシュして、さらにパワーアップして皆様をお迎えします！",
+        event: "ご来店いただいた皆様にささやかながら特別なギフトをご用意しています。日頃の感謝を伝えさせてください",
+        staff_schedule: "スタイリスト〇〇の来月の出勤予定です。〇日と〇日はお休みをいただいておりますのでご注意ください",
+        staff_activities: "昨日は定休日を利用して、スタッフ全員でトレンドカラーの講習会に参加し、技術をアップデートしてきました！",
+        hiring: "業務拡大に伴い、一緒にサロンを盛り上げてくれるアシスタントを1名募集することになりました",
+        booking_status: "大変ありがたいことに、来週末のご予約がほぼ満席となっております。ご希望の方はお早めに！",
+        price_revision: "材料費の高騰により、大変心苦しいですが〇月〇日より一部カラーメニューの価格を改定させていただきます",
+        cancellation_policy: "いつもご来店ありがとうございます。最近当日キャンセルが増えておりますため、改めて規定についてご案内です",
+        shop_info: "お店の裏にある提携駐車場が2台増えました！お車でお越しのお客様はぜひご利用ください",
+        media_appearance: "なんと！今月発売の〇〇という雑誌で、当店の縮毛矯正メニューが見開きで紹介されました！",
+      };
+      return `（例）${examples[selectedNoticeType] || "週末のご予約はすぐ埋まりやすいのでお早めに！ / このメニューは私が半年かけて探し出した自慢の商材です"}`;
+    }
+
+    // D: お客様の声
+    if (patternId === "D" && selectedVoiceOption) {
+      const examples: Record<string, string> = {
+        v_hair_quality: "（例）『子どもの頃のサラサラ髪に戻れた！』と嬉しそうに何度も髪を揺らしている姿がとても印象的でした",
+        v_color: "（例）『初めて自分にピッタリの色に出会えました』と、帰る時には来た時より表情まで明るくなっていました",
+        v_straight: "（例）『雨の日が憂鬱じゃなくなりました！朝の準備が本当に楽です』というご報告をいただき私もとても嬉しくなりました",
+        v_cut: "（例）『バッサリ切るのは不安だったけど人生で一番しっくりきてます！』と周りのお友達からも大好評だったそうです",
+        v_gray_treatment: "（例）『ただ白髪を隠すだけじゃなく綺麗に見えるようになれて毎日が楽しいです』と嬉しいお言葉をいただきました",
+        v_perm: "（例）『過去にパーマでチリチリになったトラウマがあって不安でしたが、理想通りのゆるふわになれて感動です』",
+        v_head_spa: "（例）『髪のケアだけでなく、日々の疲れまで吹き飛んで顔のむくみまでスッキリしました！』とリピート確定のご予約をいただきました",
+        v_face_framing: "（例）『前髪と顔周りを少し変えてもらっただけで、整形級に雰囲気が変わってビックリ！』と大絶賛していただけました",
+        
+        v_smooth: "（例）帰り際、何度もご自身の髪を触って『信じられない！』と感動してくださったのが最高の瞬間でした",
+        v_styling_easy: "（例）『朝の10分が浮いたおかげでゆっくり朝ごはんが食べられるようになりました』という素敵なエピソードをいただきました",
+        v_color_satisfied: "（例）『色落ちの過程まで綺麗だから丸1ヶ月ずっと楽しいです』と次回予約の際におっしゃっていただけました",
+        v_curl_gone: "（例）『長年コンプレックスだったくせ毛が今は自分の個性として好きになれました』と涙ぐんでお話してくださいました",
+        v_damage_heal: "（例）『もう切るしかないと諦めていたのにここまで回復するなんて』と驚きと感謝の言葉をいただきました",
+        v_silent_relax: "（例）『無駄な会話がなく、ちょうど良い距離感でとてもリラックスできました』と来店前よりすっきりした表情でした",
+        v_no_styling: "（例）『本当にブローなしでまとまるなんて嘘みたいです。アイロンを手放せました！』と感動のメッセージをいただきました",
+        v_gray_free: "（例）『根元が伸びてきても気にならなくなり、美容院へ行くのが義務から楽しみに変わりました』とおっしゃっていただけました",
+        v_complimented: "（例）『帰った後、職場の同僚に「すごく若返ったね！」と褒められました！』とLINEでわざわざご報告をくださいました",
+        v_counseling: "（例）『どこの美容室に行っても伝わらなかったニュアンスを、初めて理解して形にしてくれました』と安心して任せていただけました",
+        v_anti_aging: "（例）『ペタンコになるのが悩みで老けて見えていたのが、トップがふんわりして自信を取り戻せました！』と最高の笑顔をいただきました",
+        v_find_salon: "（例）『長年しっくりくるサロンがなく転々としていましたが、やっと「ここだ！」と思える運命の美容室に出会えました』"
+      };
+      return `（例）${examples[selectedVoiceOption] || "「朝のアイロンが不要になって5分短縮された」と喜んでいただけました / 帰り際の最高の笑顔が忘れられません"}`;
+    }
+
+    // E: メッセージ
+    if (patternId === "E" && selectedMessage) {
+      const examples: Record<string, string> = {
+        commitment: "全工程の中で私が一番こだわっているポイントと、他のサロン様との決定的な違いについて",
+        episode: "先日ご来店いただいたお客様が、帰り際にご自身の髪を触って涙ぐんでくださった時の話",
+        why_beauty: "実は私、昔は自分の髪質が本当にコンプレックスで美容院に行くのも苦手だったんです。",
+        skill_growth: "先日、新しいカット技術の講習会に参加してきました！現状に満足せず常に技術を磨き続ける理由。",
+        customer_first: "髪を綺麗にするのはもちろん「ここに来てよかった」と心からリフレッシュして帰っていただきたいです",
+        consultation: "当店が初回カウンセリングに20分かける理由。「言いたいことが言えなかった」経験はありませんか？",
+        scissors_love: "「え、そんなに違うの？」とよく驚かれますが、使うハサミによって髪のダメージやまとまりは劇的に変わるんです",
+        product_obsession: "絶対に妥協したくなくて、私の頭で何十種類も「人体実験」をした結果、ようやく辿り着いた最強の商材です",
+        interior_secret: "リラックスしていただくために、実は当店のシャンプー台周辺には「3つの仕掛け」を隠しています",
+        past_failure: "アシスタント時代、同期で一番不器用だった私が今カットを教える立場になって気付いた大切なこと",
+        honest_request: "美容師からの切実なお願い。これだけは絶対に避けてほしい「NGなホームケア」について",
+        private_insight: "お休みの日の趣味が、実はヘアカラーの絶妙な配合やデザインの引き出しに繋がっていたりします",
+        future_vision: "5年後、このサロンをどんな場所にしたいか。私たちが目指している『ただの美容院ではない場所』"
+      };
+      return `（例）${examples[selectedMessage] || "なぜ私がこの技術にここまでこだわるのか、今日は少しだけ語らせてください"}`;
+    }
+
+    // H: 日常シーン
+    if (patternId === "H" && selectedScene) {
+      const examples: Record<string, string> = {
+        preparation: "お客様がご来店される前にその日のカルテを見直して完璧な状態にセッティングする毎朝の静かな時間が好きです",
+        study: "営業後のレッスン風景。新しいカラー剤の配合をミリ単位で検証し、スタッフ同士で熱く議論が交わされています！",
+        new_product: "待ちに待った念願の最新トリートメント機材が到着！早速実験してみたら想像以上の効果に院内が騒然となりました",
+        customer_voice: "今日いらした常連様から『ここのシャンプーが一番癒される』と言っていただきシャンプー担当の〇〇が嬉し泣きしていました",
+        morning_open: "朝一番の澄んだ空気の中、観葉植物に水をやりながらお客様をお迎えする準備を整える。今日も一日頑張ります！",
+        team: "休憩時間の一コマ。みんなで新作のアイスを食べながら先日の社員旅行の思い出話で持ちきりです！",
+        season_deco: "クリスマスに向けて店内を飾り付け。〇〇を中心にどこかアットホームでワクワクする空間が完成しました！",
+        tool_care: "一日の終わりに相棒のハサミを磨く時間。このハサミでお客様を笑顔にできることが何よりの誇りです"
+      };
+      return `（例）${examples[selectedScene] || "今日届いた新しいカラー剤、スタッフ全員で試して大興奮！ / いつも来てくださる常連のお客様から素敵な差し入れをいただきました"}`;
+    }
+
+    switch (patternId) {
+      case "A": return "（例）仕上がりを見て「こんなに変わるの!?」と涙ぐんで喜んでくれた / 長年くせ毛で悩まれていたご新規様でした";
+      case "B": return "（例）最近お客様から本当によく相談される内容です / 実は私自身もアシスタント時代によくやってしまっていました…";
+      case "C": return "（例）お陰様で週末のご予約はすぐ埋まりやすいのでお早めに！ / 実はこのメニュー、私が半年かけて探し出した自慢の商材です";
+      case "D": return "（例）「朝のアイロンが不要になって5分短縮された」と喜んでいただけました / 帰り際の最高の笑顔が忘れられません";
+      case "E": return "（例）担当スタッフ：〇〇 / なぜ私がこの技術にここまでこだわるのか、今日は少しだけ語らせてください";
+      case "H": return "（例）今日届いた新しいカラー剤、スタッフ全員で試して大興奮！ / いつも来てくださる常連のお客様から素敵な差し入れをいただきました";
+      default: return "（例）本日のお客様との心温まる会話 / 実はこのメニューにはこんな裏話・開発秘話があります / どうしても届けたい熱い想い";
+    }
+  };
+
+  const renderOriginalEpisodeInput = (patternId?: string) => {
+    const isVoicePattern = patternId === "D";
+    return (
+      <div className="w-full space-y-3 mt-6 pt-6 border-t border-zinc-700/50">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+          <Label className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-emerald-400" />
+            {isVoicePattern ? "お客様の実際の声や付随するエピソード" : "選択肢の内容に付随するエピソードや想い"}
+            <span className="text-xs font-medium ml-1 text-zinc-400">
+              （推奨）
+            </span>
+          </Label>
+          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold w-fit">AIが最優先で反映</span>
+        </div>
+        <Textarea
+          placeholder={getEpisodePlaceholder(patternId)}
+          value={userOriginalEpisode}
+          onChange={(e) => setUserOriginalEpisode(e.target.value)}
+          className="min-h-[100px] border-zinc-700 bg-zinc-900/50 text-sm"
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 text-slate-50 font-sans selection:bg-emerald-500/30 selection:text-zinc-950 pb-[max(5rem,calc(5rem+env(safe-area-inset-bottom)))]">
@@ -1250,7 +1441,6 @@ function SEOContentGenerator() {
                               setSelectedUrgency(null);
                               setNoticePeriod("");
                               setNoticeMemo("");
-                              setVoiceMemo("");
                               setSelectedVoiceCategory(null);
                               setSelectedVoiceOption(null);
                               setSelectedConcern(null);
@@ -1435,138 +1625,175 @@ function SEOContentGenerator() {
                 /* パターンA：施術タグ選択＋任意2問 */
                 <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
                   <CardContent className="p-4 sm:p-7 space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-base font-semibold text-zinc-100">{tags.labelTreatment}</Label>
-                        <span className="text-xs text-red-500 font-medium">必須</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {tags.TREATMENT_TAGS.map((tag) => (
-                          <button
-                            key={tag.id}
-                            type="button"
-                            onClick={() =>
-                              setSelectedTreatment(
-                                selectedTreatment === tag.id ? null : tag.id
-                              )
-                            }
-                              className={`
-                              px-4 py-3 rounded-full text-sm font-medium
-                              border-2 transition-all duration-150 select-none
-                              active:scale-95
-                              ${selectedTreatment === tag.id
-                                ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
-                                : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
-                              }
-                            `}
-                          >
-                            {tag.emoji} {tag.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {selectedTreatment && (
+                    <div className="space-y-4">
+                      {/* 1段目：カテゴリ選択 */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">{tags.labelConcern}</Label>
+                          <Label className="text-base font-semibold text-zinc-100">今日のテーマを選ぶ</Label>
                           <span className="text-xs text-red-500 font-medium">必須</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {tags.CONCERN_TAGS.map((tag) => (
+                          {[
+                            { id: "treatment", label: tags.labelTreatment || "施術・メニューから選ぶ", emoji: "✂️" },
+                            { id: "concern", label: tags.labelConcern || "お客様のお悩み・変化から選ぶ", emoji: "✨" },
+                          ].map((cat) => (
                             <button
-                              key={tag.id}
+                              key={cat.id}
                               type="button"
-                              onClick={() =>
-                                setSelectedConcern(selectedConcern === tag.id ? null : tag.id)
-                              }
+                              onClick={() => {
+                                if (selectedCategoryA !== cat.id) {
+                                  setSelectedCategoryA(cat.id as "treatment" | "concern");
+                                  setSelectedTreatment(null); // カテゴリ変更時は選択クリア
+                                }
+                              }}
                               className={`
                                 px-4 py-3 rounded-full text-sm font-medium
-                                border-2 transition-all duration-150 select-none active:scale-95
-                                ${selectedConcern === tag.id
+                                border-2 transition-all duration-150 select-none
+                                active:scale-95
+                                ${selectedCategoryA === cat.id
                                   ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
                                   : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
                                 }
                               `}
                             >
-                              {tag.emoji} {tag.label}
+                              {cat.emoji} {cat.label}
                             </button>
                           ))}
                         </div>
                       </div>
-                    )}
-                    {!generationStatus?.isPracticeMode && (
-                    <details className="group">
-                      <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
-                        <span className="border border-emerald-500/40 rounded-full px-4 py-2 text-sm font-medium text-emerald-400 group-open:bg-emerald-500/10 transition-colors">
-                          ＋ より具体的な投稿にする（推奨）
-                        </span>
-                      </summary>
-                      <div className="space-y-4 mt-4">
-                        {[
-                          {
-                            key: "reaction" as const,
-                            label: "😊 お客様の反応・喜びの声",
-                            placeholder: "例：仕上がりを見て「こんなにサラサラになるの！？」と驚いてくれた",
-                          },
-                          {
-                            key: "beforeAfter" as const,
-                            label: "✨ ビフォーアフターの変化",
-                            placeholder: "例：ごわごわだった髪が、手触りシルクみたいになった",
-                          },
-                        ].map(({ key, label, placeholder }) => (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm text-zinc-200">{label}</Label>
-                            <Textarea
-                              placeholder={placeholder}
-                              value={optionalMemos[key]}
-                              onChange={(e) =>
-                                setOptionalMemos((prev) => ({
-                                  ...prev,
-                                  [key]: e.target.value,
-                                }))
-                              }
-                              className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
-                            />
+
+                      {/* 2段目：選択肢リスト */}
+                      {selectedCategoryA === "treatment" && (
+                        <div className="space-y-3 pt-4 border-t border-zinc-700/50 mt-4 animate-in fade-in slide-in-from-top-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">{tags.labelTreatment}の選択肢</Label>
+                            <span className="text-xs text-red-500 font-medium">1つ選択</span>
                           </div>
-                        ))}
-                      </div>
-                    </details>
-                    )}
+                          <div className="flex flex-wrap gap-2">
+                            {tags.TREATMENT_TAGS.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => setSelectedTreatment(selectedTreatment === tag.id ? null : tag.id)}
+                                className={`
+                                  px-4 py-3 rounded-full text-sm font-medium
+                                  border-2 transition-all duration-150 select-none
+                                  active:scale-95
+                                  ${selectedTreatment === tag.id
+                                    ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                    : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                  }
+                                `}
+                              >
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedCategoryA === "concern" && (
+                        <div className="space-y-3 pt-4 border-t border-zinc-700/50 mt-4 animate-in fade-in slide-in-from-top-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">{tags.labelConcern}の選択肢</Label>
+                            <span className="text-xs text-red-500 font-medium">1つ選択</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {tags.CONCERN_TAGS.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => setSelectedTreatment(selectedTreatment === tag.id ? null : tag.id)}
+                                className={`
+                                  px-4 py-3 rounded-full text-sm font-medium
+                                  border-2 transition-all duration-150 select-none active:scale-95
+                                  ${selectedTreatment === tag.id
+                                    ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                    : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                  }
+                                `}
+                              >
+                                {tag.emoji} {tag.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {renderOriginalEpisodeInput("A")}
                   </CardContent>
                 </Card>
                 ) : currentPattern.id === "B" ? (
                   /* パターンB：教育テーマタグ選択＋一言メモ */
                   <Card className="border-zinc-700 bg-zinc-900 card-elevated transition-smooth">
                     <CardContent className="p-4 sm:p-7 space-y-6">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">{tags.labelEducation}</Label>
-                          <span className="text-xs text-red-500 font-medium">必須</span>
+                      <div className="space-y-4">
+                        {/* 1段目：カテゴリ選択 */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-base font-semibold text-zinc-100">教えたいテーマのジャンルを選ぶ</Label>
+                            <span className="text-xs text-red-500 font-medium">必須</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {tags.EDUCATION_CATEGORIES.map((cat) => (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => {
+                                  if (selectedCategoryB !== cat.id) {
+                                    setSelectedCategoryB(cat.id as typeof selectedCategoryB);
+                                    setSelectedEducation(null);
+                                  }
+                                }}
+                                className={`
+                                  px-4 py-3 rounded-full text-sm font-medium
+                                  border-2 transition-all duration-150 select-none
+                                  active:scale-95
+                                  ${selectedCategoryB === cat.id
+                                    ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                    : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                  }
+                                `}
+                              >
+                                {cat.emoji} {cat.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {tags.EDUCATION_TAGS.map((tag) => (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedEducation(
-                                  selectedEducation === tag.id ? null : tag.id
-                                )
-                              }
-                              className={`
-                                px-4 py-3 rounded-full text-sm font-medium
-                                border-2 transition-all duration-150 select-none
-                                active:scale-95
-                                ${selectedEducation === tag.id
-                                  ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
-                                  : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
-                                }
-                              `}
-                            >
-                              {tag.emoji} {tag.label}
-                            </button>
-                          ))}
-                        </div>
+
+                        {/* 2段目：選択肢リスト */}
+                        {selectedCategoryB && (
+                          <div className="space-y-3 pt-4 border-t border-zinc-700/50 mt-4 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-base font-semibold text-zinc-100">詳細なテーマを選ぶ</Label>
+                              <span className="text-xs text-red-500 font-medium">1つ選択</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {tags.EDUCATION_TAGS.filter(t => ("category" in t) && t.category === selectedCategoryB).map((tag) => (
+                                <button
+                                  key={tag.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedEducation(
+                                      selectedEducation === tag.id ? null : tag.id
+                                    )
+                                  }
+                                  className={`
+                                    px-4 py-3 rounded-full text-sm font-medium
+                                    border-2 transition-all duration-150 select-none
+                                    active:scale-95
+                                    ${selectedEducation === tag.id
+                                      ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
+                                      : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
+                                    }
+                                  `}
+                                >
+                                  {tag.emoji} {tag.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {selectedEducation && (
                         <div className="space-y-3">
@@ -1597,21 +1824,7 @@ function SEOContentGenerator() {
                           </div>
                         </div>
                       )}
-                      <details className="group">
-                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
-                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">
-                            ＋ 一言メモを追加（任意）
-                          </span>
-                        </summary>
-                        <div className="mt-4">
-                          <Textarea
-                            placeholder="例：最近お客様から多い質問　/　梅雨前に伝えたい　/　特にくせ毛の方向け"
-                            value={educationMemo}
-                            onChange={(e) => setEducationMemo(e.target.value)}
-                            className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
-                          />
-                        </div>
-                      </details>
+                      {renderOriginalEpisodeInput("B")}
                     </CardContent>
                   </Card>
                 ) : currentPattern.id === "C" ? (
@@ -1658,14 +1871,7 @@ function SEOContentGenerator() {
                           />
                         </div>
                       )}
-                      <details className="group">
-                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
-                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">＋ 詳細を追加（任意）</span>
-                        </summary>
-                        <div className="mt-4">
-                          <Textarea placeholder="例：14時〜15時に1枠空きあり／髪質改善コースが20%OFF／新しいトリートメントの名前" value={noticeMemo} onChange={(e) => setNoticeMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
-                        </div>
-                      </details>
+                      {renderOriginalEpisodeInput("C")}
                     </CardContent>
                   </Card>
                 ) : currentPattern.id === "D" ? (
@@ -1713,21 +1919,7 @@ function SEOContentGenerator() {
                           </div>
                         </div>
                       )}
-                      {selectedVoiceOption && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-base font-semibold text-zinc-100">お客様の一言（短くてOK）</Label>
-                            <span className="text-xs text-red-500 font-medium">必須</span>
-                          </div>
-                          <Textarea
-                            placeholder="例：「こんなにサラサラになるの！？」　/　「朝が楽になった」　/　「また来ます！」"
-                            value={voiceMemo}
-                            onChange={(e) => setVoiceMemo(e.target.value)}
-                            className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
-                          />
-                          <p className="text-xs text-zinc-500 pl-1">※ 短い一言でも大丈夫です。そのままの言葉が一番伝わります。</p>
-                        </div>
-                      )}
+                      {renderOriginalEpisodeInput("D")}
                     </CardContent>
                   </Card>
                 ) : currentPattern.id === "E" ? (
@@ -1752,13 +1944,7 @@ function SEOContentGenerator() {
                           ))}
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold text-zinc-100">一言メモ</Label>
-                          <span className="text-xs text-red-500 font-medium">必須②</span>
-                        </div>
-                        <Textarea placeholder="例：担当スタッフ名：田中　/　最近印象に残ったエピソード　/　指名してほしいお客様像" value={staffMemo} onChange={(e) => setStaffMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
-                      </div>
+                      {renderOriginalEpisodeInput("E")}
                     </CardContent>
                   </Card>
                 ) : currentPattern.id === "H" ? (
@@ -1822,14 +2008,7 @@ function SEOContentGenerator() {
                           </div>
                         </div>
                       )}
-                      <details className="group">
-                        <summary className="flex items-center gap-2 cursor-pointer text-sm text-zinc-400 list-none select-none">
-                          <span className="border border-zinc-700 rounded-full px-3 py-1 text-xs group-open:bg-zinc-800 transition-colors">＋ 一言メモを追加（任意）</span>
-                        </summary>
-                        <div className="mt-4">
-                          <Textarea placeholder="例：新しいケラチントリートメントが届いた　/　今週の空きも伝えたい" value={sceneMemo} onChange={(e) => setSceneMemo(e.target.value)} className="min-h-[72px] text-sm bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500" />
-                        </div>
-                      </details>
+                      {renderOriginalEpisodeInput("H")}
                     </CardContent>
                   </Card>
                 ) : null
@@ -1849,6 +2028,7 @@ function SEOContentGenerator() {
                         />
                       </div>
                     ))}
+                    {renderOriginalEpisodeInput(currentPattern.id)}
                   </CardContent>
                 </Card>
               )}
@@ -1883,6 +2063,8 @@ function SEOContentGenerator() {
                 </label>
               )}
 
+
+
               {/* 生成ボタン */}
               <div className="flex flex-col items-center gap-3 pt-1">
               <Button
@@ -1892,7 +2074,7 @@ function SEOContentGenerator() {
                     return;
                   }
                   setInstagramPostImage(null);
-                  handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, voiceMemo, selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone, imageMemo);
+                  handleGenerate(selectedTreatment, optionalMemos, selectedEducation, educationMemo, selectedMessage, staffMemo, selectedScene, selectedSceneMessage, sceneMemo, selectedNoticeType, selectedUrgency, noticePeriod, noticeMemo, "", selectedVoiceOption, selectedConcern, selectedEducationReason, selectedFocus, selectedMessageTone, imageMemo);
                 }}
                 disabled={isGenerating || !canGenerate}
                 title={
