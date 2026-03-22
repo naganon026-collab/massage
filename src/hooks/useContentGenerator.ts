@@ -164,10 +164,6 @@ export function useContentGenerator(
                 addToast("施術タグを1つ選んでください。", "error");
                 return;
             }
-            if (!selectedConcernArg) {
-                addToast("お客様のお悩みを1つ選んでください。", "error");
-                return;
-            }
         }
         if (selectedPattern === "B") {
             if (!selectedEducationArg) {
@@ -247,7 +243,7 @@ export function useContentGenerator(
             };
             const industryKey = activeShopInfo.industry || "salon";
             const tags = INDUSTRY_DATA[industryKey] || INDUSTRY_DATA["salon"];
-            if (selectedPattern === "A" && selectedTreatmentArg && selectedConcernArg) {
+            if (selectedPattern === "A" && selectedTreatmentArg) {
                 const tag = tags.TREATMENT_TAGS.find((t) => t.id === selectedTreatmentArg)!;
                 const concernLabel = tags.CONCERN_TAGS.find((t) => t.id === selectedConcernArg)?.label ?? tag.concern;
                 normalBody = {

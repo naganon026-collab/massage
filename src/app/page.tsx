@@ -1643,7 +1643,6 @@ function SEOContentGenerator() {
                               onClick={() => {
                                 if (selectedCategoryA !== cat.id) {
                                   setSelectedCategoryA(cat.id as "treatment" | "concern");
-                                  setSelectedTreatment(null); // カテゴリ変更時は選択クリア
                                 }
                               }}
                               className={`
@@ -1703,11 +1702,11 @@ function SEOContentGenerator() {
                               <button
                                 key={tag.id}
                                 type="button"
-                                onClick={() => setSelectedTreatment(selectedTreatment === tag.id ? null : tag.id)}
+                                onClick={() => setSelectedConcern(selectedConcern === tag.id ? null : tag.id)}
                                 className={`
                                   px-4 py-3 rounded-full text-sm font-medium
                                   border-2 transition-all duration-150 select-none active:scale-95
-                                  ${selectedTreatment === tag.id
+                                  ${selectedConcern === tag.id
                                     ? "bg-emerald-500 text-zinc-950 border-emerald-500 scale-105"
                                     : "bg-zinc-950 text-zinc-100 border-zinc-700 hover:border-zinc-600"
                                   }
