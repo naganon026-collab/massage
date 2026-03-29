@@ -122,7 +122,7 @@ export function StoreManagerOverlay({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="sf-name" className="text-sm font-medium text-zinc-300">店舗名 <span className="text-red-400">*</span></Label>
-                                    <Input id="sf-name" value={storeFormData.name || ""} onChange={(e) => setStoreFormData({ ...storeFormData, name: e.target.value })} placeholder="例：サロン名" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
+                                    <Input id="sf-name" value={storeFormData.name || ""} onChange={(e) => setStoreFormData({ ...storeFormData, name: e.target.value })} placeholder="例：上田整体" className="bg-zinc-900 border-zinc-700 text-zinc-100" />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <Label htmlFor="sf-address" className="text-sm font-medium text-zinc-300">住所 <span className="text-red-400">*</span></Label>

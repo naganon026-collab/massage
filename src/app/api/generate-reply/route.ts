@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         // 店舗情報の取得
         const shopName = shopInfo?.name || "当店";
         const shopAddress = shopInfo?.address || "";
-        const shopIndustry = shopInfo?.industry || "サロン";
+        const shopIndustry = shopInfo?.industry || "整体・マッサージ";
         const shopBusinessHours = shopInfo?.businessHours || "";
         const shopHolidays = shopInfo?.holidays || "";
         const shopFeatures = shopInfo?.features || "";

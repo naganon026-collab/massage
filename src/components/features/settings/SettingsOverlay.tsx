@@ -155,11 +155,11 @@ export function SettingsOverlay({
                                 </p>
                             ) : (
                                 [
-                                    { key: "concept" as const, label: "サロンのコンセプト・想い", placeholder: "例：地域に根ざした家族で通えるサロン。忙しい日常の中でほっとできる空間を提供" },
-                                    { key: "strengths" as const, label: "技術的な強み・得意施術・資格", placeholder: "例：縮毛矯正が得意。○○認定資格保有。ダメージレスブリーチに自信あり" },
-                                    { key: "target" as const, label: "ターゲット・来てほしいお客様", placeholder: "例：くせ毛に悩む30代女性。初めての方も歓迎。学生からシニアまで対応" },
-                                    { key: "staff" as const, label: "スタッフの人柄・こだわり", placeholder: "例：カウンセリングに時間をかけます。お客様の話をじっくり聞くことを大切に" },
-                                    { key: "voice" as const, label: "お客様の声・よくいただく感想", placeholder: "例：「毎回おまかせ」「子どもと一緒に来られて助かる」" },
+                                    { key: "concept" as const, label: "店舗のコンセプト・想い", placeholder: "例：心身ともにリラックスできる空間。長年の不調を根本から改善することを目指して" },
+                                    { key: "strengths" as const, label: "技術的な強み・得意施術・資格", placeholder: "例：骨盤矯正が得意。国家資格保有。深層筋にアプローチする独自手法に自信あり" },
+                                    { key: "target" as const, label: "ターゲット・来てほしいお客様", placeholder: "例：慢性的な肩こりに悩む30代女性。デスクワークで腰痛がある方" },
+                                    { key: "staff" as const, label: "スタッフの人柄・こだわり", placeholder: "例：カウンセリングで原因を徹底追求。日常生活のアドバイスも大切にしています" },
+                                    { key: "voice" as const, label: "お客様の声・よくいただく感想", placeholder: "例：「体が軽くなった」「もっと早く来ればよかった」" },
                                 ]
                                     .filter((item) => analysisResult[item.key]?.status === "insufficient")
                                     .map(({ key, label, placeholder }) => (
@@ -198,17 +198,11 @@ export function SettingsOverlay({
                     <h3 className={sectionTitle}>基本情報</h3>
                     <div className="space-y-5">
                         <div>
-                            <Label htmlFor="quickIndustry" className={fieldLabel}>業種 <span className="text-red-400">*</span></Label>
-                            <select
-                                id="quickIndustry"
-                                required
-                                value={shopInfo.industry || "salon"}
-                                onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })}
-                                className={inputBase}
-                            >
-                                <option value="salon">美容院・サロン</option>
-                                <option value="restaurant">飲食店</option>
-                            </select>
+                            <Label className={fieldLabel}>業種</Label>
+                            <div className={`${inputBase} bg-zinc-900 border-zinc-800 text-emerald-400 font-semibold flex items-center`}>
+                                整体・マッサージ
+                            </div>
+                            <input type="hidden" id="quickIndustry" value="salon" />
                         </div>
                         <div>
                             <Label htmlFor="quickName" className={fieldLabel}>店舗名 <span className="text-red-400">*</span></Label>
@@ -216,7 +210,7 @@ export function SettingsOverlay({
                                 id="quickName"
                                 value={shopInfo.name}
                                 onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })}
-                                placeholder="例：サロン名"
+                                placeholder="例：上田整体"
                                 className={inputBase}
                             />
                         </div>

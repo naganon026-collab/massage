@@ -47,14 +47,14 @@ export async function POST(req: NextRequest) {
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash",
-            systemInstruction: `あなたは美容院のSNSマーケティング専門家です。
-美容院のウェブサイトテキストを分析し、SNS投稿生成に必要な情報が揃っているかを判定してください。
+            systemInstruction: `あなたは整体・マッサージ店のSNSマーケティング専門家です。
+整体院やリラクゼーションサロンのウェブサイトテキストを分析し、SNS投稿生成に必要な情報が揃っているかを判定してください。
 
 以下の5項目について「sufficient」か「insufficient」を判定する。
 判定基準：
 - sufficient  : SNS投稿に活用できる具体的な情報が存在する
 - insufficient: 情報がない・抽象的すぎて投稿に使えない
-各項目の reason は判定理由を10字以内で記載すること。`,
+`,
             generationConfig: {
                 temperature: 0.1,
                 responseMimeType: "application/json",

@@ -278,7 +278,7 @@ export function useShopConfig(
         businessHours: "未設定",
         holidays: "未設定",
         features: "",
-        industry: "サロン",
+        industry: "整体・マッサージ",
         snsUrl: "",
         sampleTexts: "",
         scrapedContent: "",
@@ -629,7 +629,7 @@ export function useShopConfig(
                 .filter(([, v]) => v && String(v).trim() !== "")
                 .map(([key, value]) => {
                     const labels: Record<string, string> = {
-                        concept: "サロンのコンセプト",
+                        concept: "店舗のコンセプト",
                         strengths: "強み・得意施術",
                         target: "ターゲット顧客",
                         staff: "スタッフ情報",

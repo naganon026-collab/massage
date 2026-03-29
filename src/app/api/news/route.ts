@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     const { industry, address } = parsed.data;
 
-    const baseQuery = `${(industry || "サロン").trim() || "サロン"} ニュース`;
+    const baseQuery = `${(industry || "整体・マッサージ").trim() || "整体・マッサージ"} ニュース`;
     const locationHint = address ? ` ${address}` : "";
     const query = encodeURIComponent(baseQuery + locationHint);
 

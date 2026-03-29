@@ -230,21 +230,15 @@ export function InitialSetup({
                                 </div>
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="shopIndustry" className="font-medium">業種 <span className="text-red-500">*</span></Label>
-                                        <select
-                                            id="shopIndustry"
-                                            required
-                                            value={shopInfo.industry || "salon"}
-                                            onChange={(e) => setShopInfo({ ...shopInfo, industry: e.target.value })}
-                                            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                        >
-                                            <option value="salon">美容院・サロン</option>
-                                            <option value="restaurant">飲食店</option>
-                                        </select>
+                                        <Label className="font-medium">業種</Label>
+                                        <div className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-emerald-400 font-semibold">
+                                            整体・マッサージ
+                                        </div>
+                                        <input type="hidden" id="shopIndustry" value="salon" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shopName" className="font-medium">店舗名 <span className="text-red-500">*</span></Label>
-                                        <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：サロン名" />
+                                        <Input id="shopName" required value={shopInfo.name} onChange={(e) => setShopInfo({ ...shopInfo, name: e.target.value })} className="bg-zinc-950 border-zinc-800 text-white focus-visible:ring-amber-500/50" placeholder="例：上田整体" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="shopAddress" className="font-medium">住所 <span className="text-red-500">*</span></Label>

@@ -160,8 +160,8 @@ export function useContentGenerator(
             }
         }
         if (selectedPattern === "A") {
-            if (!selectedTreatmentArg) {
-                addToast("施術タグを1つ選んでください。", "error");
+            if (!selectedTreatmentArg && !selectedConcernArg) {
+                addToast("施術タグまたはお客様のお悩みを1つ選んでください。", "error");
                 return;
             }
         }
